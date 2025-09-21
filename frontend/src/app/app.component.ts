@@ -1,144 +1,126 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule, DatePipe, JsonPipe } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { AsyncPipe, CommonModule } from '@angular/common';
+import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { ApiService } from './services/api.service';
 import { SessionService } from './services/session.service';
+import { ReconciliationStateService } from './services/reconciliation-state.service';
 import {
   BreakItem,
-  ReconciliationListItem,
-  RunDetail
+  ReconciliationListItem
 } from './models/api-models';
 import { BreakStatus } from './models/break-status';
+import { LoginComponent } from './components/login/login.component';
+import { ReconciliationListComponent } from './components/reconciliation-list/reconciliation-list.component';
+import { RunDetailComponent } from './components/run-detail/run-detail.component';
+import { BreakDetailComponent } from './components/break-detail/break-detail.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, DatePipe, JsonPipe],
+  imports: [
+    CommonModule,
+    AsyncPipe,
+    LoginComponent,
+    ReconciliationListComponent,
+    RunDetailComponent,
+    BreakDetailComponent
+  ],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css']
 })
-export class AppComponent implements OnInit {
+export class AppComponent implements OnInit, OnDestroy {
   title = 'Universal Reconciliation Platform';
 
-  readonly BreakStatus = BreakStatus;
+  readonly reconciliations$ = this.state.reconciliations$;
+  readonly selectedReconciliation$ = this.state.selectedReconciliation$;
+  readonly runDetail$ = this.state.runDetail$;
+  readonly selectedBreak$ = this.state.selectedBreak$;
+  readonly breakStatusOptions = [BreakStatus.Open, BreakStatus.PendingApproval, BreakStatus.Closed];
 
-  username = '';
-  password = '';
   loginError: string | null = null;
   isLoading = false;
 
-  reconciliations: ReconciliationListItem[] = [];
-  selectedReconciliation: ReconciliationListItem | null = null;
-  runDetail: RunDetail | null = null;
-  selectedBreak: BreakItem | null = null;
+  private readonly destroy$ = new Subject<void>();
 
-  commentText = '';
-  commentAction = 'INVESTIGATION_NOTE';
-
-  constructor(private readonly api: ApiService, public readonly session: SessionService) {}
+  constructor(
+    private readonly api: ApiService,
+    public readonly session: SessionService,
+    private readonly state: ReconciliationStateService
+  ) {}
 
   ngOnInit(): void {
     if (this.session.isAuthenticated()) {
-      this.loadReconciliations();
+      this.state.loadReconciliations();
     }
   }
 
-  login(): void {
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  handleLogin(credentials: { username: string; password: string }): void {
     this.isLoading = true;
     this.loginError = null;
-    this.api.login(this.username, this.password).subscribe({
-      next: (response) => {
-        this.session.storeSession(response);
-        this.isLoading = false;
-        this.loadReconciliations();
-      },
-      error: () => {
-        this.loginError = 'Login failed. Please verify your credentials.';
-        this.isLoading = false;
-      }
-    });
+    this.api
+      .login(credentials.username, credentials.password)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          this.session.storeSession(response);
+          this.isLoading = false;
+          this.state.loadReconciliations();
+        },
+        error: () => {
+          this.loginError = 'Login failed. Please verify your credentials.';
+          this.isLoading = false;
+        }
+      });
   }
 
   logout(): void {
     this.session.clear();
-    this.reconciliations = [];
-    this.selectedReconciliation = null;
-    this.runDetail = null;
-    this.selectedBreak = null;
+    this.state.reset();
+    this.loginError = null;
   }
 
-  loadReconciliations(): void {
-    this.api.getReconciliations().subscribe((data) => {
-      this.reconciliations = data;
-      if (data.length > 0) {
-        this.selectReconciliation(data[0]);
-      }
-    });
+  handleSelectReconciliation(reconciliation: ReconciliationListItem): void {
+    this.state.selectReconciliation(reconciliation);
   }
 
-  selectReconciliation(reconciliation: ReconciliationListItem): void {
-    this.selectedReconciliation = reconciliation;
-    this.selectedBreak = null;
-    this.api.getLatestRun(reconciliation.id).subscribe((detail) => {
-      this.runDetail = detail;
-    });
+  handleTriggerRun(): void {
+    this.state.triggerRun();
   }
 
-  triggerRun(): void {
-    if (!this.selectedReconciliation) {
+  handleSelectBreak(breakItem: BreakItem): void {
+    this.state.selectBreak(breakItem);
+  }
+
+  handleAddComment(event: { breakId: number; comment: string; action: string }): void {
+    this.state.addComment(event.breakId, event.comment, event.action);
+  }
+
+  handleStatusChange(event: { breakId: number; status: BreakStatus }): void {
+    this.state.updateStatus(event.breakId, event.status);
+  }
+
+  handleExportRun(): void {
+    const runDetail = this.state.getCurrentRunDetail();
+    const runId = runDetail?.summary.runId;
+    if (!runId) {
       return;
     }
-    this.api.triggerRun(this.selectedReconciliation.id).subscribe((detail) => {
-      this.runDetail = detail;
-    });
-  }
-
-  selectBreak(breakItem: BreakItem): void {
-    this.selectedBreak = breakItem;
-    this.commentText = '';
-  }
-
-  addComment(): void {
-    if (!this.selectedBreak || !this.commentText.trim()) {
-      return;
-    }
-    this.api.addComment(this.selectedBreak.id, this.commentText, this.commentAction).subscribe((updated) => {
-      this.refreshBreak(updated);
-      this.commentText = '';
-    });
-  }
-
-  updateStatus(status: BreakStatus): void {
-    if (!this.selectedBreak) {
-      return;
-    }
-    this.api.updateStatus(this.selectedBreak.id, status).subscribe((updated) => {
-      this.refreshBreak(updated);
-    });
-  }
-
-  exportRun(): void {
-    if (!this.runDetail || !this.runDetail.summary.runId) {
-      return;
-    }
-    this.api.exportRun(this.runDetail.summary.runId).subscribe((blob) => {
-      const url = window.URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = `reconciliation-run-${this.runDetail?.summary.runId}.xlsx`;
-      anchor.click();
-      window.URL.revokeObjectURL(url);
-    });
-  }
-
-  private refreshBreak(updated: BreakItem): void {
-    if (!this.runDetail) {
-      return;
-    }
-    this.runDetail = {
-      ...this.runDetail,
-      breaks: this.runDetail.breaks.map((item) => (item.id === updated.id ? updated : item))
-    };
-    this.selectedBreak = updated;
+    this.state
+      .exportLatestRun()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `reconciliation-run-${runId}.xlsx`;
+        anchor.click();
+        window.URL.revokeObjectURL(url);
+      });
   }
 }

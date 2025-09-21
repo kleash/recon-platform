@@ -17,7 +17,7 @@ spring:
       base-dn: dc=universal,dc=local
       credential:
         username: uid=admin
-        password: admin
+        password: ${LDAP_ADMIN_PASSWORD:}
       ldif: classpath:ldap-data.ldif
       port: 0
   h2:

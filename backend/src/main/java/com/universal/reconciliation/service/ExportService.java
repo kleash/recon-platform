@@ -83,8 +83,9 @@ public class ExportService {
                     .map(comment -> String.format("%s: %s", comment.actorDn(), comment.comment()))
                     .collect(Collectors.joining(" | ")));
         }
-        for (int i = 0; i <= 6; i++) {
-            sheet.autoSizeColumn(i);
+        int[] columnWidths = {18, 14, 16, 24, 36, 36, 48};
+        for (int i = 0; i < columnWidths.length; i++) {
+            sheet.setColumnWidth(i, columnWidths[i] * 256);
         }
     }
 

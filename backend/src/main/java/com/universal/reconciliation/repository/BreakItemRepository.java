@@ -3,6 +3,7 @@ package com.universal.reconciliation.repository;
 import com.universal.reconciliation.domain.entity.BreakItem;
 import com.universal.reconciliation.domain.entity.ReconciliationRun;
 import java.util.List;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 /**
@@ -10,5 +11,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
  */
 public interface BreakItemRepository extends JpaRepository<BreakItem, Long> {
 
-    List<BreakItem> findByRun(ReconciliationRun run);
+    @EntityGraph(attributePaths = "comments")
+    List<BreakItem> findByRunOrderByDetectedAtAsc(ReconciliationRun run);
 }

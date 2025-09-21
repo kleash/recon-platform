@@ -16,12 +16,16 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * Represents a specific execution of the reconciliation matching engine.
  */
 @Entity
 @Table(name = "reconciliation_runs")
+@Getter
+@Setter
 public class ReconciliationRun {
 
     @Id
@@ -55,67 +59,4 @@ public class ReconciliationRun {
     @OneToMany(mappedBy = "run")
     private Set<BreakItem> breakItems = new LinkedHashSet<>();
 
-    public Long getId() {
-        return id;
-    }
-
-    public ReconciliationDefinition getDefinition() {
-        return definition;
-    }
-
-    public void setDefinition(ReconciliationDefinition definition) {
-        this.definition = definition;
-    }
-
-    public Instant getRunDateTime() {
-        return runDateTime;
-    }
-
-    public void setRunDateTime(Instant runDateTime) {
-        this.runDateTime = runDateTime;
-    }
-
-    public TriggerType getTriggerType() {
-        return triggerType;
-    }
-
-    public void setTriggerType(TriggerType triggerType) {
-        this.triggerType = triggerType;
-    }
-
-    public RunStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(RunStatus status) {
-        this.status = status;
-    }
-
-    public int getMatchedCount() {
-        return matchedCount;
-    }
-
-    public void setMatchedCount(int matchedCount) {
-        this.matchedCount = matchedCount;
-    }
-
-    public int getMismatchedCount() {
-        return mismatchedCount;
-    }
-
-    public void setMismatchedCount(int mismatchedCount) {
-        this.mismatchedCount = mismatchedCount;
-    }
-
-    public int getMissingCount() {
-        return missingCount;
-    }
-
-    public void setMissingCount(int missingCount) {
-        this.missingCount = missingCount;
-    }
-
-    public Set<BreakItem> getBreakItems() {
-        return breakItems;
-    }
 }

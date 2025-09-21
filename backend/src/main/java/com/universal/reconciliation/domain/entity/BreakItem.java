@@ -17,12 +17,16 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * Stores a single detected break between two data sources.
  */
 @Entity
 @Table(name = "break_items")
+@Getter
+@Setter
 public class BreakItem {
 
     @Id
@@ -55,59 +59,4 @@ public class BreakItem {
     @OneToMany(mappedBy = "breakItem")
     private Set<BreakComment> comments = new LinkedHashSet<>();
 
-    public Long getId() {
-        return id;
-    }
-
-    public ReconciliationRun getRun() {
-        return run;
-    }
-
-    public void setRun(ReconciliationRun run) {
-        this.run = run;
-    }
-
-    public BreakType getBreakType() {
-        return breakType;
-    }
-
-    public void setBreakType(BreakType breakType) {
-        this.breakType = breakType;
-    }
-
-    public BreakStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(BreakStatus status) {
-        this.status = status;
-    }
-
-    public Instant getDetectedAt() {
-        return detectedAt;
-    }
-
-    public void setDetectedAt(Instant detectedAt) {
-        this.detectedAt = detectedAt;
-    }
-
-    public String getSourceAJson() {
-        return sourceAJson;
-    }
-
-    public void setSourceAJson(String sourceAJson) {
-        this.sourceAJson = sourceAJson;
-    }
-
-    public String getSourceBJson() {
-        return sourceBJson;
-    }
-
-    public void setSourceBJson(String sourceBJson) {
-        this.sourceBJson = sourceBJson;
-    }
-
-    public Set<BreakComment> getComments() {
-        return comments;
-    }
 }

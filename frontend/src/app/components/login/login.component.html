@@ -1,0 +1,17 @@
+<section class="card login-card">
+  <h2>Sign in</h2>
+  <form #loginForm="ngForm" (ngSubmit)="submit(loginForm)">
+    <label>
+      Username
+      <input type="text" name="username" ngModel required autocomplete="username" />
+    </label>
+    <label>
+      Password
+      <input type="password" name="password" ngModel required autocomplete="current-password" />
+    </label>
+    <button type="submit" [disabled]="isLoading">
+      {{ isLoading ? 'Signing in...' : 'Login' }}
+    </button>
+  </form>
+  <p class="error" *ngIf="error">{{ error }}</p>
+</section>

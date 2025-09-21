@@ -1,0 +1,26 @@
+:host {
+  display: block;
+}
+
+.recon-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.recon-list li {
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.recon-list li.active,
+.recon-list li:hover {
+  background: #eff6ff;
+  border-color: #3b82f6;
+}

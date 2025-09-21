@@ -1,0 +1,44 @@
+<section class="break-detail" *ngIf="breakItem as active; else noBreak">
+  <h3>Break {{ active.id }}</h3>
+  <div class="detail-columns">
+    <div>
+      <h4>Source A</h4>
+      <pre>{{ active.sourceA | json }}</pre>
+    </div>
+    <div>
+      <h4>Source B</h4>
+      <pre>{{ active.sourceB | json }}</pre>
+    </div>
+  </div>
+
+  <div class="commentary">
+    <h4>Commentary</h4>
+    <ul>
+      <li *ngFor="let comment of active.comments">
+        <span class="timestamp">{{ comment.createdAt | date: 'short' }}</span>
+        <strong>{{ comment.actorDn }}</strong>
+        <em>{{ comment.action }}</em>
+        <p>{{ comment.comment }}</p>
+      </li>
+    </ul>
+    <form (ngSubmit)="submitComment()" class="comment-form">
+      <label>
+        Action code
+        <input type="text" [(ngModel)]="commentAction" name="action" required />
+      </label>
+      <label>
+        Comment
+        <textarea [(ngModel)]="commentText" name="comment" rows="3" required></textarea>
+      </label>
+      <button type="submit">Add comment</button>
+    </form>
+    <div class="status-buttons">
+      <button type="button" *ngFor="let status of statusOptions" (click)="changeStatus(status)">
+        {{ getStatusText(status) }}
+      </button>
+    </div>
+  </div>
+</section>
+<ng-template #noBreak>
+  <p class="empty-state">Select a break to review details.</p>
+</ng-template>

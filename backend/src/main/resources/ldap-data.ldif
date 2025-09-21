@@ -21,7 +21,7 @@ objectClass: inetOrgPerson
 uid: ops1
 sn: Operations
 cn: Operations User
-userPassword: {noop}password
+userPassword: {bcrypt}$2a$10$7EqJtq98hPqEX7fNZaFWo.6so2IGe1ZR3eZKjuJIddZrTrsg8vLXK
 
 dn: cn=recon-ops,ou=groups,dc=universal,dc=local
 objectClass: top

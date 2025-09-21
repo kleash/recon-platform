@@ -210,16 +210,15 @@ Each table enumerates every line (or contiguous block of lines) in the backend s
 | Lines | Explanation |
 | --- | --- |
 | 1 | Package declaration. |
-| 3-9 | Import entities, enums, and repositories needed for matching. |
-| 10-16 | Import Java collections utilities and Spring annotation. |
+| 3-10 | Import entities, enums, repositories, and Spring bean utilities used for metadata-driven matching. |
+| 11-22 | Import Java collections, streams, and validation helpers supporting dynamic field extraction. |
 | 18-20 | Document algorithm focus. |
 | 21 | Register as Spring component. |
 | 23-28 | Declare repository dependencies and constructor. |
-| 30-63 | `execute` loads source data, indexes by transaction ID, iterates union of keys, tallies outcomes, and constructs break candidates for mismatches and missing records. |
-| 65-69 | `recordsMatchExactly` compares amount, currency, and date fields. |
-| 71-82 | `mapRecordA` converts source A entities into maps for break payload. |
-| 84-95 | `mapRecordB` mirrors conversion for source B. |
-| 96 | Close class. |
+| 30-88 | `execute` derives key/compare/display metadata from the `ReconciliationDefinition`, streams source A records into a key-indexed map, streams source B to classify matches, mismatches, and missing entries, and accumulates `BreakCandidate` instances. |
+| 91-129 | Helper methods normalize comparison semantics (e.g., BigDecimal comparisons), build composite keys, and capture record values into immutable views. |
+| 131-154 | `MatchingMetadata` computes the field sets used throughout execution and enforces configuration invariants. |
+| 155 | Close class. |
 
 ## Controllers (`controller/*.java`)
 | File | Highlights |

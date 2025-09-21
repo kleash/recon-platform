@@ -1,0 +1,40 @@
+:host {
+  display: block;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.summary-grid .label {
+  display: block;
+  font-size: 0.85rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.break-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+}
+
+.break-table th,
+.break-table td {
+  padding: 0.6rem;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+}
+
+.break-table tr.active {
+  background: #ecfeff;
+}
+
+.empty-state {
+  color: #475569;
+  font-style: italic;
+}

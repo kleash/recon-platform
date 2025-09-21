@@ -142,8 +142,7 @@ public class ReconciliationService {
     private RunDetailDto buildRunDetail(ReconciliationRun run) {
         ReconciliationSummaryDto summary = new ReconciliationSummaryDto(
                 run.getId(), run.getRunDateTime(), run.getMatchedCount(), run.getMismatchedCount(), run.getMissingCount());
-        List<BreakItemDto> breaks = breakItemRepository.findByRun(run).stream()
-                .sorted(Comparator.comparing(BreakItem::getDetectedAt))
+        List<BreakItemDto> breaks = breakItemRepository.findByRunOrderByDetectedAtAsc(run).stream()
                 .map(breakMapper::toDto)
                 .toList();
         return new RunDetailDto(summary, breaks);

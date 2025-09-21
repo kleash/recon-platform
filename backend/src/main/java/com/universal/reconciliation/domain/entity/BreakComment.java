@@ -9,12 +9,16 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * Records actions and commentary associated with a break item.
  */
 @Entity
 @Table(name = "break_comments")
+@Getter
+@Setter
 public class BreakComment {
 
     @Id
@@ -37,47 +41,4 @@ public class BreakComment {
     @Column(nullable = false)
     private Instant createdAt;
 
-    public Long getId() {
-        return id;
-    }
-
-    public BreakItem getBreakItem() {
-        return breakItem;
-    }
-
-    public void setBreakItem(BreakItem breakItem) {
-        this.breakItem = breakItem;
-    }
-
-    public String getActorDn() {
-        return actorDn;
-    }
-
-    public void setActorDn(String actorDn) {
-        this.actorDn = actorDn;
-    }
-
-    public String getAction() {
-        return action;
-    }
-
-    public void setAction(String action) {
-        this.action = action;
-    }
-
-    public String getComment() {
-        return comment;
-    }
-
-    public void setComment(String comment) {
-        this.comment = comment;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(Instant createdAt) {
-        this.createdAt = createdAt;
-    }
 }

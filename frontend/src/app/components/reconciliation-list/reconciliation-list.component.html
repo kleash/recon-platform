@@ -1,0 +1,19 @@
+<section class="card">
+  <h2>Reconciliations</h2>
+  <ul class="recon-list">
+    <li
+      *ngFor="let recon of reconciliations"
+      (click)="onSelect(recon)"
+      [class.active]="selectedReconciliation?.id === recon.id"
+    >
+      <strong>{{ recon.name }}</strong>
+      <p>{{ recon.description }}</p>
+    </li>
+  </ul>
+  <button type="button" (click)="onTriggerRun()" [disabled]="!selectedReconciliation">
+    Run reconciliation
+  </button>
+  <button type="button" (click)="onExport()" [disabled]="!canExport">
+    Export latest run
+  </button>
+</section>

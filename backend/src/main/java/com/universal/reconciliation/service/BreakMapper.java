@@ -4,8 +4,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.universal.reconciliation.domain.dto.BreakCommentDto;
 import com.universal.reconciliation.domain.dto.BreakItemDto;
+import com.universal.reconciliation.domain.entity.BreakComment;
 import com.universal.reconciliation.domain.entity.BreakItem;
-import com.universal.reconciliation.repository.BreakCommentRepository;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -20,16 +21,15 @@ public class BreakMapper {
 
     private static final Logger log = LoggerFactory.getLogger(BreakMapper.class);
 
-    private final BreakCommentRepository breakCommentRepository;
     private final ObjectMapper objectMapper;
 
-    public BreakMapper(BreakCommentRepository breakCommentRepository, ObjectMapper objectMapper) {
-        this.breakCommentRepository = breakCommentRepository;
+    public BreakMapper(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
 
     public BreakItemDto toDto(BreakItem item) {
-        List<BreakCommentDto> comments = breakCommentRepository.findByBreakItemOrderByCreatedAtAsc(item).stream()
+        List<BreakCommentDto> comments = item.getComments().stream()
+                .sorted(Comparator.comparing(BreakComment::getCreatedAt))
                 .map(comment -> new BreakCommentDto(
                         comment.getId(), comment.getActorDn(), comment.getAction(), comment.getComment(), comment.getCreatedAt()))
                 .toList();
@@ -38,19 +38,20 @@ public class BreakMapper {
                 item.getBreakType(),
                 item.getStatus(),
                 item.getDetectedAt(),
-                readJson(item.getSourceAJson()),
-                readJson(item.getSourceBJson()),
+                readJson(item.getId(), "sourceA", item.getSourceAJson()),
+                readJson(item.getId(), "sourceB", item.getSourceBJson()),
                 comments);
     }
 
-    private Map<String, Object> readJson(String json) {
+    private Map<String, Object> readJson(Long breakId, String sourceLabel, String json) {
         if (json == null || json.isBlank()) {
             return Map.of();
         }
         try {
             return objectMapper.readValue(json, Map.class);
         } catch (JsonProcessingException e) {
-            log.error("Failed to deserialize stored break payload", e);
+            log.error(
+                    "Failed to deserialize stored break payload for break {} ({})", breakId, sourceLabel, e);
             return Map.of();
         }
     }

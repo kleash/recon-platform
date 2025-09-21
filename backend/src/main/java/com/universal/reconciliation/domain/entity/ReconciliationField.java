@@ -12,12 +12,16 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * Configures how a specific field participates in reconciliation operations.
  */
 @Entity
 @Table(name = "reconciliation_fields")
+@Getter
+@Setter
 public class ReconciliationField {
 
     @Id
@@ -38,39 +42,4 @@ public class ReconciliationField {
     @Column(nullable = false)
     private FieldRole role;
 
-    public Long getId() {
-        return id;
-    }
-
-    public ReconciliationDefinition getDefinition() {
-        return definition;
-    }
-
-    public void setDefinition(ReconciliationDefinition definition) {
-        this.definition = definition;
-    }
-
-    public String getSourceField() {
-        return sourceField;
-    }
-
-    public void setSourceField(String sourceField) {
-        this.sourceField = sourceField;
-    }
-
-    public String getDisplayName() {
-        return displayName;
-    }
-
-    public void setDisplayName(String displayName) {
-        this.displayName = displayName;
-    }
-
-    public FieldRole getRole() {
-        return role;
-    }
-
-    public void setRole(FieldRole role) {
-        this.role = role;
-    }
 }

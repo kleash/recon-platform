@@ -10,12 +10,16 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * Stores the metadata that defines a reconciliation configuration.
  */
 @Entity
 @Table(name = "reconciliation_definitions")
+@Getter
+@Setter
 public class ReconciliationDefinition {
 
     @Id
@@ -37,43 +41,4 @@ public class ReconciliationDefinition {
     @Column(nullable = false)
     private boolean makerCheckerEnabled;
 
-    public Long getId() {
-        return id;
-    }
-
-    public String getCode() {
-        return code;
-    }
-
-    public void setCode(String code) {
-        this.code = code;
-    }
-
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public Set<ReconciliationField> getFields() {
-        return fields;
-    }
-
-    public boolean isMakerCheckerEnabled() {
-        return makerCheckerEnabled;
-    }
-
-    public void setMakerCheckerEnabled(boolean makerCheckerEnabled) {
-        this.makerCheckerEnabled = makerCheckerEnabled;
-    }
 }

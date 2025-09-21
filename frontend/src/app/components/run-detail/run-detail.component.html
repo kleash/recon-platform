@@ -1,0 +1,52 @@
+<ng-container *ngIf="runDetail as detail; else noRun">
+  <h2>Latest run snapshot</h2>
+  <div class="summary-grid">
+    <div>
+      <span class="label">Run ID</span>
+      <span>{{ detail.summary.runId || 'Not available' }}</span>
+    </div>
+    <div>
+      <span class="label">Run time</span>
+      <span>{{ detail.summary.runDateTime || 'Not available' }}</span>
+    </div>
+    <div>
+      <span class="label">Matched</span>
+      <span>{{ detail.summary.matched }}</span>
+    </div>
+    <div>
+      <span class="label">Mismatched</span>
+      <span>{{ detail.summary.mismatched }}</span>
+    </div>
+    <div>
+      <span class="label">Missing</span>
+      <span>{{ detail.summary.missing }}</span>
+    </div>
+  </div>
+
+  <h3>Break inventory</h3>
+  <table class="break-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Type</th>
+        <th>Status</th>
+        <th>Detected</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr
+        *ngFor="let item of detail.breaks"
+        (click)="onSelectBreak(item)"
+        [class.active]="selectedBreak?.id === item.id"
+      >
+        <td>{{ item.id }}</td>
+        <td>{{ item.breakType }}</td>
+        <td>{{ item.status }}</td>
+        <td>{{ item.detectedAt | date: 'short' }}</td>
+      </tr>
+    </tbody>
+  </table>
+</ng-container>
+<ng-template #noRun>
+  <p class="empty-state">No reconciliation runs have been executed yet.</p>
+</ng-template>

@@ -9,7 +9,7 @@ Configuration over Code: The platform should be driven by metadata. Defining a n
 
 Pluggable Data Layer: The core engine will be agnostic to the source data's origin, relying on a standardized format in MariaDB prepared by a unique ETL layer for each reconciliation.
 
-Security First: Granular access control is paramount. Users should only see and interact with the data they are authorized for.
+Security First: Granular access control is paramount. Users should only see and interact with the data they are authorized for. Authentication delegates to the enterprise LDAP directory (with JWTs retained only as lightweight post-auth session tokens, if used at all), and authorization decisions map directly to LDAP security groups.
 
 Scalability & Performance: The matching engine and database must be designed to handle large volumes of data efficiently.
 
@@ -164,7 +164,7 @@ Features:
 
 Core Engine: Ability to configure ONE reconciliation with exact matching only (Epic 1).
 
-Security: Basic user login and role (Admin vs. User) (Simplified Epic 2).
+Security: LDAP-backed login with JWT used only as an optional post-auth session token. Authorization is derived exclusively from LDAP security groups—no platform-defined roles (Simplified Epic 2).
 
 UI: A simple dashboard to view matched/mismatched items and drill down. No dynamic filtering yet (Simplified Epic 3).
 
@@ -205,6 +205,16 @@ API-based triggers for matching (Epic 1).
 Backend: Java, Spring Boot.
 Database: MariaDB.
 Frontend: Angular.
-Authentication: JWT (JSON Web Tokens) for stateless authentication.
+Authentication: LDAP-backed authentication with JWT only as a post-auth session token if retained.
 Styling: A modern UI library. Please recommend one and we will proceed.
+
+# Infrastructure & Local Development
+
+Use the provided Docker Compose stack to boot supporting services locally. The configuration at `infrastructure/docker-compose.yml` starts MariaDB alongside an LDAP container preloaded with representative users and security groups. Bring the stack up with:
+
+```
+docker compose -f infrastructure/docker-compose.yml up -d
+```
+
+This environment mirrors the LDAP-backed authentication and authorization model described above, allowing engineers to validate security group mappings and data access end-to-end.
 Project Plan Reference: We will be following the feature plan I have previously outlined, which includes these core Epics:

@@ -1,0 +1,143 @@
+<div class="app-container">
+  <header class="app-header">
+    <h1>{{ title }}</h1>
+    <div *ngIf="session.isAuthenticated(); else loginForm" class="user-context">
+      <span>Welcome, {{ session.getDisplayName() || 'User' }}!</span>
+      <button type="button" (click)="logout()">Logout</button>
+    </div>
+  </header>
+
+  <ng-template #loginForm>
+    <section class="card">
+      <h2>Sign in</h2>
+      <form (ngSubmit)="login()">
+        <label>
+          Username
+          <input type="text" [(ngModel)]="username" name="username" required />
+        </label>
+        <label>
+          Password
+          <input type="password" [(ngModel)]="password" name="password" required />
+        </label>
+        <button type="submit" [disabled]="isLoading">{{ isLoading ? 'Signing in...' : 'Login' }}</button>
+      </form>
+      <p class="error" *ngIf="loginError">{{ loginError }}</p>
+    </section>
+  </ng-template>
+
+  <section *ngIf="session.isAuthenticated()" class="content-grid">
+    <aside class="card">
+      <h2>Reconciliations</h2>
+      <ul class="recon-list">
+        <li
+          *ngFor="let recon of reconciliations"
+          (click)="selectReconciliation(recon)"
+          [class.active]="selectedReconciliation?.id === recon.id"
+        >
+          <strong>{{ recon.name }}</strong>
+          <p>{{ recon.description }}</p>
+        </li>
+      </ul>
+      <button type="button" (click)="triggerRun()" [disabled]="!selectedReconciliation">Run reconciliation</button>
+      <button
+        type="button"
+        (click)="exportRun()"
+        [disabled]="!runDetail || !runDetail.summary.runId"
+      >
+        Export latest run
+      </button>
+    </aside>
+
+    <article class="card" *ngIf="runDetail as detail">
+      <h2>Latest run snapshot</h2>
+      <div class="summary-grid">
+        <div>
+          <span class="label">Run ID</span>
+          <span>{{ detail.summary.runId || 'Not available' }}</span>
+        </div>
+        <div>
+          <span class="label">Run time</span>
+          <span>{{ detail.summary.runDateTime || 'Not available' }}</span>
+        </div>
+        <div>
+          <span class="label">Matched</span>
+          <span>{{ detail.summary.matched }}</span>
+        </div>
+        <div>
+          <span class="label">Mismatched</span>
+          <span>{{ detail.summary.mismatched }}</span>
+        </div>
+        <div>
+          <span class="label">Missing</span>
+          <span>{{ detail.summary.missing }}</span>
+        </div>
+      </div>
+
+      <h3>Break inventory</h3>
+      <table class="break-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Detected</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr
+            *ngFor="let item of detail.breaks"
+            (click)="selectBreak(item)"
+            [class.active]="selectedBreak?.id === item.id"
+          >
+            <td>{{ item.id }}</td>
+            <td>{{ item.breakType }}</td>
+            <td>{{ item.status }}</td>
+            <td>{{ item.detectedAt | date: 'short' }}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <section class="break-detail" *ngIf="selectedBreak as active">
+        <h3>Break {{ active.id }}</h3>
+        <div class="detail-columns">
+          <div>
+            <h4>Source A</h4>
+            <pre>{{ active.sourceA | json }}</pre>
+          </div>
+          <div>
+            <h4>Source B</h4>
+            <pre>{{ active.sourceB | json }}</pre>
+          </div>
+        </div>
+
+        <div class="commentary">
+          <h4>Commentary</h4>
+          <ul>
+            <li *ngFor="let comment of active.comments">
+              <span class="timestamp">{{ comment.createdAt | date: 'short' }}</span>
+              <strong>{{ comment.actorDn }}</strong>
+              <em>{{ comment.action }}</em>
+              <p>{{ comment.comment }}</p>
+            </li>
+          </ul>
+          <form (ngSubmit)="addComment()" class="comment-form">
+            <label>
+              Action code
+              <input type="text" [(ngModel)]="commentAction" name="action" required />
+            </label>
+            <label>
+              Comment
+              <textarea [(ngModel)]="commentText" name="comment" rows="3" required></textarea>
+            </label>
+            <button type="submit">Add comment</button>
+          </form>
+          <div class="status-buttons">
+            <button type="button" (click)="updateStatus('OPEN')">Mark Open</button>
+            <button type="button" (click)="updateStatus('PENDING_APPROVAL')">Mark Pending Approval</button>
+            <button type="button" (click)="updateStatus('CLOSED')">Mark Closed</button>
+          </div>
+        </div>
+      </section>
+    </article>
+  </section>
+</div>

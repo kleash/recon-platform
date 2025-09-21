@@ -214,3 +214,12 @@ API-based triggers for matching (Epic 1).
 | Frontend | Angular 17 | Targeting Angular 17 to leverage the current LTS feature set and stability. We will monitor Angular release announcements and use the Angular Update Guide to assess compatibility as new major versions ship, scheduling upgrades in a hardening sprint once dependencies and automated tests pass on the new release. |
 | Authentication | JWT (JSON Web Tokens) | Enables stateless authentication across services. |
 | Styling | Modern UI library (TBD) | Final selection will be confirmed during UI design. |
+
+## Phase 1 Delivery Notes
+
+The repository now contains a working Phase 1 MVP implementation split into two folders:
+
+* `backend/` – Spring Boot service with embedded LDAP, H2 development database, matching engine, break management APIs, and Excel export support.
+* `frontend/` – Angular 17 standalone application that consumes the backend APIs for sign-in, reconciliation execution, break review, annotation, status changes, and export initiation.
+
+Refer to `docs/business/phase1-business-overview.md` for the business release narrative and `docs/technical` for exhaustive line-by-line technical documentation.

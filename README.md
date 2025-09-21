@@ -9,7 +9,7 @@ Configuration over Code: The platform should be driven by metadata. Defining a n
 
 Pluggable Data Layer: The core engine will be agnostic to the source data's origin, relying on a standardized format in MariaDB prepared by a unique ETL layer for each reconciliation.
 
-Security First: Granular access control is paramount. Users should only see and interact with the data they are authorized for. Authentication delegates to the enterprise LDAP directory (with JWTs retained only as lightweight post-auth session tokens, if used at all), and authorization decisions map directly to LDAP security groups.
+Security First: Granular access control is paramount. Users should only see and interact with the data they are authorized for. Authentication delegates entirely to the enterprise LDAP directory. JWTs, if retained, are only used as lightweight post-auth session tokens and never replace LDAP as the identity source. Authorization flows from LDAP security groups exclusively—the platform does not introduce a separate set of platform-defined roles or entitlements.
 
 Scalability & Performance: The matching engine and database must be designed to handle large volumes of data efficiently.
 
@@ -49,7 +49,7 @@ User Story 2.1 (Security Groups): Setup LDAP via docker and define initial secur
 
 User Story 2.2 (User Provisioning): As a System Administrator, I want to create users and assign them to one or more security groups in LDAP.
 
-User Story 2.3 (Access Control Matrix): As a System Administrator, I want to grant security groups access to specific combinations of Product, Sub-Product, and Entity.
+User Story 2.3 (Access Control Matrix): As a System Administrator, I want to grant security groups access to specific combinations of Product, Sub-Product, and Entity, relying solely on LDAP group membership with no parallel, platform-defined roles.
 
 User Story 2.4 (Data Segregation): As a User, I only want to see the list of reconciliations and the data within them that my security group has been granted access to.
 
@@ -145,9 +145,11 @@ User_Group_Mappings: Links users to groups.
 
 user_id, group_id
 
-Access_Control_List: Defines what groups can see.
+Access_Control_List: Defines what LDAP groups can access.
 
-group_id, recon_definition_id, product, sub_product, entity, role ('MAKER', 'CHECKER', 'VIEWER')
+group_id (LDAP security group reference), recon_definition_id, product, sub_product, entity, permission_scope ('VIEW', 'UPDATE', 'APPROVE')
+
+Each record ties a single LDAP security group (referenced by its distinguished name) to an access scope. The application simply consumes the membership data provided by LDAP instead of persisting custom roles.
 
 System_Activity_Log: Tracks high-level system events.
 
@@ -205,16 +207,16 @@ API-based triggers for matching (Epic 1).
 Backend: Java, Spring Boot.
 Database: MariaDB.
 Frontend: Angular.
-Authentication: LDAP-backed authentication with JWT only as a post-auth session token if retained.
+Authentication & Authorization: LDAP-backed authentication with JWT only as a post-auth session token if retained, and authorization derived directly from LDAP security groups.
 Styling: A modern UI library. Please recommend one and we will proceed.
 
 # Infrastructure & Local Development
 
-Use the provided Docker Compose stack to boot supporting services locally. The configuration at `infrastructure/docker-compose.yml` starts MariaDB alongside an LDAP container preloaded with representative users and security groups. Bring the stack up with:
+Use the provided Docker Compose stack to boot supporting services locally. The configuration at `infrastructure/docker-compose.yml` starts MariaDB alongside an LDAP container preloaded with representative users and security groups. The LDAP service loads its seed data from the LDIF files referenced in the compose file, giving engineers sample maker, checker, and viewer groups tied to representative user accounts. Bring the stack up with:
 
 ```
 docker compose -f infrastructure/docker-compose.yml up -d
 ```
 
-This environment mirrors the LDAP-backed authentication and authorization model described above, allowing engineers to validate security group mappings and data access end-to-end.
+This environment mirrors the LDAP-backed authentication and authorization model described above, allowing engineers to validate security group mappings and data access end-to-end. Update the referenced LDIF seed files if additional sample users or groups are required for local development.
 Project Plan Reference: We will be following the feature plan I have previously outlined, which includes these core Epics:

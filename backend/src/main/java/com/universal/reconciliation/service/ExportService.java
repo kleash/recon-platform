@@ -10,6 +10,8 @@ import java.util.stream.Collectors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
@@ -17,6 +19,8 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class ExportService {
+
+    private static final Logger log = LoggerFactory.getLogger(ExportService.class);
 
     private final ObjectMapper objectMapper;
 
@@ -88,7 +92,8 @@ public class ExportService {
         try {
             return objectMapper.writeValueAsString(data);
         } catch (JsonProcessingException e) {
-            return "{}";
+            log.error("Failed to serialize break payload for export", e);
+            throw new IllegalStateException("Failed to serialize break payload for export", e);
         }
     }
 }

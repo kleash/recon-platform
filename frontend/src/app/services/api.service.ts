@@ -1,14 +1,11 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import {
-  BreakItem,
-  LoginResponse,
-  ReconciliationListItem,
-  RunDetail
-} from '../models/api-models';
+import { BreakItem, LoginResponse, ReconciliationListItem, RunDetail } from '../models/api-models';
+import { BreakStatus } from '../models/break-status';
+import { environment } from '../../environments/environment';
 
-const BASE_URL = 'http://localhost:8080/api';
+const BASE_URL = environment.apiUrl;
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -34,7 +31,7 @@ export class ApiService {
     return this.http.post<BreakItem>(`${BASE_URL}/breaks/${breakId}/comments`, { comment, action });
   }
 
-  updateStatus(breakId: number, status: string): Observable<BreakItem> {
+  updateStatus(breakId: number, status: BreakStatus): Observable<BreakItem> {
     return this.http.patch<BreakItem>(`${BASE_URL}/breaks/${breakId}/status`, { status });
   }
 

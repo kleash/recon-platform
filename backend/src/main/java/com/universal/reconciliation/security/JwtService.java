@@ -12,6 +12,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 /**
  * Handles JWT creation and parsing.
@@ -54,7 +55,11 @@ public class JwtService {
 
     private Key getSigningKey() {
         if (signingKey == null) {
-            signingKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(properties.getSecret()));
+            String secret = properties.getSecret();
+            if (!StringUtils.hasText(secret)) {
+                throw new IllegalStateException("JWT secret is not configured");
+            }
+            signingKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
         }
         return signingKey;
     }

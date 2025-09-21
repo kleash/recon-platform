@@ -132,9 +132,9 @@
             <button type="submit">Add comment</button>
           </form>
           <div class="status-buttons">
-            <button type="button" (click)="updateStatus('OPEN')">Mark Open</button>
-            <button type="button" (click)="updateStatus('PENDING_APPROVAL')">Mark Pending Approval</button>
-            <button type="button" (click)="updateStatus('CLOSED')">Mark Closed</button>
+            <button type="button" (click)="updateStatus(BreakStatus.Open)">Mark Open</button>
+            <button type="button" (click)="updateStatus(BreakStatus.PendingApproval)">Mark Pending Approval</button>
+            <button type="button" (click)="updateStatus(BreakStatus.Closed)">Mark Closed</button>
           </div>
         </div>
       </section>

@@ -1,3 +1,5 @@
+import { BreakStatus } from './break-status';
+
 export interface LoginResponse {
   token: string;
   displayName: string;
@@ -30,7 +32,7 @@ export interface BreakComment {
 export interface BreakItem {
   id: number;
   breakType: string;
-  status: string;
+  status: BreakStatus;
   detectedAt: string;
   sourceA: Record<string, unknown>;
   sourceB: Record<string, unknown>;
@@ -41,3 +43,4 @@ export interface RunDetail {
   summary: ReconciliationSummary;
   breaks: BreakItem[];
 }
+

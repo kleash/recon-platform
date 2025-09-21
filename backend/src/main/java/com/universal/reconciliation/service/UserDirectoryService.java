@@ -1,11 +1,11 @@
 package com.universal.reconciliation.service;
 
+import com.universal.reconciliation.config.LdapSecurityProperties;
 import jakarta.naming.NamingException;
 import jakarta.naming.directory.Attribute;
 import jakarta.naming.directory.Attributes;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.ldap.core.AttributesMapper;
 import org.springframework.ldap.core.LdapTemplate;
 import org.springframework.ldap.query.LdapQuery;
@@ -22,13 +22,10 @@ public class UserDirectoryService {
     private final String peopleBase;
     private final String groupsBase;
 
-    public UserDirectoryService(
-            LdapTemplate ldapTemplate,
-            @Value("${app.security.ldap.people-base:ou=people}") String peopleBase,
-            @Value("${app.security.ldap.groups-base:ou=groups}") String groupsBase) {
+    public UserDirectoryService(LdapTemplate ldapTemplate, LdapSecurityProperties ldapSecurityProperties) {
         this.ldapTemplate = ldapTemplate;
-        this.peopleBase = peopleBase;
-        this.groupsBase = groupsBase;
+        this.peopleBase = ldapSecurityProperties.getPeopleBase();
+        this.groupsBase = ldapSecurityProperties.getGroupsBase();
     }
 
     /**

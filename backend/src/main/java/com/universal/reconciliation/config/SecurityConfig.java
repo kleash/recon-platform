@@ -1,6 +1,7 @@
 package com.universal.reconciliation.config;
 
 import com.universal.reconciliation.security.JwtAuthenticationFilter;
+import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.ldap.core.support.BaseLdapPathContextSource;
@@ -23,15 +24,22 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final LdapSecurityProperties ldapSecurityProperties;
+    private final CorsProperties corsProperties;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
+    public SecurityConfig(
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            LdapSecurityProperties ldapSecurityProperties,
+            CorsProperties corsProperties) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.ldapSecurityProperties = ldapSecurityProperties;
+        this.corsProperties = corsProperties;
     }
 
     @Bean
     public AuthenticationManager authenticationManager(BaseLdapPathContextSource contextSource) {
         LdapBindAuthenticationManagerFactory factory = new LdapBindAuthenticationManagerFactory(contextSource);
-        factory.setUserDnPatterns("uid={0},ou=people");
+        factory.setUserDnPatterns(ldapSecurityProperties.getUserDnPattern());
         return factory.createAuthenticationManager();
     }
 
@@ -51,9 +59,9 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.addAllowedOriginPattern("*");
-        configuration.addAllowedHeader("*");
-        configuration.addAllowedMethod("*");
+        configuration.setAllowedOrigins(corsProperties.getAllowedOrigins());
+        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "OPTIONS"));
         configuration.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

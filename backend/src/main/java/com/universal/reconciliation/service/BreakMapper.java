@@ -8,6 +8,8 @@ import com.universal.reconciliation.domain.entity.BreakItem;
 import com.universal.reconciliation.repository.BreakCommentRepository;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
@@ -15,6 +17,8 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class BreakMapper {
+
+    private static final Logger log = LoggerFactory.getLogger(BreakMapper.class);
 
     private final BreakCommentRepository breakCommentRepository;
     private final ObjectMapper objectMapper;
@@ -46,6 +50,7 @@ public class BreakMapper {
         try {
             return objectMapper.readValue(json, Map.class);
         } catch (JsonProcessingException e) {
+            log.error("Failed to deserialize stored break payload", e);
             return Map.of();
         }
     }

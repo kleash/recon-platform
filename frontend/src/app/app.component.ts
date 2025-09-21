@@ -8,6 +8,7 @@ import {
   ReconciliationListItem,
   RunDetail
 } from './models/api-models';
+import { BreakStatus } from './models/break-status';
 
 @Component({
   selector: 'app-root',
@@ -19,8 +20,10 @@ import {
 export class AppComponent implements OnInit {
   title = 'Universal Reconciliation Platform';
 
-  username = 'ops1';
-  password = 'password';
+  readonly BreakStatus = BreakStatus;
+
+  username = '';
+  password = '';
   loginError: string | null = null;
   isLoading = false;
 
@@ -105,7 +108,7 @@ export class AppComponent implements OnInit {
     });
   }
 
-  updateStatus(status: string): void {
+  updateStatus(status: BreakStatus): void {
     if (!this.selectedBreak) {
       return;
     }

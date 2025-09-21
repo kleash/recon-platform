@@ -3,7 +3,7 @@ spring:
     url: jdbc:h2:mem:recon;MODE=MYSQL;DATABASE_TO_UPPER=false
     driver-class-name: org.h2.Driver
     username: sa
-    password: password
+    password: ${DB_PASSWORD:}
   jpa:
     hibernate:
       ddl-auto: update
@@ -31,11 +31,15 @@ spring:
 app:
   security:
     jwt:
-      secret: dW5pdmVyc2FsLXJlY29uLXNlY3JldC1zaWduaW5nLWtleQ==
+      secret: ${JWT_SECRET}
       expiration-seconds: 86400
     ldap:
-      people-base: ou=people,dc=universal,dc=local
-      groups-base: ou=groups,dc=universal,dc=local
+      people-base: ${LDAP_PEOPLE_BASE:ou=people,dc=universal,dc=local}
+      groups-base: ${LDAP_GROUPS_BASE:ou=groups,dc=universal,dc=local}
+      user-dn-pattern: ${LDAP_USER_DN_PATTERN:uid={0},ou=people}
+    cors:
+      allowed-origins:
+        - ${APP_ALLOWED_ORIGINS:http://localhost:4200}
 
 logging:
   level:

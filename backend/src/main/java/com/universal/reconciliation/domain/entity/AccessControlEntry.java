@@ -8,12 +8,16 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * Binds LDAP security groups to reconciliation definitions in Phase 1.
  */
 @Entity
 @Table(name = "access_control_entries")
+@Getter
+@Setter
 public class AccessControlEntry {
 
     @Id
@@ -30,31 +34,4 @@ public class AccessControlEntry {
     @Column(nullable = false)
     private String permissionScope;
 
-    public Long getId() {
-        return id;
-    }
-
-    public String getLdapGroupDn() {
-        return ldapGroupDn;
-    }
-
-    public void setLdapGroupDn(String ldapGroupDn) {
-        this.ldapGroupDn = ldapGroupDn;
-    }
-
-    public ReconciliationDefinition getDefinition() {
-        return definition;
-    }
-
-    public void setDefinition(ReconciliationDefinition definition) {
-        this.definition = definition;
-    }
-
-    public String getPermissionScope() {
-        return permissionScope;
-    }
-
-    public void setPermissionScope(String permissionScope) {
-        this.permissionScope = permissionScope;
-    }
 }

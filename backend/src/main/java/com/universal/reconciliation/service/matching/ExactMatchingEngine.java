@@ -12,6 +12,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import org.springframework.stereotype.Component;
 
 /**
@@ -63,14 +64,43 @@ public class ExactMatchingEngine implements MatchingEngine {
                     matched++;
                 } else {
                     mismatched++;
-                    breakCandidates.add(new BreakCandidate(BreakType.MISMATCH, mapRecordA(a), mapRecordB(b)));
+                    breakCandidates.add(new BreakCandidate(
+                            BreakType.MISMATCH,
+                            mapRecord(
+                                    a,
+                                    SourceRecordA::getTransactionId,
+                                    SourceRecordA::getAmount,
+                                    SourceRecordA::getCurrency,
+                                    SourceRecordA::getTradeDate),
+                            mapRecord(
+                                    b,
+                                    SourceRecordB::getTransactionId,
+                                    SourceRecordB::getAmount,
+                                    SourceRecordB::getCurrency,
+                                    SourceRecordB::getTradeDate)));
                 }
             } else if (a != null) {
                 missing++;
-                breakCandidates.add(new BreakCandidate(BreakType.MISSING_IN_SOURCE_B, mapRecordA(a), Map.of()));
+                breakCandidates.add(new BreakCandidate(
+                        BreakType.MISSING_IN_SOURCE_B,
+                        mapRecord(
+                                a,
+                                SourceRecordA::getTransactionId,
+                                SourceRecordA::getAmount,
+                                SourceRecordA::getCurrency,
+                                SourceRecordA::getTradeDate),
+                        Map.of()));
             } else {
                 missing++;
-                breakCandidates.add(new BreakCandidate(BreakType.MISSING_IN_SOURCE_A, Map.of(), mapRecordB(b)));
+                breakCandidates.add(new BreakCandidate(
+                        BreakType.MISSING_IN_SOURCE_A,
+                        Map.of(),
+                        mapRecord(
+                                b,
+                                SourceRecordB::getTransactionId,
+                                SourceRecordB::getAmount,
+                                SourceRecordB::getCurrency,
+                                SourceRecordB::getTradeDate)));
             }
         }
 
@@ -83,27 +113,20 @@ public class ExactMatchingEngine implements MatchingEngine {
                 && a.getTradeDate().equals(b.getTradeDate());
     }
 
-    private Map<String, Object> mapRecordA(SourceRecordA record) {
+    private <T> Map<String, Object> mapRecord(
+            T record,
+            Function<T, ?> idExtractor,
+            Function<T, ?> amountExtractor,
+            Function<T, ?> currencyExtractor,
+            Function<T, ?> tradeDateExtractor) {
         if (record == null) {
             return Map.of();
         }
         Map<String, Object> map = new HashMap<>();
-        map.put("transactionId", record.getTransactionId());
-        map.put("amount", record.getAmount());
-        map.put("currency", record.getCurrency());
-        map.put("tradeDate", record.getTradeDate());
-        return map;
-    }
-
-    private Map<String, Object> mapRecordB(SourceRecordB record) {
-        if (record == null) {
-            return Map.of();
-        }
-        Map<String, Object> map = new HashMap<>();
-        map.put("transactionId", record.getTransactionId());
-        map.put("amount", record.getAmount());
-        map.put("currency", record.getCurrency());
-        map.put("tradeDate", record.getTradeDate());
+        map.put("transactionId", idExtractor.apply(record));
+        map.put("amount", amountExtractor.apply(record));
+        map.put("currency", currencyExtractor.apply(record));
+        map.put("tradeDate", tradeDateExtractor.apply(record));
         return map;
     }
 }

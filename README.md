@@ -9,7 +9,7 @@ Configuration over Code: The platform should be driven by metadata. Defining a n
 
 Pluggable Data Layer: The core engine will be agnostic to the source data's origin, relying on a standardized format in MariaDB prepared by a unique ETL layer for each reconciliation.
 
-Security First: Granular access control is paramount. Users should only see and interact with the data they are authorized for.
+Security First: Granular access control is paramount. Users should only see and interact with the data they are authorized for. Authentication delegates entirely to the enterprise LDAP directory. JWTs, if retained, are only used as lightweight post-auth session tokens and never replace LDAP as the identity source. Authorization flows from LDAP security groups exclusively—the platform does not introduce a separate set of platform-defined roles or entitlements.
 
 Scalability & Performance: The matching engine and database must be designed to handle large volumes of data efficiently.
 
@@ -49,7 +49,7 @@ User Story 2.1 (Security Groups): Setup LDAP via docker and define initial secur
 
 User Story 2.2 (User Provisioning): As a System Administrator, I want to create users and assign them to one or more security groups in LDAP.
 
-User Story 2.3 (Access Control Matrix): As a System Administrator, I want to grant security groups access to specific combinations of Product, Sub-Product, and Entity.
+User Story 2.3 (Access Control Matrix): As a System Administrator, I want to grant security groups access to specific combinations of Product, Sub-Product, and Entity, relying solely on LDAP group membership with no parallel, platform-defined roles.
 
 User Story 2.4 (Data Segregation): As a User, I only want to see the list of reconciliations and the data within them that my security group has been granted access to.
 
@@ -147,11 +147,11 @@ ldap_group_identifier, recon_definition_id, product, sub_product, entity, role (
 
 *Instead of persisting local user accounts, reconciliation records should reference LDAP groups or immutable identifiers directly (e.g., storing the DN of the maker/checker group on the record). This ensures that authorization is always derived from the external directory.*
 
-LDAP Metadata Caching & Synchronization:
+Access_Control_List: Defines what LDAP groups can access.
 
-- Cache LDAP display attributes (e.g., `cn`, `displayName`) in-memory or via a short-lived distributed cache. Use the immutable LDAP identifiers stored in comments, attachments, and ACLs as cache keys.
-- Establish a lightweight synchronization job that refreshes cached group and user metadata on a scheduled basis (e.g., every 15 minutes) and supports on-demand cache refresh for newly seen principals.
-- Never persist full LDAP user records in the platform database. The cache should only store non-sensitive display attributes required for UI rendering and should respect LDAP TTLs and change notification mechanisms where available (e.g., LDAP persistent search or directory change logs).
+group_id (LDAP security group reference), recon_definition_id, product, sub_product, entity, permission_scope ('VIEW', 'UPDATE', 'APPROVE')
+
+Each record ties a single LDAP security group (referenced by its distinguished name) to an access scope. The application simply consumes the membership data provided by LDAP instead of persisting custom roles.
 
 System_Activity_Log: Tracks high-level system events.
 
@@ -168,7 +168,7 @@ Features:
 
 Core Engine: Ability to configure ONE reconciliation with exact matching only (Epic 1).
 
-Security: Basic user login and role (Admin vs. User) (Simplified Epic 2).
+Security: LDAP-backed login with JWT used only as an optional post-auth session token. Authorization is derived exclusively from LDAP security groups—no platform-defined roles (Simplified Epic 2).
 
 UI: A simple dashboard to view matched/mismatched items and drill down. No dynamic filtering yet (Simplified Epic 3).
 
@@ -206,6 +206,7 @@ API-based triggers for matching (Epic 1).
 
 # Technology Stack
 
+=======
 | Layer | Technology | Notes |
 | --- | --- | --- |
 | Backend | Java (Spring Boot) | Microservice-ready backend for the reconciliation engine and APIs. |
@@ -213,4 +214,3 @@ API-based triggers for matching (Epic 1).
 | Frontend | Angular 17 | Targeting Angular 17 to leverage the current LTS feature set and stability. We will monitor Angular release announcements and use the Angular Update Guide to assess compatibility as new major versions ship, scheduling upgrades in a hardening sprint once dependencies and automated tests pass on the new release. |
 | Authentication | JWT (JSON Web Tokens) | Enables stateless authentication across services. |
 | Styling | Modern UI library (TBD) | Final selection will be confirmed during UI design. |
-Project Plan Reference: We will be following the feature plan I have previously outlined, which includes these core Epics:

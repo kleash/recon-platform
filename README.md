@@ -127,23 +127,25 @@ id, recon_run_id, break_type ('MISMATCH', 'MISSING_IN_A'), status ('OPEN', 'PEND
 
 Break_Comments: A log of all actions on a break.
 
-id, break_item_id, user_id, comment_text, action_performed, timestamp
+id, break_item_id, actor_ldap_identifier, comment_text, action_performed, timestamp
+
+*Store the distinguished name (DN) or an immutable LDAP GUID that identifies the person or security group responsible for the comment/action. This allows the platform to cross-reference LDAP directly without relying on a locally persisted `user_id`.*
 
 Attachments: Stores metadata about uploaded files.
 
-id, break_item_id, file_name, file_path_s3, uploaded_by_user_id
+id, break_item_id, file_name, file_path_s3, uploaded_by_ldap_identifier
 
-Users: System users.
+*Capture the LDAP principal (user DN/GUID) or delegated group DN responsible for uploading the file so that the audit trail is fully external-directory driven.*
 
-id, username, email
+Security_Groups: Logical authorization groupings.
 
-Security_Groups: User groups.
+id, group_display_name, ldap_group_identifier (DN or GUID)
 
-id, group_name
+Access_Control_List: Defines what groups can see.
 
-User_Group_Mappings: Links users to groups.
+ldap_group_identifier, recon_definition_id, product, sub_product, entity, role ('MAKER', 'CHECKER', 'VIEWER')
 
-user_id, group_id
+*Instead of persisting local user accounts, reconciliation records should reference LDAP groups or immutable identifiers directly (e.g., storing the DN of the maker/checker group on the record). This ensures that authorization is always derived from the external directory.*
 
 Access_Control_List: Defines what LDAP groups can access.
 
@@ -202,21 +204,13 @@ Advanced dashboarding and analytics.
 
 API-based triggers for matching (Epic 1).
 
-# Technology Stack:
+# Technology Stack
 
-Backend: Java, Spring Boot.
-Database: MariaDB.
-Frontend: Angular.
-Authentication & Authorization: LDAP-backed authentication with JWT only as a post-auth session token if retained, and authorization derived directly from LDAP security groups.
-Styling: A modern UI library. Please recommend one and we will proceed.
-
-# Infrastructure & Local Development
-
-Use the provided Docker Compose stack to boot supporting services locally. The configuration at `infrastructure/docker-compose.yml` starts MariaDB alongside an LDAP container preloaded with representative users and security groups. The LDAP service loads its seed data from the LDIF files referenced in the compose file, giving engineers sample maker, checker, and viewer groups tied to representative user accounts. Bring the stack up with:
-
-```
-docker compose -f infrastructure/docker-compose.yml up -d
-```
-
-This environment mirrors the LDAP-backed authentication and authorization model described above, allowing engineers to validate security group mappings and data access end-to-end. Update the referenced LDIF seed files if additional sample users or groups are required for local development.
-Project Plan Reference: We will be following the feature plan I have previously outlined, which includes these core Epics:
+=======
+| Layer | Technology | Notes |
+| --- | --- | --- |
+| Backend | Java (Spring Boot) | Microservice-ready backend for the reconciliation engine and APIs. |
+| Database | MariaDB | Stores configuration, reconciliation runs, and audit data. |
+| Frontend | Angular 17 | Targeting Angular 17 to leverage the current LTS feature set and stability. We will monitor Angular release announcements and use the Angular Update Guide to assess compatibility as new major versions ship, scheduling upgrades in a hardening sprint once dependencies and automated tests pass on the new release. |
+| Authentication | JWT (JSON Web Tokens) | Enables stateless authentication across services. |
+| Styling | Modern UI library (TBD) | Final selection will be confirmed during UI design. |

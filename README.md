@@ -127,27 +127,31 @@ id, recon_run_id, break_type ('MISMATCH', 'MISSING_IN_A'), status ('OPEN', 'PEND
 
 Break_Comments: A log of all actions on a break.
 
-id, break_item_id, user_id, comment_text, action_performed, timestamp
+id, break_item_id, actor_ldap_identifier, comment_text, action_performed, timestamp
+
+*Store the distinguished name (DN) or an immutable LDAP GUID that identifies the person or security group responsible for the comment/action. This allows the platform to cross-reference LDAP directly without relying on a locally persisted `user_id`.*
 
 Attachments: Stores metadata about uploaded files.
 
-id, break_item_id, file_name, file_path_s3, uploaded_by_user_id
+id, break_item_id, file_name, file_path_s3, uploaded_by_ldap_identifier
 
-Users: System users.
+*Capture the LDAP principal (user DN/GUID) or delegated group DN responsible for uploading the file so that the audit trail is fully external-directory driven.*
 
-id, username, email
+Security_Groups: Logical authorization groupings.
 
-Security_Groups: User groups.
-
-id, group_name
-
-User_Group_Mappings: Links users to groups.
-
-user_id, group_id
+id, group_display_name, ldap_group_identifier (DN or GUID)
 
 Access_Control_List: Defines what groups can see.
 
-group_id, recon_definition_id, product, sub_product, entity, role ('MAKER', 'CHECKER', 'VIEWER')
+ldap_group_identifier, recon_definition_id, product, sub_product, entity, role ('MAKER', 'CHECKER', 'VIEWER')
+
+*Instead of persisting local user accounts, reconciliation records should reference LDAP groups or immutable identifiers directly (e.g., storing the DN of the maker/checker group on the record). This ensures that authorization is always derived from the external directory.*
+
+LDAP Metadata Caching & Synchronization:
+
+- Cache LDAP display attributes (e.g., `cn`, `displayName`) in-memory or via a short-lived distributed cache. Use the immutable LDAP identifiers stored in comments, attachments, and ACLs as cache keys.
+- Establish a lightweight synchronization job that refreshes cached group and user metadata on a scheduled basis (e.g., every 15 minutes) and supports on-demand cache refresh for newly seen principals.
+- Never persist full LDAP user records in the platform database. The cache should only store non-sensitive display attributes required for UI rendering and should respect LDAP TTLs and change notification mechanisms where available (e.g., LDAP persistent search or directory change logs).
 
 System_Activity_Log: Tracks high-level system events.
 

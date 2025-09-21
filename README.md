@@ -200,11 +200,13 @@ Advanced dashboarding and analytics.
 
 API-based triggers for matching (Epic 1).
 
-# Technology Stack:
+# Technology Stack
 
-Backend: Java, Spring Boot.
-Database: MariaDB.
-Frontend: Angular.
-Authentication: JWT (JSON Web Tokens) for stateless authentication.
-Styling: A modern UI library. Please recommend one and we will proceed.
+| Layer | Technology | Notes |
+| --- | --- | --- |
+| Backend | Java (Spring Boot) | Microservice-ready backend for the reconciliation engine and APIs. |
+| Database | MariaDB | Stores configuration, reconciliation runs, and audit data. |
+| Frontend | Angular 17 | Targeting Angular 17 to leverage the current LTS feature set and stability. We will monitor Angular release announcements and use the Angular Update Guide to assess compatibility as new major versions ship, scheduling upgrades in a hardening sprint once dependencies and automated tests pass on the new release. |
+| Authentication | JWT (JSON Web Tokens) | Enables stateless authentication across services. |
+| Styling | Modern UI library (TBD) | Final selection will be confirmed during UI design. |
 Project Plan Reference: We will be following the feature plan I have previously outlined, which includes these core Epics:

@@ -14,7 +14,7 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -158,7 +158,7 @@ public class ExactMatchingEngine implements MatchingEngine {
             return decimal;
         }
         if (value instanceof Number number) {
-            return BigDecimal.valueOf(number.doubleValue());
+            return new BigDecimal(number.toString());
         }
         return new BigDecimal(value.toString());
     }
@@ -171,7 +171,7 @@ public class ExactMatchingEngine implements MatchingEngine {
             return localDateTime.toLocalDate();
         }
         if (value instanceof java.util.Date legacyDate) {
-            return legacyDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+            return legacyDate.toInstant().atZone(ZoneOffset.UTC).toLocalDate();
         }
         try {
             return LocalDate.parse(value.toString());
@@ -274,11 +274,13 @@ public class ExactMatchingEngine implements MatchingEngine {
         }
 
         private static String singleFieldName(Collection<ReconciliationField> fields, FieldRole role) {
-            return fields.stream()
+            List<ReconciliationField> matching = fields.stream()
                     .filter(field -> role.equals(field.getRole()))
-                    .map(ReconciliationField::getSourceField)
-                    .findFirst()
-                    .orElse(null);
+                    .toList();
+            Assert.state(
+                    matching.size() <= 1,
+                    () -> "Reconciliation definition must declare at most one " + role + " field");
+            return matching.isEmpty() ? null : matching.get(0).getSourceField();
         }
     }
 }

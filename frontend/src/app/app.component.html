@@ -28,14 +28,20 @@
       <urp-run-detail
         [runDetail]="runDetail$ | async"
         [selectedBreak]="selectedBreak$ | async"
+        [filterMetadata]="filterMetadata$ | async"
+        [filter]="filter$ | async"
         (selectBreak)="handleSelectBreak($event)"
+        (filterChange)="handleFilterChange($event)"
       ></urp-run-detail>
       <urp-break-detail
         [breakItem]="selectedBreak$ | async"
-        [statusOptions]="breakStatusOptions"
         (addComment)="handleAddComment($event)"
         (updateStatus)="handleStatusChange($event)"
       ></urp-break-detail>
+    </section>
+
+    <section class="card activity-card">
+      <urp-system-activity [activity]="activity$ | async ?? []"></urp-system-activity>
     </section>
   </section>
 </div>

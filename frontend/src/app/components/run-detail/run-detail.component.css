@@ -17,6 +17,57 @@
   letter-spacing: 0.05em;
 }
 
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  align-items: flex-end;
+}
+
+.filter-control {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 160px;
+}
+
+.filter-control select {
+  padding: 0.4rem;
+  border: 1px solid #cbd5f5;
+  border-radius: 4px;
+}
+
+.status-filter {
+  min-width: 220px;
+}
+
+.status-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.status-options label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: #2563eb;
+  padding: 0;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.link-button:hover {
+  text-decoration: underline;
+}
+
 .break-table {
   width: 100%;
   border-collapse: collapse;

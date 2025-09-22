@@ -23,8 +23,14 @@ sn: Operations
 cn: Operations User
 userPassword: {bcrypt}$2a$10$7EqJtq98hPqEX7fNZaFWo.6so2IGe1ZR3eZKjuJIddZrTrsg8vLXK
 
-dn: cn=recon-ops,ou=groups,dc=universal,dc=local
+dn: cn=recon-makers,ou=groups,dc=universal,dc=local
 objectClass: top
 objectClass: groupOfUniqueNames
-cn: recon-ops
+cn: recon-makers
+uniqueMember: uid=ops1,ou=people,dc=universal,dc=local
+
+dn: cn=recon-checkers,ou=groups,dc=universal,dc=local
+objectClass: top
+objectClass: groupOfUniqueNames
+cn: recon-checkers
 uniqueMember: uid=ops1,ou=people,dc=universal,dc=local

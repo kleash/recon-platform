@@ -6,5 +6,11 @@ import java.util.Map;
 /**
  * Represents a potential break produced by the matching engine prior to persistence.
  */
-public record BreakCandidate(BreakType type, Map<String, Object> sourceA, Map<String, Object> sourceB) {
+public record BreakCandidate(
+        BreakType type,
+        Map<String, Object> sourceA,
+        Map<String, Object> sourceB,
+        String product,
+        String subProduct,
+        String entity) {
 }

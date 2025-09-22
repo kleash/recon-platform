@@ -1,9 +1,16 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { BreakItem, LoginResponse, ReconciliationListItem, RunDetail } from '../models/api-models';
+import {
+  BreakItem,
+  LoginResponse,
+  ReconciliationListItem,
+  RunDetail,
+  SystemActivityEntry
+} from '../models/api-models';
 import { BreakStatus } from '../models/break-status';
 import { environment } from '../../environments/environment';
+import { BreakFilter } from '../models/break-filter';
 
 const BASE_URL = environment.apiUrl;
 
@@ -23,8 +30,16 @@ export class ApiService {
     return this.http.post<RunDetail>(`${BASE_URL}/reconciliations/${reconciliationId}/run`, {});
   }
 
-  getLatestRun(reconciliationId: number): Observable<RunDetail> {
-    return this.http.get<RunDetail>(`${BASE_URL}/reconciliations/${reconciliationId}/runs/latest`);
+  getLatestRun(reconciliationId: number, filter?: BreakFilter): Observable<RunDetail> {
+    return this.http.get<RunDetail>(`${BASE_URL}/reconciliations/${reconciliationId}/runs/latest`, {
+      params: this.buildFilterParams(filter)
+    });
+  }
+
+  getRun(runId: number, filter?: BreakFilter): Observable<RunDetail> {
+    return this.http.get<RunDetail>(`${BASE_URL}/reconciliations/runs/${runId}`, {
+      params: this.buildFilterParams(filter)
+    });
   }
 
   addComment(breakId: number, comment: string, action: string): Observable<BreakItem> {
@@ -37,5 +52,31 @@ export class ApiService {
 
   exportRun(runId: number): Observable<Blob> {
     return this.http.get(`${BASE_URL}/exports/runs/${runId}`, { responseType: 'blob' });
+  }
+
+  getSystemActivity(): Observable<SystemActivityEntry[]> {
+    return this.http.get<SystemActivityEntry[]>(`${BASE_URL}/activity`);
+  }
+
+  private buildFilterParams(filter?: BreakFilter): HttpParams {
+    if (!filter) {
+      return new HttpParams();
+    }
+    let params = new HttpParams();
+    if (filter.product) {
+      params = params.set('product', filter.product);
+    }
+    if (filter.subProduct) {
+      params = params.set('subProduct', filter.subProduct);
+    }
+    if (filter.entity) {
+      params = params.set('entity', filter.entity);
+    }
+    if (filter.statuses && filter.statuses.length > 0) {
+      filter.statuses.forEach((status) => {
+        params = params.append('status', status);
+      });
+    }
+    return params;
   }
 }

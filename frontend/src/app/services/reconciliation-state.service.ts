@@ -4,9 +4,12 @@ import { ApiService } from './api.service';
 import {
   BreakItem,
   ReconciliationListItem,
-  RunDetail
+  RunDetail,
+  FilterMetadata,
+  SystemActivityEntry
 } from '../models/api-models';
 import { BreakStatus } from '../models/break-status';
+import { BreakFilter } from '../models/break-filter';
 
 @Injectable({ providedIn: 'root' })
 export class ReconciliationStateService {
@@ -14,15 +17,22 @@ export class ReconciliationStateService {
   private readonly selectedReconciliationSubject = new BehaviorSubject<ReconciliationListItem | null>(null);
   private readonly runDetailSubject = new BehaviorSubject<RunDetail | null>(null);
   private readonly selectedBreakSubject = new BehaviorSubject<BreakItem | null>(null);
+  private readonly filterSubject = new BehaviorSubject<BreakFilter>({});
+  private readonly filterMetadataSubject = new BehaviorSubject<FilterMetadata | null>(null);
+  private readonly activitySubject = new BehaviorSubject<SystemActivityEntry[]>([]);
 
   readonly reconciliations$ = this.reconciliationsSubject.asObservable();
   readonly selectedReconciliation$ = this.selectedReconciliationSubject.asObservable();
   readonly runDetail$ = this.runDetailSubject.asObservable();
   readonly selectedBreak$ = this.selectedBreakSubject.asObservable();
+  readonly filter$ = this.filterSubject.asObservable();
+  readonly filterMetadata$ = this.filterMetadataSubject.asObservable();
+  readonly activity$ = this.activitySubject.asObservable();
 
   constructor(private readonly api: ApiService) {}
 
   loadReconciliations(): void {
+    this.filterSubject.next({});
     this.api.getReconciliations().subscribe((data) => {
       this.reconciliationsSubject.next(data);
       const currentSelection = this.selectedReconciliationSubject.value;
@@ -37,8 +47,10 @@ export class ReconciliationStateService {
       } else {
         this.runDetailSubject.next(null);
         this.selectedBreakSubject.next(null);
+        this.filterMetadataSubject.next(null);
       }
     });
+    this.refreshActivity();
   }
 
   selectReconciliation(reconciliation: ReconciliationListItem): void {
@@ -52,9 +64,9 @@ export class ReconciliationStateService {
     if (!selected) {
       return;
     }
-    this.api.triggerRun(selected.id).subscribe((detail) => {
-      this.runDetailSubject.next(detail);
-      this.selectedBreakSubject.next(detail.breaks[0] ?? null);
+    this.api.triggerRun(selected.id).subscribe(() => {
+      this.fetchLatestRun(selected.id);
+      this.refreshActivity();
     });
   }
 
@@ -65,12 +77,14 @@ export class ReconciliationStateService {
   addComment(breakId: number, comment: string, action: string): void {
     this.api.addComment(breakId, comment, action).subscribe((updated) => {
       this.updateBreak(updated);
+      this.refreshActivity();
     });
   }
 
   updateStatus(breakId: number, status: BreakStatus): void {
     this.api.updateStatus(breakId, status).subscribe((updated) => {
       this.updateBreak(updated);
+      this.refreshActivity();
     });
   }
 
@@ -87,15 +101,32 @@ export class ReconciliationStateService {
     this.selectedReconciliationSubject.next(null);
     this.runDetailSubject.next(null);
     this.selectedBreakSubject.next(null);
+    this.filterSubject.next({});
+    this.filterMetadataSubject.next(null);
+    this.activitySubject.next([]);
   }
 
   getCurrentRunDetail(): RunDetail | null {
     return this.runDetailSubject.value;
   }
 
+  updateFilter(filter: BreakFilter): void {
+    this.filterSubject.next(filter);
+    const selected = this.selectedReconciliationSubject.value;
+    if (selected) {
+      this.fetchLatestRun(selected.id);
+    }
+  }
+
+  getCurrentFilter(): BreakFilter {
+    return this.filterSubject.value;
+  }
+
   private fetchLatestRun(reconciliationId: number): void {
-    this.api.getLatestRun(reconciliationId).subscribe((detail) => {
+    const filter = this.filterSubject.value;
+    this.api.getLatestRun(reconciliationId, filter).subscribe((detail) => {
       this.runDetailSubject.next(detail);
+      this.filterMetadataSubject.next(detail.filters);
       this.selectedBreakSubject.next(detail.breaks[0] ?? null);
     });
   }
@@ -111,5 +142,11 @@ export class ReconciliationStateService {
     if (this.selectedBreakSubject.value?.id === updated.id) {
       this.selectedBreakSubject.next(updated);
     }
+  }
+
+  private refreshActivity(): void {
+    this.api.getSystemActivity().subscribe((entries) => {
+      this.activitySubject.next(entries);
+    });
   }
 }

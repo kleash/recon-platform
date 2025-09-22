@@ -8,6 +8,19 @@
   padding-top: 1.5rem;
 }
 
+.break-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+.break-meta strong {
+  margin-right: 0.25rem;
+}
+
 .detail-columns {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -56,6 +69,25 @@
   flex-wrap: wrap;
   gap: 0.75rem;
   margin-top: 1rem;
+}
+
+.status-buttons button {
+  padding: 0.5rem 0.9rem;
+  border: none;
+  background: #2563eb;
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.status-buttons button:hover {
+  background: #1d4ed8;
+}
+
+.no-actions {
+  margin-top: 0.75rem;
+  color: #64748b;
+  font-style: italic;
 }
 
 .empty-state {

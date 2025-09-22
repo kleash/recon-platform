@@ -1,7 +1,10 @@
 package com.universal.reconciliation.domain.entity;
 
+import com.universal.reconciliation.domain.enums.AccessRole;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -12,7 +15,8 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * Binds LDAP security groups to reconciliation definitions in Phase 1.
+ * Binds LDAP security groups to reconciliation definitions with
+ * fine-grained dimensional access in Phase 2.
  */
 @Entity
 @Table(name = "access_control_entries")
@@ -31,7 +35,17 @@ public class AccessControlEntry {
     @JoinColumn(name = "definition_id", nullable = false)
     private ReconciliationDefinition definition;
 
-    @Column(nullable = false)
-    private String permissionScope;
+    @Column
+    private String product;
 
+    @Column(name = "sub_product")
+    private String subProduct;
+
+    @Column(name = "entity_name")
+    private String entityName;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private AccessRole role;
 }
+

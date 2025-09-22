@@ -13,7 +13,6 @@ import { BreakStatus } from '../../models/break-status';
 })
 export class BreakDetailComponent implements OnChanges {
   @Input() breakItem: BreakItem | null = null;
-  @Input() statusOptions: BreakStatus[] = [];
   @Output() addComment = new EventEmitter<{ breakId: number; comment: string; action: string }>();
   @Output() updateStatus = new EventEmitter<{ breakId: number; status: BreakStatus }>();
 
@@ -46,12 +45,16 @@ export class BreakDetailComponent implements OnChanges {
     this.updateStatus.emit({ breakId: this.breakItem.id, status });
   }
 
+  get statusOptions(): BreakStatus[] {
+    return this.breakItem?.allowedStatusTransitions ?? [];
+  }
+
   getStatusText(status: BreakStatus): string {
     switch (status) {
       case BreakStatus.Open:
         return 'Mark Open';
       case BreakStatus.PendingApproval:
-        return 'Mark Pending Approval';
+        return 'Submit for Approval';
       case BreakStatus.Closed:
         return 'Mark Closed';
       default:

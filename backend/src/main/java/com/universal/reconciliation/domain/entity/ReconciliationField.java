@@ -1,5 +1,7 @@
 package com.universal.reconciliation.domain.entity;
 
+import com.universal.reconciliation.domain.enums.ComparisonLogic;
+import com.universal.reconciliation.domain.enums.FieldDataType;
 import com.universal.reconciliation.domain.enums.FieldRole;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -12,6 +14,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -41,5 +44,15 @@ public class ReconciliationField {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private FieldRole role;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private FieldDataType dataType;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private ComparisonLogic comparisonLogic;
+
+    private BigDecimal thresholdPercentage;
 
 }

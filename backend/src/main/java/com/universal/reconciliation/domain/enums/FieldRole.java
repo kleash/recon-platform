@@ -6,5 +6,8 @@ package com.universal.reconciliation.domain.enums;
 public enum FieldRole {
     KEY,
     COMPARE,
-    DISPLAY
+    DISPLAY,
+    PRODUCT,
+    SUB_PRODUCT,
+    ENTITY
 }

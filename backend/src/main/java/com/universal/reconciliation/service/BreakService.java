@@ -7,7 +7,8 @@ import com.universal.reconciliation.domain.entity.AccessControlEntry;
 import com.universal.reconciliation.domain.entity.BreakComment;
 import com.universal.reconciliation.domain.entity.BreakItem;
 import com.universal.reconciliation.domain.entity.ReconciliationDefinition;
-import com.universal.reconciliation.repository.AccessControlEntryRepository;
+import com.universal.reconciliation.domain.enums.BreakStatus;
+import com.universal.reconciliation.domain.enums.SystemEventType;
 import com.universal.reconciliation.repository.BreakCommentRepository;
 import com.universal.reconciliation.repository.BreakItemRepository;
 import com.universal.reconciliation.security.UserContext;
@@ -24,42 +25,62 @@ public class BreakService {
 
     private final BreakItemRepository breakItemRepository;
     private final BreakCommentRepository breakCommentRepository;
-    private final AccessControlEntryRepository accessControlEntryRepository;
     private final UserContext userContext;
     private final UserDirectoryService userDirectoryService;
     private final BreakMapper breakMapper;
+    private final BreakAccessService breakAccessService;
+    private final SystemActivityService systemActivityService;
 
     public BreakService(
             BreakItemRepository breakItemRepository,
             BreakCommentRepository breakCommentRepository,
-            AccessControlEntryRepository accessControlEntryRepository,
             UserContext userContext,
             UserDirectoryService userDirectoryService,
-            BreakMapper breakMapper) {
+            BreakMapper breakMapper,
+            BreakAccessService breakAccessService,
+            SystemActivityService systemActivityService) {
         this.breakItemRepository = breakItemRepository;
         this.breakCommentRepository = breakCommentRepository;
-        this.accessControlEntryRepository = accessControlEntryRepository;
         this.userContext = userContext;
         this.userDirectoryService = userDirectoryService;
         this.breakMapper = breakMapper;
+        this.breakAccessService = breakAccessService;
+        this.systemActivityService = systemActivityService;
     }
 
     @Transactional
     public BreakItemDto addComment(Long breakId, AddBreakCommentRequest request) {
-        BreakItem breakItem = findAuthorizedBreak(breakId);
+        BreakContext context = loadBreakContext(breakId);
+        breakAccessService.assertCanComment(context.breakItem(), context.entries());
+
         BreakComment comment = new BreakComment();
-        comment.setBreakItem(breakItem);
+        comment.setBreakItem(context.breakItem());
         comment.setAction(request.action());
         comment.setComment(request.comment());
         comment.setCreatedAt(Instant.now());
         comment.setActorDn(userDirectoryService.personDn(userContext.getUsername()));
         breakCommentRepository.save(comment);
-        return breakMapper.toDto(breakItem);
+
+        systemActivityService.recordEvent(
+                SystemEventType.BREAK_COMMENT,
+                String.format(
+                        "Comment added to break %d by %s",
+                        context.breakItem().getId(), userContext.getUsername()));
+
+        return breakMapper.toDto(
+                context.breakItem(),
+                breakAccessService.allowedStatuses(context.breakItem(), context.definition(), context.entries()));
     }
 
     @Transactional
     public BreakItemDto updateStatus(Long breakId, UpdateBreakStatusRequest request) {
-        BreakItem breakItem = findAuthorizedBreak(breakId);
+        BreakContext context = loadBreakContext(breakId);
+        BreakItem breakItem = context.breakItem();
+
+        breakAccessService.assertTransitionAllowed(
+                breakItem, context.definition(), context.entries(), request.status());
+
+        BreakStatus previousStatus = breakItem.getStatus();
         breakItem.setStatus(request.status());
         breakItemRepository.save(breakItem);
 
@@ -71,25 +92,30 @@ public class BreakService {
         auditTrail.setActorDn(userDirectoryService.personDn(userContext.getUsername()));
         breakCommentRepository.save(auditTrail);
 
-        return breakMapper.toDto(breakItem);
+        systemActivityService.recordEvent(
+                SystemEventType.BREAK_STATUS_CHANGE,
+                String.format(
+                        "Break %d transitioned from %s to %s by %s",
+                        breakItem.getId(),
+                        previousStatus.name(),
+                        request.status().name(),
+                        userContext.getUsername()));
+
+        return breakMapper.toDto(
+                breakItem,
+                breakAccessService.allowedStatuses(breakItem, context.definition(), context.entries()));
     }
 
-    private BreakItem findAuthorizedBreak(Long id) {
+    private BreakContext loadBreakContext(Long id) {
         BreakItem item = breakItemRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Break not found"));
-        ensureAccess(item.getRun().getDefinition());
-        return item;
+        ReconciliationDefinition definition = item.getRun().getDefinition();
+        List<AccessControlEntry> entries = breakAccessService.findEntries(definition, userContext.getGroups());
+        breakAccessService.assertCanView(item, entries);
+        return new BreakContext(item, definition, entries);
     }
 
-    private void ensureAccess(ReconciliationDefinition definition) {
-        List<String> groups = userContext.getGroups();
-        if (groups.isEmpty()) {
-            throw new SecurityException("User is not associated with any security group");
-        }
-        List<AccessControlEntry> entries =
-                accessControlEntryRepository.findByDefinitionAndLdapGroupDnIn(definition, groups);
-        if (entries.isEmpty()) {
-            throw new SecurityException("User lacks permissions for this break");
-        }
-    }
+    private record BreakContext(
+            BreakItem breakItem, ReconciliationDefinition definition, List<AccessControlEntry> entries) {}
 }
+

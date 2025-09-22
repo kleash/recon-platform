@@ -3,6 +3,7 @@ package com.universal.reconciliation.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.universal.reconciliation.domain.dto.BreakItemDto;
+import com.universal.reconciliation.domain.dto.FilterMetadataDto;
 import com.universal.reconciliation.domain.dto.ReconciliationListItemDto;
 import com.universal.reconciliation.domain.dto.ReconciliationSummaryDto;
 import com.universal.reconciliation.domain.dto.RunDetailDto;
@@ -10,7 +11,9 @@ import com.universal.reconciliation.domain.entity.AccessControlEntry;
 import com.universal.reconciliation.domain.entity.BreakItem;
 import com.universal.reconciliation.domain.entity.ReconciliationDefinition;
 import com.universal.reconciliation.domain.entity.ReconciliationRun;
+import com.universal.reconciliation.domain.enums.BreakStatus;
 import com.universal.reconciliation.domain.enums.RunStatus;
+import com.universal.reconciliation.domain.enums.SystemEventType;
 import com.universal.reconciliation.domain.enums.TriggerType;
 import com.universal.reconciliation.repository.AccessControlEntryRepository;
 import com.universal.reconciliation.repository.BreakItemRepository;
@@ -22,9 +25,12 @@ import com.universal.reconciliation.service.matching.MatchingResult;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +47,8 @@ public class ReconciliationService {
     private final MatchingEngine matchingEngine;
     private final ObjectMapper objectMapper;
     private final BreakMapper breakMapper;
+    private final BreakAccessService breakAccessService;
+    private final SystemActivityService systemActivityService;
 
     public ReconciliationService(
             ReconciliationDefinitionRepository definitionRepository,
@@ -49,7 +57,9 @@ public class ReconciliationService {
             BreakItemRepository breakItemRepository,
             MatchingEngine matchingEngine,
             ObjectMapper objectMapper,
-            BreakMapper breakMapper) {
+            BreakMapper breakMapper,
+            BreakAccessService breakAccessService,
+            SystemActivityService systemActivityService) {
         this.definitionRepository = definitionRepository;
         this.accessControlEntryRepository = accessControlEntryRepository;
         this.runRepository = runRepository;
@@ -57,6 +67,8 @@ public class ReconciliationService {
         this.matchingEngine = matchingEngine;
         this.objectMapper = objectMapper;
         this.breakMapper = breakMapper;
+        this.breakAccessService = breakAccessService;
+        this.systemActivityService = systemActivityService;
     }
 
     public List<ReconciliationListItemDto> listAccessible(List<String> userGroups) {
@@ -77,7 +89,7 @@ public class ReconciliationService {
     @Transactional
     public RunDetailDto triggerRun(Long definitionId, List<String> userGroups) {
         ReconciliationDefinition definition = loadDefinition(definitionId);
-        ensureViewAccess(definition, userGroups);
+        List<AccessControlEntry> entries = ensureAccess(definition, userGroups);
         MatchingResult result = matchingEngine.execute(definition);
 
         ReconciliationRun run = new ReconciliationRun();
@@ -91,23 +103,29 @@ public class ReconciliationService {
         run = runRepository.save(run);
 
         persistBreaks(run, result.breaks());
-        return buildRunDetail(run);
+
+        systemActivityService.recordEvent(
+                SystemEventType.RECONCILIATION_RUN,
+                String.format("Reconciliation %s executed by %s", definition.getCode(), userGroups));
+
+        return buildRunDetail(run, definition, entries, BreakFilterCriteria.none());
     }
 
-    public RunDetailDto fetchLatestRun(Long definitionId, List<String> userGroups) {
+    public RunDetailDto fetchLatestRun(Long definitionId, List<String> userGroups, BreakFilterCriteria filter) {
         ReconciliationDefinition definition = loadDefinition(definitionId);
-        ensureViewAccess(definition, userGroups);
+        List<AccessControlEntry> entries = ensureAccess(definition, userGroups);
         return runRepository.findTopByDefinitionOrderByRunDateTimeDesc(definition)
-                .map(this::buildRunDetail)
+                .map(run -> buildRunDetail(run, definition, entries, filter))
                 .orElseGet(() -> new RunDetailDto(
-                        new ReconciliationSummaryDto(null, null, 0, 0, 0), List.of()));
+                        new ReconciliationSummaryDto(null, null, 0, 0, 0), List.of(), buildFilterMetadata(entries)));
     }
 
-    public RunDetailDto fetchRunDetail(Long runId, List<String> userGroups) {
+    public RunDetailDto fetchRunDetail(Long runId, List<String> userGroups, BreakFilterCriteria filter) {
         ReconciliationRun run = runRepository.findById(runId)
                 .orElseThrow(() -> new IllegalArgumentException("Run not found"));
-        ensureViewAccess(run.getDefinition(), userGroups);
-        return buildRunDetail(run);
+        ReconciliationDefinition definition = run.getDefinition();
+        List<AccessControlEntry> entries = ensureAccess(definition, userGroups);
+        return buildRunDetail(run, definition, entries, filter);
     }
 
     private ReconciliationDefinition loadDefinition(Long definitionId) {
@@ -115,14 +133,12 @@ public class ReconciliationService {
                 .orElseThrow(() -> new IllegalArgumentException("Reconciliation not found"));
     }
 
-    private void ensureViewAccess(ReconciliationDefinition definition, List<String> userGroups) {
-        if (userGroups.isEmpty()) {
-            throw new SecurityException("User lacks group membership for this reconciliation");
-        }
-        List<AccessControlEntry> entries = accessControlEntryRepository.findByDefinitionAndLdapGroupDnIn(definition, userGroups);
+    private List<AccessControlEntry> ensureAccess(ReconciliationDefinition definition, List<String> userGroups) {
+        List<AccessControlEntry> entries = breakAccessService.findEntries(definition, userGroups);
         if (entries.isEmpty()) {
             throw new SecurityException("Access denied");
         }
+        return entries;
     }
 
     private void persistBreaks(ReconciliationRun run, List<BreakCandidate> candidates) {
@@ -132,6 +148,9 @@ public class ReconciliationService {
             breakItem.setRun(run);
             breakItem.setBreakType(candidate.type());
             breakItem.setDetectedAt(Instant.now());
+            breakItem.setProduct(candidate.product());
+            breakItem.setSubProduct(candidate.subProduct());
+            breakItem.setEntityName(candidate.entity());
             breakItem.setSourceAJson(writeJson(candidate.sourceA()));
             breakItem.setSourceBJson(writeJson(candidate.sourceB()));
             items.add(breakItem);
@@ -139,13 +158,46 @@ public class ReconciliationService {
         breakItemRepository.saveAll(items);
     }
 
-    private RunDetailDto buildRunDetail(ReconciliationRun run) {
+    private RunDetailDto buildRunDetail(
+            ReconciliationRun run,
+            ReconciliationDefinition definition,
+            List<AccessControlEntry> entries,
+            BreakFilterCriteria filter) {
         ReconciliationSummaryDto summary = new ReconciliationSummaryDto(
                 run.getId(), run.getRunDateTime(), run.getMatchedCount(), run.getMismatchedCount(), run.getMissingCount());
+
         List<BreakItemDto> breaks = breakItemRepository.findByRunOrderByDetectedAtAsc(run).stream()
-                .map(breakMapper::toDto)
+                .filter(item -> breakAccessService.canView(item, entries))
+                .filter(filter::matches)
+                .map(item -> breakMapper.toDto(
+                        item, breakAccessService.allowedStatuses(item, definition, entries)))
                 .toList();
-        return new RunDetailDto(summary, breaks);
+
+        return new RunDetailDto(summary, breaks, buildFilterMetadata(entries));
+    }
+
+    private FilterMetadataDto buildFilterMetadata(List<AccessControlEntry> entries) {
+        Set<String> products = new LinkedHashSet<>();
+        Set<String> subProducts = new LinkedHashSet<>();
+        Set<String> entities = new LinkedHashSet<>();
+
+        for (AccessControlEntry entry : entries) {
+            if (entry.getProduct() != null) {
+                products.add(entry.getProduct());
+            }
+            if (entry.getSubProduct() != null) {
+                subProducts.add(entry.getSubProduct());
+            }
+            if (entry.getEntityName() != null) {
+                entities.add(entry.getEntityName());
+            }
+        }
+
+        return new FilterMetadataDto(
+                products.stream().sorted().toList(),
+                subProducts.stream().sorted().toList(),
+                entities.stream().sorted().toList(),
+                List.copyOf(EnumSet.allOf(BreakStatus.class)));
     }
 
     private String writeJson(Map<String, Object> data) {
@@ -159,3 +211,4 @@ public class ReconciliationService {
         }
     }
 }
+

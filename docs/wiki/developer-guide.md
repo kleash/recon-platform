@@ -89,7 +89,7 @@ graph TD
     LB[Internal Load Balancer]
   end
   subgraph Application
-    FE[Angular SPA (served via CDN)]
+    FE["Angular SPA (served via CDN)"]
     API[Spring Boot Pods]
   end
   subgraph Data & Integrations

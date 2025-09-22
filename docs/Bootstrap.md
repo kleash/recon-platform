@@ -204,17 +204,16 @@ Advanced dashboarding and analytics.
 
 API-based triggers for matching (Epic 1).
 
-### Phase 4: Example reconcillations creation with documentation
+### Phase 4: Example reconciliations creation with documentation
 
-Create example reconcillations: One simple and one complex including all the features.
+Create example reconciliations: One simple and one complex including all the features.
 
-Each reconcillation example should have it's own ETL layer.
+Each reconciliation example should have its own ETL layer.
 
-Create documentation on explaining how this reconcillation is created and how it is integrated with the plaform.
+Create documentation on explaining how this reconciliation is created and how it is integrated with the platform.
 
 # Technology Stack
 
-=======
 | Layer | Technology | Notes |
 | --- | --- | --- |
 | Backend | Java (Spring Boot) | Microservice-ready backend for the reconciliation engine and APIs. |
@@ -230,4 +229,4 @@ The repository now contains a working Phase 1 MVP implementation split into two 
 * `backend/` – Spring Boot service with embedded LDAP, H2 development database, matching engine, break management APIs, and Excel export support.
 * `frontend/` – Angular 17 standalone application that consumes the backend APIs for sign-in, reconciliation execution, break review, annotation, status changes, and export initiation.
 
-Refer to `docs/business/phase1-business-overview.md` for the business release narrative and `docs/technical` for exhaustive line-by-line technical documentation.
+Refer to the [Feature Compendium](wiki/features.md) for the business release narrative and the [Developer Guide](wiki/developer-guide.md) for exhaustive line-by-line technical documentation.

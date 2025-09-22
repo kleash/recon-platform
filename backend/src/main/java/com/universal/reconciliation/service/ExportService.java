@@ -125,8 +125,9 @@ public class ExportService {
         double coverage = denominator == 0 ? 0.0 : (double) detail.summary().matched() / denominator;
         sheet.getRow(3).createCell(1).setCellValue(coverage);
 
-        sheet.createRow(5).createCell(0).setCellValue("Top Break Products");
-        int rowIdx = 6;
+        int rowIdx = sheet.getLastRowNum() + 1;
+        rowIdx++; // leave a blank row between summary metrics and the product list for readability
+        sheet.createRow(rowIdx++).createCell(0).setCellValue("Top Break Products");
         for (Map.Entry<String, Long> entry : detail.analytics().breaksByProduct().entrySet().stream()
                 .limit(5)
                 .toList()) {
@@ -293,7 +294,10 @@ public class ExportService {
             case "comments" -> item.comments().stream()
                     .map(comment -> String.format("%s: %s", comment.actorDn(), comment.comment()))
                     .collect(Collectors.joining(" | "));
-            default -> item.sourceA().getOrDefault(field, "");
+            default -> {
+                log.warn("Unknown metadata field requested for export: {}", field);
+                yield "";
+            }
         };
     }
 

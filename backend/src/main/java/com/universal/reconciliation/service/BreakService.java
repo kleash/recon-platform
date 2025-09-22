@@ -113,6 +113,8 @@ public class BreakService {
         String username = userContext.getUsername();
         String actorDn = userDirectoryService.personDn(username);
         List<BreakItemDto> responses = new ArrayList<>();
+        List<BreakItem> itemsToSave = new ArrayList<>();
+        List<BreakComment> commentsToSave = new ArrayList<>();
         int statusChanges = 0;
         int commentsAdded = 0;
 
@@ -126,7 +128,7 @@ public class BreakService {
                 BreakStatus previousStatus = breakItem.getStatus();
                 if (previousStatus != request.status()) {
                     breakItem.setStatus(request.status());
-                    breakItemRepository.save(breakItem);
+                    itemsToSave.add(breakItem);
                     statusChanges++;
 
                     BreakComment auditTrail = new BreakComment();
@@ -135,7 +137,7 @@ public class BreakService {
                     auditTrail.setComment("Status updated to " + request.status().name());
                     auditTrail.setCreatedAt(Instant.now());
                     auditTrail.setActorDn(actorDn);
-                    breakCommentRepository.save(auditTrail);
+                    commentsToSave.add(auditTrail);
                 }
             }
 
@@ -146,13 +148,20 @@ public class BreakService {
                 comment.setComment(request.comment().trim());
                 comment.setCreatedAt(Instant.now());
                 comment.setActorDn(actorDn);
-                breakCommentRepository.save(comment);
+                commentsToSave.add(comment);
                 commentsAdded++;
             }
 
             responses.add(breakMapper.toDto(
                     breakItem,
                     breakAccessService.allowedStatuses(breakItem, context.definition(), context.entries())));
+        }
+
+        if (!itemsToSave.isEmpty()) {
+            breakItemRepository.saveAll(itemsToSave);
+        }
+        if (!commentsToSave.isEmpty()) {
+            breakCommentRepository.saveAll(commentsToSave);
         }
 
         systemActivityService.recordEvent(

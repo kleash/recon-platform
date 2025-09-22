@@ -7,7 +7,6 @@ import com.universal.reconciliation.domain.enums.BreakStatus;
 import com.universal.reconciliation.domain.enums.BreakType;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -20,6 +19,8 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class RunAnalyticsCalculator {
+
+    private static final List<String> BUCKET_ORDER = List.of("<1 day", "1-3 days", "4-7 days", "8+ days");
 
     public RunAnalyticsDto calculate(ReconciliationRun run, List<BreakItem> breaks) {
         if (run == null) {
@@ -111,7 +112,6 @@ public class RunAnalyticsCalculator {
     }
 
     private int compareBuckets(String left, String right) {
-        List<String> order = new ArrayList<>(List.of("<1 day", "1-3 days", "4-7 days", "8+ days"));
-        return Integer.compare(order.indexOf(left), order.indexOf(right));
+        return Integer.compare(BUCKET_ORDER.indexOf(left), BUCKET_ORDER.indexOf(right));
     }
 }

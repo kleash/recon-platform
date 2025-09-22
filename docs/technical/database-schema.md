@@ -41,13 +41,13 @@ Configures how incoming data attributes participate in matching and rollup logic
 
 | Column | Type | Notes |
 | --- | --- | --- |
-| `id` | `bigint` PK | |
+| `id` | `bigint` PK | Auto-increment surrogate key. |
 | `definition_id` | `bigint` FK | Links back to `reconciliation_definitions`. |
 | `source_field` | `varchar` | Field name in the ingested source payload. |
 | `display_name` | `varchar` | Column title presented in UI/export. |
-| `role` | `varchar` | Enum `FieldRole` (IDENTIFIER, MATCH_KEY, MEASURE, etc.). |
+| `role` | `varchar` | Enum `FieldRole` (e.g., KEY, COMPARE, PRODUCT, ENTITY). |
 | `data_type` | `varchar` | Enum `FieldDataType` (STRING, DECIMAL, DATE). |
-| `comparison_logic` | `varchar` | Enum `ComparisonLogic` describing how differences are evaluated. |
+| `comparison_logic` | `varchar` | Enum `ComparisonLogic` describing how differences are evaluated (e.g., EXACT_MATCH, NUMERIC_THRESHOLD). |
 | `threshold_percentage` | `numeric` | Optional tolerance for variance-based rules. |
 
 ## Run lifecycle and break tracking
@@ -57,11 +57,11 @@ Captures each execution of the matching engine, including trigger metadata added
 
 | Column | Type | Notes |
 | --- | --- | --- |
-| `id` | `bigint` PK | |
+| `id` | `bigint` PK | Auto-increment surrogate key. |
 | `definition_id` | `bigint` FK | Parent definition for the run. |
 | `run_date_time` | `timestamp` | UTC timestamp when matching executed. |
 | `trigger_type` | `varchar` | Enum `TriggerType` (MANUAL, API, SCHEDULED). |
-| `status` | `varchar` | Enum `RunStatus` describing completion state. |
+| `status` | `varchar` | Enum `RunStatus` describing completion state (e.g., SUCCESS, FAILED). |
 | `triggered_by` | `varchar` | Optional LDAP DN or system principal. |
 | `trigger_comments` | `varchar` | Free-form submission comments. |
 | `trigger_correlation_id` | `varchar` | External reference for API-triggered runs. |
@@ -77,10 +77,10 @@ Stores each detected exception (“break”) including payload snapshots used in
 
 | Column | Type | Notes |
 | --- | --- | --- |
-| `id` | `bigint` PK | |
+| `id` | `bigint` PK | Auto-increment surrogate key. |
 | `run_id` | `bigint` FK | Owning reconciliation run. |
 | `break_type` | `varchar` | Enum `BreakType` (MATCHED_VARIANCE, UNMATCHED_A, etc.). |
-| `status` | `varchar` | Enum `BreakStatus` tracking analyst workflow. |
+| `status` | `varchar` | Enum `BreakStatus` tracking analyst workflow (e.g., OPEN, PENDING_APPROVAL, CLOSED). |
 | `product` | `varchar` | High-level categorisation for analytics. |
 | `sub_product` | `varchar` | Optional secondary categorisation. |
 | `entity_name` | `varchar` | Business entity associated with the break. |
@@ -96,7 +96,7 @@ Audit trail for analyst actions against a break.
 
 | Column | Type | Notes |
 | --- | --- | --- |
-| `id` | `bigint` PK | |
+| `id` | `bigint` PK | Auto-increment surrogate key. |
 | `break_item_id` | `bigint` FK | Parent break. |
 | `actor_dn` | `varchar` | LDAP distinguished name of the actor. |
 | `action` | `varchar` | Workflow transition label (e.g., ASSIGN, RESOLVE). |
@@ -110,7 +110,7 @@ Configurable layouts that drive Excel exports.
 
 | Column | Type | Notes |
 | --- | --- | --- |
-| `id` | `bigint` PK | |
+| `id` | `bigint` PK | Auto-increment surrogate key. |
 | `definition_id` | `bigint` FK | Definition the template belongs to. |
 | `name` | `varchar` | Display name for selection in the UI. |
 | `description` | `varchar` | Longer description for operational context. |
@@ -127,11 +127,11 @@ Defines each column shown in a template-driven export.
 
 | Column | Type | Notes |
 | --- | --- | --- |
-| `id` | `bigint` PK | |
+| `id` | `bigint` PK | Auto-increment surrogate key. |
 | `template_id` | `bigint` FK | Parent template. |
 | `header` | `varchar` | Excel header text. |
-| `source` | `varchar` | Enum `ReportColumnSource` (METADATA, SOURCE_A, SOURCE_B). |
-| `source_field` | `varchar` | Field key resolved at export time (nullable for METADATA). |
+| `source` | `varchar` | Enum `ReportColumnSource` (e.g., SOURCE_A, SOURCE_B, BREAK_METADATA). |
+| `source_field` | `varchar` | Field key resolved at export time (nullable for BREAK_METADATA). |
 | `display_order` | `integer` | Zero-based ordering for column placement. |
 | `highlight_differences` | `boolean` | Mirrors template-level highlighting but can be column-specific. |
 
@@ -142,21 +142,21 @@ Maps LDAP groups to reconciliation definitions with optional dimensional scoping
 
 | Column | Type | Notes |
 | --- | --- | --- |
-| `id` | `bigint` PK | |
+| `id` | `bigint` PK | Auto-increment surrogate key. |
 | `ldap_group_dn` | `varchar` | Distinguished name of the security group. |
 | `definition_id` | `bigint` FK | Target reconciliation definition. |
 | `product` | `varchar` | Optional product filter for entitlements. |
 | `sub_product` | `varchar` | Optional sub-product filter. |
 | `entity_name` | `varchar` | Optional entity filter. |
-| `role` | `varchar` | Enum `AccessRole` (VIEWER, ANALYST, ADMIN). |
+| `role` | `varchar` | Enum `AccessRole` (e.g., MAKER, CHECKER). |
 
 ### `system_activity_logs`
 Persists platform-level audit events surfaced in dashboards.
 
 | Column | Type | Notes |
 | --- | --- | --- |
-| `id` | `bigint` PK | |
-| `event_type` | `varchar` | Enum `SystemEventType` describing the category. |
+| `id` | `bigint` PK | Auto-increment surrogate key. |
+| `event_type` | `varchar` | Enum `SystemEventType` describing the category (e.g., RECONCILIATION_RUN, BREAK_STATUS_CHANGE). |
 | `details` | `varchar(2000)` | Render-ready message describing the event. |
 | `recorded_at` | `timestamp` | When the event was persisted. |
 
@@ -168,7 +168,7 @@ These tables store the normalized data sets that are reconciled. They are intent
 
 | Column | Type | Notes |
 | --- | --- | --- |
-| `id` | `bigint` PK | |
+| `id` | `bigint` PK | Auto-increment surrogate key. |
 | `transaction_id` | `varchar` | Natural key from the upstream system (unique). |
 | `amount` | `decimal` | Monetary value used in comparisons. |
 | `currency` | `varchar` | ISO currency code. |

@@ -9,6 +9,7 @@ import com.universal.reconciliation.repository.SourceRecordBRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
 class SampleEtlIntegrationTest {
@@ -23,6 +24,7 @@ class SampleEtlIntegrationTest {
     private SourceRecordBRepository sourceRecordBRepository;
 
     @Test
+    @Transactional
     void pipelinesSeedSampleDefinitionsAndData() {
         ReconciliationDefinition simple = definitionRepository
                 .findByCode("CASH_VS_GL_SIMPLE")

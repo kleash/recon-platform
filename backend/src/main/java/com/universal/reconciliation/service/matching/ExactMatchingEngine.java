@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.springframework.beans.PropertyAccessor;
@@ -63,9 +64,9 @@ public class ExactMatchingEngine implements MatchingEngine {
             });
         }
 
-        int matched = 0;
-        int mismatched = 0;
-        int missing = 0;
+        AtomicInteger matched = new AtomicInteger();
+        AtomicInteger mismatched = new AtomicInteger();
+        AtomicInteger missing = new AtomicInteger();
         List<BreakCandidate> breakCandidates = new ArrayList<>();
 
         try (Stream<SourceRecordB> stream = sourceBRepository.streamByDefinition(definition)) {
@@ -75,9 +76,9 @@ public class ExactMatchingEngine implements MatchingEngine {
                 RecordSnapshot sourceASnapshot = sourceAIndex.remove(key);
                 if (sourceASnapshot != null) {
                     if (recordsMatch(sourceASnapshot, sourceBSnapshot, metadata.compareRules())) {
-                        matched++;
+                        matched.incrementAndGet();
                     } else {
-                        mismatched++;
+                        mismatched.incrementAndGet();
                         breakCandidates.add(new BreakCandidate(
                                 BreakType.MISMATCH,
                                 sourceASnapshot.values(),
@@ -87,7 +88,7 @@ public class ExactMatchingEngine implements MatchingEngine {
                                 coalesce(sourceASnapshot.entity(), sourceBSnapshot.entity())));
                     }
                 } else {
-                    missing++;
+                    missing.incrementAndGet();
                     breakCandidates.add(new BreakCandidate(
                             BreakType.MISSING_IN_SOURCE_A,
                             Map.of(),
@@ -100,7 +101,7 @@ public class ExactMatchingEngine implements MatchingEngine {
         }
 
         for (RecordSnapshot remaining : sourceAIndex.values()) {
-            missing++;
+            missing.incrementAndGet();
             breakCandidates.add(new BreakCandidate(
                     BreakType.MISSING_IN_SOURCE_B,
                     remaining.values(),
@@ -110,7 +111,7 @@ public class ExactMatchingEngine implements MatchingEngine {
                     remaining.entity()));
         }
 
-        return new MatchingResult(matched, mismatched, missing, breakCandidates);
+        return new MatchingResult(matched.get(), mismatched.get(), missing.get(), breakCandidates);
     }
 
     private boolean recordsMatch(

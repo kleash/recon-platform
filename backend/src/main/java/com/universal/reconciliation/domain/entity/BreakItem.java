@@ -45,6 +45,15 @@ public class BreakItem {
     @Column(nullable = false)
     private BreakStatus status = BreakStatus.OPEN;
 
+    @Column
+    private String product;
+
+    @Column(name = "sub_product")
+    private String subProduct;
+
+    @Column(name = "entity_name")
+    private String entityName;
+
     @Column(nullable = false)
     private Instant detectedAt;
 

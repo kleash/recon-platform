@@ -36,4 +36,13 @@ public class SourceRecordA {
     @Column(nullable = false)
     private LocalDate tradeDate;
 
+    @Column(nullable = false)
+    private String product;
+
+    @Column(nullable = false)
+    private String subProduct;
+
+    @Column(nullable = false, name = "entity_name")
+    private String entityName;
+
 }

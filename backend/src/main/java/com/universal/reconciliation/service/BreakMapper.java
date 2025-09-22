@@ -6,6 +6,7 @@ import com.universal.reconciliation.domain.dto.BreakCommentDto;
 import com.universal.reconciliation.domain.dto.BreakItemDto;
 import com.universal.reconciliation.domain.entity.BreakComment;
 import com.universal.reconciliation.domain.entity.BreakItem;
+import com.universal.reconciliation.domain.enums.BreakStatus;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -27,7 +28,7 @@ public class BreakMapper {
         this.objectMapper = objectMapper;
     }
 
-    public BreakItemDto toDto(BreakItem item) {
+    public BreakItemDto toDto(BreakItem item, List<BreakStatus> allowedStatuses) {
         List<BreakCommentDto> comments = item.getComments().stream()
                 .sorted(Comparator.comparing(BreakComment::getCreatedAt))
                 .map(comment -> new BreakCommentDto(
@@ -37,6 +38,10 @@ public class BreakMapper {
                 item.getId(),
                 item.getBreakType(),
                 item.getStatus(),
+                item.getProduct(),
+                item.getSubProduct(),
+                item.getEntityName(),
+                List.copyOf(allowedStatuses),
                 item.getDetectedAt(),
                 readJson(item.getId(), "sourceA", item.getSourceAJson()),
                 readJson(item.getId(), "sourceB", item.getSourceBJson()),

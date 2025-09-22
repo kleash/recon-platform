@@ -1,0 +1,16 @@
+<section class="activity-feed">
+  <h3>Recent system activity</h3>
+  <ul *ngIf="activity.length > 0; else emptyState">
+    <li *ngFor="let entry of activity">
+      <div class="timestamp">{{ entry.recordedAt | date: 'short' }}</div>
+      <div class="details">
+        <span class="type">{{ entry.eventType }}</span>
+        <p>{{ entry.details }}</p>
+      </div>
+    </li>
+  </ul>
+  <ng-template #emptyState>
+    <p class="empty">Activity will appear here as the platform is used.</p>
+  </ng-template>
+</section>
+

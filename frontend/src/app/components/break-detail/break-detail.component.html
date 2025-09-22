@@ -1,5 +1,11 @@
 <section class="break-detail" *ngIf="breakItem as active; else noBreak">
   <h3>Break {{ active.id }}</h3>
+  <div class="break-meta">
+    <span><strong>Product:</strong> {{ active.product || '—' }}</span>
+    <span><strong>Sub-product:</strong> {{ active.subProduct || '—' }}</span>
+    <span><strong>Entity:</strong> {{ active.entity || '—' }}</span>
+    <span><strong>Status:</strong> {{ active.status }}</span>
+  </div>
   <div class="detail-columns">
     <div>
       <h4>Source A</h4>
@@ -33,10 +39,15 @@
       <button type="submit">Add comment</button>
     </form>
     <div class="status-buttons">
-      <button type="button" *ngFor="let status of statusOptions" (click)="changeStatus(status)">
-        {{ getStatusText(status) }}
-      </button>
+      <ng-container *ngIf="statusOptions.length > 0; else noActions">
+        <button type="button" *ngFor="let status of statusOptions" (click)="changeStatus(status)">
+          {{ getStatusText(status) }}
+        </button>
+      </ng-container>
     </div>
+    <ng-template #noActions>
+      <p class="no-actions">No workflow actions available for your role.</p>
+    </ng-template>
   </div>
 </section>
 <ng-template #noBreak>

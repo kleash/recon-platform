@@ -5,15 +5,14 @@ import { takeUntil } from 'rxjs/operators';
 import { ApiService } from './services/api.service';
 import { SessionService } from './services/session.service';
 import { ReconciliationStateService } from './services/reconciliation-state.service';
-import {
-  BreakItem,
-  ReconciliationListItem
-} from './models/api-models';
+import { BreakItem, ReconciliationListItem } from './models/api-models';
 import { BreakStatus } from './models/break-status';
+import { BreakFilter } from './models/break-filter';
 import { LoginComponent } from './components/login/login.component';
 import { ReconciliationListComponent } from './components/reconciliation-list/reconciliation-list.component';
 import { RunDetailComponent } from './components/run-detail/run-detail.component';
 import { BreakDetailComponent } from './components/break-detail/break-detail.component';
+import { SystemActivityComponent } from './components/system-activity/system-activity.component';
 
 @Component({
   selector: 'app-root',
@@ -24,7 +23,8 @@ import { BreakDetailComponent } from './components/break-detail/break-detail.com
     LoginComponent,
     ReconciliationListComponent,
     RunDetailComponent,
-    BreakDetailComponent
+    BreakDetailComponent,
+    SystemActivityComponent
   ],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css']
@@ -36,7 +36,9 @@ export class AppComponent implements OnInit, OnDestroy {
   readonly selectedReconciliation$ = this.state.selectedReconciliation$;
   readonly runDetail$ = this.state.runDetail$;
   readonly selectedBreak$ = this.state.selectedBreak$;
-  readonly breakStatusOptions = [BreakStatus.Open, BreakStatus.PendingApproval, BreakStatus.Closed];
+  readonly filter$ = this.state.filter$;
+  readonly filterMetadata$ = this.state.filterMetadata$;
+  readonly activity$ = this.state.activity$;
 
   loginError: string | null = null;
   isLoading = false;
@@ -103,6 +105,10 @@ export class AppComponent implements OnInit, OnDestroy {
 
   handleStatusChange(event: { breakId: number; status: BreakStatus }): void {
     this.state.updateStatus(event.breakId, event.status);
+  }
+
+  handleFilterChange(filter: BreakFilter): void {
+    this.state.updateFilter(filter);
   }
 
   handleExportRun(): void {

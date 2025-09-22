@@ -1,0 +1,43 @@
+.activity-feed {
+  display: block;
+}
+
+.activity-feed ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.activity-feed li {
+  display: flex;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.timestamp {
+  width: 140px;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.details {
+  flex: 1;
+}
+
+.type {
+  display: inline-block;
+  background: #e0f2fe;
+  color: #0c4a6e;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.empty {
+  color: #64748b;
+  font-style: italic;
+}
+

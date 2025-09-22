@@ -33,14 +33,33 @@ export interface BreakItem {
   id: number;
   breakType: string;
   status: BreakStatus;
+  product: string | null;
+  subProduct: string | null;
+  entity: string | null;
+  allowedStatusTransitions: BreakStatus[];
   detectedAt: string;
   sourceA: Record<string, unknown>;
   sourceB: Record<string, unknown>;
   comments: BreakComment[];
 }
 
+export interface FilterMetadata {
+  products: string[];
+  subProducts: string[];
+  entities: string[];
+  statuses: BreakStatus[];
+}
+
 export interface RunDetail {
   summary: ReconciliationSummary;
   breaks: BreakItem[];
+  filters: FilterMetadata;
+}
+
+export interface SystemActivityEntry {
+  id: number;
+  eventType: string;
+  details: string;
+  recordedAt: string;
 }
 

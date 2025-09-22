@@ -1,24 +1,69 @@
 INSERT INTO reconciliation_definitions (id, code, name, description, maker_checker_enabled)
-VALUES (1, 'CASH_VS_GL', 'Cash vs General Ledger', 'Phase 1 sample reconciliation using exact matching.', false);
+VALUES (
+    1,
+    'CASH_VS_GL',
+    'Cash vs General Ledger',
+    'Phase 2 sample reconciliation with configurable matching and maker-checker workflow.',
+    true);
 
-INSERT INTO reconciliation_fields (id, definition_id, source_field, display_name, role)
+INSERT INTO reconciliation_fields (
+    id,
+    definition_id,
+    source_field,
+    display_name,
+    role,
+    data_type,
+    comparison_logic,
+    threshold_percentage)
 VALUES
-  (1, 1, 'transactionId', 'Transaction ID', 'KEY'),
-  (2, 1, 'amount', 'Amount', 'COMPARE'),
-  (3, 1, 'currency', 'Currency', 'COMPARE'),
-  (4, 1, 'tradeDate', 'Trade Date', 'COMPARE');
+  (1, 1, 'transactionId', 'Transaction ID', 'KEY', 'STRING', 'EXACT_MATCH', NULL),
+  (2, 1, 'amount', 'Amount', 'COMPARE', 'DECIMAL', 'NUMERIC_THRESHOLD', 5.0),
+  (3, 1, 'currency', 'Currency', 'COMPARE', 'STRING', 'CASE_INSENSITIVE', NULL),
+  (4, 1, 'tradeDate', 'Trade Date', 'COMPARE', 'DATE', 'DATE_ONLY', NULL),
+  (5, 1, 'product', 'Product', 'PRODUCT', 'STRING', 'EXACT_MATCH', NULL),
+  (6, 1, 'subProduct', 'Sub Product', 'SUB_PRODUCT', 'STRING', 'EXACT_MATCH', NULL),
+  (7, 1, 'entityName', 'Entity', 'ENTITY', 'STRING', 'EXACT_MATCH', NULL),
+  (8, 1, 'transactionId', 'Transaction ID', 'DISPLAY', 'STRING', 'EXACT_MATCH', NULL),
+  (9, 1, 'amount', 'Amount', 'DISPLAY', 'DECIMAL', 'NUMERIC_THRESHOLD', 5.0),
+  (10, 1, 'currency', 'Currency', 'DISPLAY', 'STRING', 'CASE_INSENSITIVE', NULL),
+  (11, 1, 'tradeDate', 'Trade Date', 'DISPLAY', 'DATE', 'DATE_ONLY', NULL);
 
-INSERT INTO access_control_entries (id, ldap_group_dn, definition_id, permission_scope)
-VALUES (1, 'recon-ops', 1, 'VIEW');
-
-INSERT INTO source_a_records (id, transaction_id, amount, currency, trade_date)
+INSERT INTO access_control_entries (
+    id,
+    ldap_group_dn,
+    definition_id,
+    product,
+    sub_product,
+    entity_name,
+    role)
 VALUES
-  (1, 'TXN-1001', 100.00, 'USD', '2024-04-01'),
-  (2, 'TXN-1002', 250.50, 'USD', '2024-04-01'),
-  (3, 'TXN-1003', 75.25, 'EUR', '2024-04-02');
+  (1, 'recon-makers', 1, 'Payments', 'Wire', 'US', 'MAKER'),
+  (2, 'recon-checkers', 1, 'Payments', 'Wire', 'US', 'CHECKER');
 
-INSERT INTO source_b_records (id, transaction_id, amount, currency, trade_date)
+INSERT INTO source_a_records (
+    id,
+    transaction_id,
+    amount,
+    currency,
+    trade_date,
+    product,
+    sub_product,
+    entity_name)
 VALUES
-  (1, 'TXN-1001', 100.00, 'USD', '2024-04-01'),
-  (2, 'TXN-1002', 200.50, 'USD', '2024-04-01'),
-  (3, 'TXN-1004', 50.00, 'USD', '2024-04-02');
+  (1, 'TXN-1001', 100.00, 'USD', '2024-04-01', 'Payments', 'Wire', 'US'),
+  (2, 'TXN-1002', 250.50, 'USD', '2024-04-01', 'Payments', 'Wire', 'US'),
+  (3, 'TXN-1003', 75.25, 'EUR', '2024-04-02', 'Payments', 'Wire', 'EU');
+
+INSERT INTO source_b_records (
+    id,
+    transaction_id,
+    amount,
+    currency,
+    trade_date,
+    product,
+    sub_product,
+    entity_name)
+VALUES
+  (1, 'TXN-1001', 100.00, 'USD', '2024-04-01', 'Payments', 'Wire', 'US'),
+  (2, 'TXN-1002', 200.50, 'USD', '2024-04-01', 'Payments', 'Wire', 'US'),
+  (3, 'TXN-1004', 50.00, 'USD', '2024-04-02', 'Payments', 'Wire', 'US');

@@ -23,11 +23,65 @@
     </div>
   </div>
 
+  <div class="filters" *ngIf="filterMetadata as metadata">
+    <div class="filter-control">
+      <label for="product-filter">Product</label>
+      <select
+        id="product-filter"
+        [ngModel]="localFilter.product ?? null"
+        (ngModelChange)="localFilter.product = $event ?? undefined; onFilterChanged()"
+      >
+        <option [ngValue]="null">All products</option>
+        <option *ngFor="let product of metadata.products" [ngValue]="product">{{ product }}</option>
+      </select>
+    </div>
+    <div class="filter-control">
+      <label for="sub-product-filter">Sub-product</label>
+      <select
+        id="sub-product-filter"
+        [ngModel]="localFilter.subProduct ?? null"
+        (ngModelChange)="localFilter.subProduct = $event ?? undefined; onFilterChanged()"
+      >
+        <option [ngValue]="null">All sub-products</option>
+        <option *ngFor="let sub of metadata.subProducts" [ngValue]="sub">{{ sub }}</option>
+      </select>
+    </div>
+    <div class="filter-control">
+      <label for="entity-filter">Entity</label>
+      <select
+        id="entity-filter"
+        [ngModel]="localFilter.entity ?? null"
+        (ngModelChange)="localFilter.entity = $event ?? undefined; onFilterChanged()"
+      >
+        <option [ngValue]="null">All entities</option>
+        <option *ngFor="let entity of metadata.entities" [ngValue]="entity">{{ entity }}</option>
+      </select>
+    </div>
+    <div class="filter-control status-filter">
+      <label>Statuses</label>
+      <div class="status-options">
+        <label *ngFor="let status of metadata.statuses">
+          <input
+            type="checkbox"
+            [value]="status"
+            [checked]="selectedStatuses.includes(status)"
+            (change)="toggleStatus(status, $event.target.checked)"
+          />
+          {{ formatStatus(status) }}
+        </label>
+      </div>
+      <button type="button" class="link-button" (click)="resetStatuses()">Clear statuses</button>
+    </div>
+  </div>
+
   <h3>Break inventory</h3>
   <table class="break-table">
     <thead>
       <tr>
         <th>ID</th>
+        <th>Product</th>
+        <th>Sub-product</th>
+        <th>Entity</th>
         <th>Type</th>
         <th>Status</th>
         <th>Detected</th>
@@ -40,6 +94,9 @@
         [class.active]="selectedBreak?.id === item.id"
       >
         <td>{{ item.id }}</td>
+        <td>{{ item.product || '—' }}</td>
+        <td>{{ item.subProduct || '—' }}</td>
+        <td>{{ item.entity || '—' }}</td>
         <td>{{ item.breakType }}</td>
         <td>{{ item.status }}</td>
         <td>{{ item.detectedAt | date: 'short' }}</td>

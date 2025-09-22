@@ -12,6 +12,7 @@ This guide documents the workflows required to build, test, and contribute to th
 - `backend/` — Spring Boot services, domain logic, and automated tests.
 - `frontend/` — Angular single-page application.
 - `docs/` — Business, technical, developer, and operations documentation.
+- `docs/technical/database-schema.md` — Entity relationship diagram and table-by-table schema reference.
 
 ## Environment setup
 1. Clone the repository and `cd` into it.

@@ -53,7 +53,7 @@ public class ExactMatchingEngine implements MatchingEngine {
         MatchingMetadata metadata = MatchingMetadata.fromDefinition(definition);
 
         Map<String, RecordSnapshot> sourceAIndex = new LinkedHashMap<>();
-        try (Stream<SourceRecordA> stream = sourceARepository.streamAll()) {
+        try (Stream<SourceRecordA> stream = sourceARepository.streamByDefinition(definition)) {
             stream.forEach(record -> {
                 String key = buildKey(record, metadata.keyFields());
                 RecordSnapshot snapshot = captureRecord(record, metadata);
@@ -68,7 +68,7 @@ public class ExactMatchingEngine implements MatchingEngine {
         int missing = 0;
         List<BreakCandidate> breakCandidates = new ArrayList<>();
 
-        try (Stream<SourceRecordB> stream = sourceBRepository.streamAll()) {
+        try (Stream<SourceRecordB> stream = sourceBRepository.streamByDefinition(definition)) {
             stream.forEach(record -> {
                 String key = buildKey(record, metadata.keyFields());
                 RecordSnapshot sourceBSnapshot = captureRecord(record, metadata);

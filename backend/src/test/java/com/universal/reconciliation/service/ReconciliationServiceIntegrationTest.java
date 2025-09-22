@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.universal.reconciliation.domain.dto.RunDetailDto;
 import com.universal.reconciliation.domain.dto.TriggerRunRequest;
+import com.universal.reconciliation.domain.entity.ReconciliationDefinition;
 import com.universal.reconciliation.domain.enums.BreakStatus;
 import com.universal.reconciliation.domain.enums.TriggerType;
+import com.universal.reconciliation.repository.ReconciliationDefinitionRepository;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -18,18 +20,25 @@ class ReconciliationServiceIntegrationTest {
     @Autowired
     private ReconciliationService reconciliationService;
 
+    @Autowired
+    private ReconciliationDefinitionRepository definitionRepository;
+
     private final List<String> groups = List.of("recon-makers", "recon-checkers");
 
     @Test
     void fetchLatestRun_returnsFilteredBreaksAndMetadata() {
+        Long definitionId = definitionId("CASH_VS_GL_SIMPLE");
         RunDetailDto initial = reconciliationService.triggerRun(
-                1L, groups, "integration-test", new TriggerRunRequest(TriggerType.MANUAL_API, "it-run", "integration test", null));
+                definitionId,
+                groups,
+                "integration-test",
+                new TriggerRunRequest(TriggerType.MANUAL_API, "it-run", "integration test", null));
         assertThat(initial.summary().runId()).isNotNull();
         assertThat(initial.summary().triggerType()).isEqualTo(TriggerType.MANUAL_API);
         assertThat(initial.analytics().totalBreakCount()).isGreaterThan(0);
 
         RunDetailDto usBreaks = reconciliationService.fetchLatestRun(
-                1L,
+                definitionId,
                 groups,
                 new BreakFilterCriteria("Payments", "Wire", "US", Set.of(BreakStatus.OPEN)));
 
@@ -39,7 +48,7 @@ class ReconciliationServiceIntegrationTest {
         assertThat(usBreaks.analytics().breaksByStatus()).containsKey(BreakStatus.OPEN.name());
 
         RunDetailDto euOnly = reconciliationService.fetchLatestRun(
-                1L,
+                definitionId,
                 groups,
                 new BreakFilterCriteria(null, null, "EU", Set.of(BreakStatus.OPEN)));
 
@@ -48,6 +57,13 @@ class ReconciliationServiceIntegrationTest {
                 .first()
                 .extracting(b -> b.entity())
                 .isEqualTo("EU");
+    }
+
+    private Long definitionId(String code) {
+        ReconciliationDefinition definition = definitionRepository
+                .findByCode(code)
+                .orElseThrow(() -> new IllegalStateException("Missing definition " + code));
+        return definition.getId();
     }
 }
 

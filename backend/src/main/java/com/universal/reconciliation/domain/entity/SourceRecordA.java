@@ -2,9 +2,12 @@ package com.universal.reconciliation.domain.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -24,7 +27,11 @@ public class SourceRecordA {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "definition_id", nullable = false)
+    private ReconciliationDefinition definition;
+
+    @Column(nullable = false)
     private String transactionId;
 
     @Column(nullable = false)
@@ -44,5 +51,26 @@ public class SourceRecordA {
 
     @Column(nullable = false, name = "entity_name")
     private String entityName;
+
+    @Column(name = "account_id")
+    private String accountId;
+
+    private String isin;
+
+    private BigDecimal quantity;
+
+    @Column(name = "market_value")
+    private BigDecimal marketValue;
+
+    @Column(name = "valuation_currency")
+    private String valuationCurrency;
+
+    @Column(name = "valuation_date")
+    private LocalDate valuationDate;
+
+    private String custodian;
+
+    @Column(name = "portfolio_manager")
+    private String portfolioManager;
 
 }

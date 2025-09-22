@@ -9,7 +9,7 @@ This guide documents the workflows required to build, test, and contribute to th
 - Docker (optional) if you prefer containerised execution
 
 ## Repository layout
-- `backend/` — Spring Boot services, domain logic, and automated tests.
+- `backend/` — Spring Boot services, domain logic, ETL seed pipelines, and automated tests.
 - `frontend/` — Angular single-page application.
 - `docs/` — Business, technical, developer, and operations documentation.
 
@@ -30,7 +30,7 @@ This guide documents the workflows required to build, test, and contribute to th
    cd backend
    ./mvnw spring-boot:run
    ```
-   The API will be available at `http://localhost:8080/api`.
+   The API will be available at `http://localhost:8080/api` and Phase 4 ETL pipelines will load the demo reconciliations during startup.
 2. Start the frontend (in a separate shell):
    ```bash
    cd frontend
@@ -59,8 +59,8 @@ This guide documents the workflows required to build, test, and contribute to th
   - Summary of functional changes and verification steps.
 
 ## Troubleshooting tips
-- If H2 seed data fails, ensure the backend is using the default profile (`spring.profiles.active=dev`).
-- When exports fail, confirm `report_templates` and `report_columns` tables exist (they are populated by `data.sql`).
+- If H2 seed data fails, ensure the backend is using the default profile (`spring.profiles.active=dev`) and review the startup logs for ETL errors (`SampleEtlRunner`).
+- When exports fail, confirm `report_templates` and `report_columns` tables exist (they are populated by the ETL pipelines on startup).
 - For frontend CORS issues, verify the Angular proxy configuration in `frontend/proxy.conf.json` matches the backend base URL.
 
 For further questions, contact the architecture team or refer to the business and technical documentation in the `docs/` directory.

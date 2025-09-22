@@ -40,14 +40,15 @@ class ExactMatchingEngineTest {
 
     @Test
     void execute_appliesConfiguredComparisonLogicAndMetadata() {
-        when(sourceRecordARepository.streamAll())
-                .thenReturn(Stream.of(recordA("TXN-1", 100, "Payments", "Wire", "US"),
-                        recordA("TXN-2", 200, "Payments", "Wire", "US")));
-        when(sourceRecordBRepository.streamAll())
-                .thenReturn(Stream.of(recordB("TXN-1", 104, "payments", "wire", "US"),
-                        recordB("TXN-3", 50, "Payments", "Wire", "US")));
+        ReconciliationDefinition definition = definition();
+        when(sourceRecordARepository.streamByDefinition(definition))
+                .thenReturn(Stream.of(recordA(definition, "TXN-1", 100, "Payments", "Wire", "US"),
+                        recordA(definition, "TXN-2", 200, "Payments", "Wire", "US")));
+        when(sourceRecordBRepository.streamByDefinition(definition))
+                .thenReturn(Stream.of(recordB(definition, "TXN-1", 104, "payments", "wire", "US"),
+                        recordB(definition, "TXN-3", 50, "Payments", "Wire", "US")));
 
-        MatchingResult result = matchingEngine.execute(definition());
+        MatchingResult result = matchingEngine.execute(definition);
 
         assertThat(result.matchedCount()).isEqualTo(1);
         assertThat(result.mismatchedCount()).isZero();
@@ -99,8 +100,15 @@ class ExactMatchingEngineTest {
         return field;
     }
 
-    private SourceRecordA recordA(String id, int amount, String product, String subProduct, String entity) {
+    private SourceRecordA recordA(
+            ReconciliationDefinition definition,
+            String id,
+            int amount,
+            String product,
+            String subProduct,
+            String entity) {
         SourceRecordA record = new SourceRecordA();
+        record.setDefinition(definition);
         record.setTransactionId(id);
         record.setAmount(BigDecimal.valueOf(amount));
         record.setCurrency("USD");
@@ -111,8 +119,15 @@ class ExactMatchingEngineTest {
         return record;
     }
 
-    private SourceRecordB recordB(String id, int amount, String product, String subProduct, String entity) {
+    private SourceRecordB recordB(
+            ReconciliationDefinition definition,
+            String id,
+            int amount,
+            String product,
+            String subProduct,
+            String entity) {
         SourceRecordB record = new SourceRecordB();
+        record.setDefinition(definition);
         record.setTransactionId(id);
         record.setAmount(BigDecimal.valueOf(amount));
         record.setCurrency("USD");

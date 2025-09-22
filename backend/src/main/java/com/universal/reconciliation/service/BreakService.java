@@ -15,7 +15,9 @@ import com.universal.reconciliation.repository.BreakItemRepository;
 import com.universal.reconciliation.security.UserContext;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -112,14 +114,19 @@ public class BreakService {
     public List<BreakItemDto> bulkUpdate(BulkBreakUpdateRequest request) {
         String username = userContext.getUsername();
         String actorDn = userDirectoryService.personDn(username);
+        Map<Long, BreakContext> contexts = loadBulkContexts(request.breakIds());
         List<BreakItemDto> responses = new ArrayList<>();
         List<BreakItem> itemsToSave = new ArrayList<>();
         List<BreakComment> commentsToSave = new ArrayList<>();
         int statusChanges = 0;
         int commentsAdded = 0;
+        String trimmedComment = request.hasComment() ? request.comment().trim() : null;
 
         for (Long breakId : request.breakIds()) {
-            BreakContext context = loadBreakContext(breakId);
+            BreakContext context = contexts.get(breakId);
+            if (context == null) {
+                throw new IllegalArgumentException("Break not found: " + breakId);
+            }
             BreakItem breakItem = context.breakItem();
 
             if (request.hasStatusChange()) {
@@ -142,10 +149,11 @@ public class BreakService {
             }
 
             if (request.hasComment()) {
+                breakAccessService.assertCanComment(breakItem, context.entries());
                 BreakComment comment = new BreakComment();
                 comment.setBreakItem(breakItem);
                 comment.setAction(request.resolvedAction());
-                comment.setComment(request.comment().trim());
+                comment.setComment(trimmedComment);
                 comment.setCreatedAt(Instant.now());
                 comment.setActorDn(actorDn);
                 commentsToSave.add(comment);
@@ -174,6 +182,40 @@ public class BreakService {
                         commentsAdded));
 
         return responses;
+    }
+
+    private Map<Long, BreakContext> loadBulkContexts(List<Long> breakIds) {
+        List<BreakItem> items = breakItemRepository.findAllById(breakIds);
+        Map<Long, BreakItem> itemsById = new HashMap<>();
+        for (BreakItem item : items) {
+            itemsById.put(item.getId(), item);
+        }
+
+        List<Long> missing = new ArrayList<>();
+        for (Long breakId : breakIds) {
+            if (!itemsById.containsKey(breakId)) {
+                missing.add(breakId);
+            }
+        }
+        if (!missing.isEmpty()) {
+            throw new IllegalArgumentException("Break not found: " + missing);
+        }
+
+        Map<Long, BreakContext> contexts = new HashMap<>();
+        Map<Long, List<AccessControlEntry>> entriesByDefinition = new HashMap<>();
+        List<String> groups = userContext.getGroups();
+
+        for (BreakItem item : items) {
+            ReconciliationDefinition definition = item.getRun().getDefinition();
+            Long definitionId = definition.getId();
+            List<AccessControlEntry> entries = entriesByDefinition.computeIfAbsent(
+                    definitionId,
+                    id -> breakAccessService.findEntries(definition, groups));
+            breakAccessService.assertCanView(item, entries);
+            contexts.put(item.getId(), new BreakContext(item, definition, entries));
+        }
+
+        return contexts;
     }
 
     private BreakContext loadBreakContext(Long id) {

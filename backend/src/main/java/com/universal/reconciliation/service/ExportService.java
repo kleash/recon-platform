@@ -12,6 +12,7 @@ import com.universal.reconciliation.domain.enums.ReportColumnSource;
 import com.universal.reconciliation.repository.ReportTemplateRepository;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.temporal.TemporalAccessor;
 import java.util.Comparator;
 import java.util.List;
@@ -264,7 +265,34 @@ public class ExportService {
         }
         Object left = item.sourceA().get(field);
         Object right = item.sourceB().get(field);
-        return !Objects.equals(stringify(left), stringify(right));
+        return !valuesEqual(left, right);
+    }
+
+    private boolean valuesEqual(Object left, Object right) {
+        if (left == null && right == null) {
+            return true;
+        }
+        if (left == null || right == null) {
+            return false;
+        }
+        if (left instanceof Number leftNumber && right instanceof Number rightNumber) {
+            return numbersEqual(leftNumber, rightNumber);
+        }
+        return Objects.equals(stringify(left), stringify(right));
+    }
+
+    private boolean numbersEqual(Number left, Number right) {
+        try {
+            BigDecimal leftDecimal = toBigDecimal(left);
+            BigDecimal rightDecimal = toBigDecimal(right);
+            return leftDecimal.compareTo(rightDecimal) == 0;
+        } catch (NumberFormatException ex) {
+            return Double.compare(left.doubleValue(), right.doubleValue()) == 0;
+        }
+    }
+
+    private BigDecimal toBigDecimal(Number value) {
+        return value instanceof BigDecimal bigDecimal ? bigDecimal : new BigDecimal(value.toString());
     }
 
     private Object resolveValue(ColumnLayout layout, BreakItemDto item) {

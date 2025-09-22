@@ -39,9 +39,12 @@ public class RunAnalyticsCalculator {
     }
 
     private Map<String, Long> countByStatus(List<BreakItem> breaks) {
+        Map<BreakStatus, Long> statusCounts = breaks.stream()
+                .collect(Collectors.groupingBy(BreakItem::getStatus, Collectors.counting()));
+
         Map<String, Long> counts = new LinkedHashMap<>();
         for (BreakStatus status : BreakStatus.values()) {
-            long value = breaks.stream().filter(item -> status.equals(item.getStatus())).count();
+            long value = statusCounts.getOrDefault(status, 0L);
             if (value > 0) {
                 counts.put(status.name(), value);
             }
@@ -50,9 +53,12 @@ public class RunAnalyticsCalculator {
     }
 
     private Map<String, Long> countByType(List<BreakItem> breaks) {
+        Map<BreakType, Long> typeCounts = breaks.stream()
+                .collect(Collectors.groupingBy(BreakItem::getBreakType, Collectors.counting()));
+
         Map<String, Long> counts = new LinkedHashMap<>();
         for (BreakType type : BreakType.values()) {
-            long value = breaks.stream().filter(item -> type.equals(item.getBreakType())).count();
+            long value = typeCounts.getOrDefault(type, 0L);
             if (value > 0) {
                 counts.put(type.name(), value);
             }

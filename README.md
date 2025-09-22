@@ -1,9 +1,9 @@
-Project: Universal Reconciliation Platform
-1. Project Vision & Executive Summary
+# Project: Universal Reconciliation Platform
+## 1. Project Vision & Executive Summary
 
 To build a highly configurable and scalable reconciliation platform that can be adapted to any type of reconciliation process. The platform will automate matching, provide a dynamic user interface for break investigation, implement a robust workflow for break resolution (including maker-checker), and ensure strict access control. The core architectural principle is a common, reusable engine powered by reconciliation-specific configurations.
 
-2. Core Architectural Principles
+## 2. Core Architectural Principles
 
 Configuration over Code: The platform should be driven by metadata. Defining a new reconciliation should be a configuration exercise, not a new development project (excluding the initial data extraction/transformation layer).
 
@@ -13,7 +13,7 @@ Security First: Granular access control is paramount. Users should only see and 
 
 Scalability & Performance: The matching engine and database must be designed to handle large volumes of data efficiently.
 
-3. Feature Plan: Epics & User Stories
+## 3. Feature Plan: Epics & User Stories
 
 We will group features into logical Epics, which are large bodies of work. Each Epic contains smaller, actionable User Stories.
 
@@ -105,7 +105,7 @@ User Story 6.1 (Activity Page): As a Support User or Administrator, I want to vi
 
 User Story 6.2 (Audit Trail): As an Auditor, I need the system to log every significant action on a break (comment added, status changed, file attached), including the user's name and a timestamp. This audit trail should be easily viewable.
 
-4. Conceptual Database Design (MariaDB)
+## 4. Conceptual Database Design (MariaDB)
 
 Here is a high-level schema to support the features above.
 
@@ -157,11 +157,11 @@ System_Activity_Log: Tracks high-level system events.
 
 id, event_type ('FILE_RECEIVED', 'RECON_STARTED'), event_details, timestamp
 
-5. Proposed Phased Rollout (MVP Approach)
+## 5. Proposed Phased Rollout (MVP Approach)
 
 It's crucial to deliver value incrementally.
 
-Phase 1: Minimum Viable Product (MVP)
+### Phase 1: Minimum Viable Product (MVP)
 Goal: Get the first, simplest reconciliation running end-to-end.
 
 Features:
@@ -176,7 +176,7 @@ Break Management: Users can add comments and manually change status from OPEN to
 
 Basic Export to Excel (Simplified Epic 5).
 
-Phase 2: Core Functionality Enhancement
+### Phase 2: Core Functionality Enhancement
 Goal: Build out the core configurability and workflow.
 
 Features:
@@ -191,7 +191,7 @@ Dynamic filtering on the UI (Epic 3).
 
 System Activity Page (Epic 6).
 
-Phase 3: Mature Platform
+### Phase 3: Mature Platform
 Goal: Add advanced features and user experience improvements.
 
 Features:
@@ -203,6 +203,14 @@ Bulk update capabilities for breaks (Epic 4).
 Advanced dashboarding and analytics.
 
 API-based triggers for matching (Epic 1).
+
+### Phase 4: Example reconcillations creation with documentation
+
+Create example reconcillations: One simple and one complex including all the features.
+
+Each reconcillation example should have it's own ETL layer.
+
+Create documentation on explaining how this reconcillation is created and how it is integrated with the plaform.
 
 # Technology Stack
 

@@ -64,7 +64,9 @@ public class SimpleCashGlEtlPipeline extends AbstractSampleEtlPipeline {
 
         List<AccessControlEntry> entries = List.of(
                 entry(definition, "recon-makers", AccessRole.MAKER, "Payments", "Wire", "US"),
-                entry(definition, "recon-checkers", AccessRole.CHECKER, "Payments", "Wire", "US"));
+                entry(definition, "recon-makers", AccessRole.MAKER, "Payments", "Wire", "EU"),
+                entry(definition, "recon-checkers", AccessRole.CHECKER, "Payments", "Wire", "US"),
+                entry(definition, "recon-checkers", AccessRole.CHECKER, "Payments", "Wire", "EU"));
         accessControlEntryRepository.saveAll(entries);
 
         List<SourceRecordA> sourceARecords = readCsv("etl/simple/cash_gl_source_a.csv").stream()

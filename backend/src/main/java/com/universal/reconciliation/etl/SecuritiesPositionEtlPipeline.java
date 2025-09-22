@@ -192,9 +192,12 @@ public class SecuritiesPositionEtlPipeline extends AbstractSampleEtlPipeline {
         record.setTransactionId(row.get("transactionId"));
         record.setAccountId(row.get("accountId"));
         record.setIsin(row.get("isin"));
+        record.setAmount(decimal(row.get("marketValue")));
         record.setQuantity(decimal(row.get("quantity")));
         record.setMarketValue(decimal(row.get("marketValue")));
+        record.setCurrency(row.get("valuationCurrency"));
         record.setValuationCurrency(row.get("valuationCurrency"));
+        record.setTradeDate(date(row.get("valuationDate")));
         record.setValuationDate(date(row.get("valuationDate")));
         record.setProduct(row.get("product"));
         record.setSubProduct(row.get("subProduct"));
@@ -210,9 +213,12 @@ public class SecuritiesPositionEtlPipeline extends AbstractSampleEtlPipeline {
         record.setTransactionId(row.get("transactionId"));
         record.setAccountId(row.get("accountId"));
         record.setIsin(row.get("isin"));
+        record.setAmount(decimal(row.get("marketValue")));
         record.setQuantity(decimal(row.get("quantity")));
         record.setMarketValue(decimal(row.get("marketValue")));
+        record.setCurrency(row.get("valuationCurrency"));
         record.setValuationCurrency(row.get("valuationCurrency"));
+        record.setTradeDate(date(row.get("valuationDate")));
         record.setValuationDate(date(row.get("valuationDate")));
         record.setProduct(row.get("product"));
         record.setSubProduct(row.get("subProduct"));

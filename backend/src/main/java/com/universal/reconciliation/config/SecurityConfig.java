@@ -6,10 +6,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.ldap.core.support.BaseLdapPathContextSource;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.ldap.authentication.LdapBindAuthenticationManagerFactory;
+import org.springframework.security.ldap.authentication.BindAuthenticator;
+import org.springframework.security.ldap.authentication.LdapAuthenticationProvider;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -38,9 +40,13 @@ public class SecurityConfig {
 
     @Bean
     public AuthenticationManager authenticationManager(BaseLdapPathContextSource contextSource) {
-        LdapBindAuthenticationManagerFactory factory = new LdapBindAuthenticationManagerFactory(contextSource);
-        factory.setUserDnPatterns(ldapSecurityProperties.getUserDnPattern());
-        return factory.createAuthenticationManager();
+        BindAuthenticator bindAuthenticator = new BindAuthenticator(contextSource);
+        String userDnPattern = ldapSecurityProperties.getUserDnPattern();
+        if (userDnPattern != null && !userDnPattern.isBlank()) {
+            bindAuthenticator.setUserDnPatterns(new String[] {userDnPattern});
+        }
+        LdapAuthenticationProvider provider = new LdapAuthenticationProvider(bindAuthenticator);
+        return new ProviderManager(provider);
     }
 
     @Bean

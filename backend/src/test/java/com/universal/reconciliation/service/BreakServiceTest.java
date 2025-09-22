@@ -1,7 +1,9 @@
 package com.universal.reconciliation.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -15,6 +17,7 @@ import com.universal.reconciliation.domain.enums.BreakStatus;
 import com.universal.reconciliation.repository.BreakCommentRepository;
 import com.universal.reconciliation.repository.BreakItemRepository;
 import com.universal.reconciliation.security.UserContext;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
@@ -91,8 +94,7 @@ class BreakServiceTest {
         BreakItem second = breakItem();
         second.setId(202L);
 
-        when(breakItemRepository.findById(101L)).thenReturn(Optional.of(first));
-        when(breakItemRepository.findById(202L)).thenReturn(Optional.of(second));
+        when(breakItemRepository.findAllById(any())).thenReturn(List.of(first, second));
         when(userContext.getGroups()).thenReturn(List.of("recon-makers"));
         when(userContext.getUsername()).thenReturn("ops1");
         when(userDirectoryService.personDn("ops1")).thenReturn("uid=ops1");
@@ -120,7 +122,22 @@ class BreakServiceTest {
 
         assertThat(responses).hasSize(2);
         verify(systemActivityService).recordEvent(any(), any());
-        verify(breakCommentRepository, Mockito.atLeast(2)).save(any());
+        verify(breakItemRepository)
+                .saveAll(argThat(items -> items instanceof Collection<?> collection && collection.size() == 2));
+        verify(breakCommentRepository)
+                .saveAll(argThat(comments -> comments instanceof Collection<?> collection && collection.size() == 4));
+    }
+
+    @Test
+    void bulkUpdate_throwsWhenAnyBreakIsMissing() {
+        when(breakItemRepository.findAllById(any())).thenReturn(List.of());
+
+        BulkBreakUpdateRequest request = new BulkBreakUpdateRequest(
+                List.of(999L), BreakStatus.CLOSED, null, null);
+
+        assertThatThrownBy(() -> breakService.bulkUpdate(request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Break not found");
     }
 
     private BreakItem breakItem() {

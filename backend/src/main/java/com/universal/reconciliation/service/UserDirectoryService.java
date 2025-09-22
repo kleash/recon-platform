@@ -1,9 +1,9 @@
 package com.universal.reconciliation.service;
 
 import com.universal.reconciliation.config.LdapSecurityProperties;
-import jakarta.naming.NamingException;
-import jakarta.naming.directory.Attribute;
-import jakarta.naming.directory.Attributes;
+import javax.naming.NamingException;
+import javax.naming.directory.Attribute;
+import javax.naming.directory.Attributes;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.ldap.core.AttributesMapper;

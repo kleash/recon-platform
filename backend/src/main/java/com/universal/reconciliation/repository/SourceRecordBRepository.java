@@ -2,6 +2,7 @@ package com.universal.reconciliation.repository;
 
 import com.universal.reconciliation.domain.entity.ReconciliationDefinition;
 import com.universal.reconciliation.domain.entity.SourceRecordB;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -15,6 +16,8 @@ public interface SourceRecordBRepository extends JpaRepository<SourceRecordB, Lo
 
     Optional<SourceRecordB> findByDefinitionAndTransactionId(
             ReconciliationDefinition definition, String transactionId);
+
+    List<SourceRecordB> findByDefinition(ReconciliationDefinition definition);
 
     @Query("select b from SourceRecordB b where b.definition = :definition")
     Stream<SourceRecordB> streamByDefinition(@Param("definition") ReconciliationDefinition definition);

@@ -30,23 +30,12 @@ Use this playbook to introduce new reconciliations into the Universal Reconcilia
 | `currency` | `currency_code` | `currency_code` | Exact match |
 | `account` | `account_number` | `gl_account` | Display only |
 
-### 3.2 Configuration Payload (API)
-```json
-POST /api/reconciliations
-{
-  "name": "Cash vs General Ledger",
-  "description": "Daily reconciliation of cash settlement records against GL postings",
-  "makerCheckerEnabled": true,
-  "matchingRules": [
-    {"type": "EXACT", "fields": ["transaction_id"]},
-    {"type": "DATE_TOLERANCE", "fields": ["value_date", "posting_date"], "toleranceDays": 1},
-    {"type": "NUMERIC_TOLERANCE", "fields": ["amount", "amount_home"], "tolerancePercent": 0.5}
-  ],
-  "displayFields": ["currency", "account"],
-  "triggers": ["MANUAL", "SCHEDULE", "API"],
-  "reportTemplate": "cash-gl-daily"
-}
-```
+### 3.2 Configuration Method
+In the current version of the platform, new reconciliations are defined programmatically by a developer, not through an API. This is done by creating a Java class that defines the reconciliation, its fields, reports, and data loading logic.
+
+This approach ensures that reconciliation definitions are version-controlled and deployed as part of a standard release process.
+
+For a complete, step-by-step guide on how to create a new reconciliation pipeline in Java, please see the **[Tutorial: Creating a New Reconciliation](./Tutorial-Creating-a-New-Reconciliation.md)**.
 
 ### 3.3 Workflow Setup
 - **Maker group:** `cn=recon-makers,ou=groups,dc=corp,dc=internal`

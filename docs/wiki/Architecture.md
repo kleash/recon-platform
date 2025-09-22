@@ -1,0 +1,170 @@
+## 2. Project Architecture
+
+### 2.1 High-Level Overview
+```mermaid
+graph LR
+  subgraph Frontend
+    UI[Angular SPA]
+  end
+  subgraph Backend
+    API[Spring Boot REST APIs]
+    Engine[Matching Engine]
+    Workflow[Workflow Services]
+    Exports[Excel Exporter]
+    Activity[Activity & Audit Log]
+  end
+  subgraph Data
+    DB[(MariaDB/H2)]
+    LDAP[(Enterprise LDAP)]
+  end
+  subgraph Integrations
+    Upstream[(ETL Pipelines)]
+  end
+
+  UI -->|HTTPS| API
+  API --> Engine
+  API --> Workflow
+  API --> Exports
+  API --> Activity
+  Engine --> DB
+  Workflow --> DB
+  Exports --> DB
+  API --> LDAP
+  Upstream -->|Data Loads| DB
+```
+
+### 2.2 Key Components
+- **Angular SPA:** Presents dashboards, run controls, break management, and reporting interfaces. Communicates with the backend via secured REST APIs.
+- **Spring Boot services:** Expose endpoints, orchestrate matching runs, manage workflow state, and generate exports.
+- **Matching engine:** Executes metadata-driven comparisons across staged data sets and writes run outcomes.
+- **Workflow services:** Handle maker/checker transitions, comments, and audit logging.
+- **Reporting engine:** Builds Excel outputs from database templates and exposes download endpoints via `/api/exports`.
+- **Activity service:** Streams structured events for observability, compliance, and analytics.
+
+### 2.3 Design Patterns Used
+- **Hexagonal architecture:** Controllers adapt HTTP requests into service calls; services remain domain-focused and persistence-agnostic.
+- **Configuration over code:** Reconciliation behaviors and UI presentations are driven by metadata stored in the database.
+- **Event sourcing lite:** Activity feed persists immutable events for each significant action.
+- **Dependency injection:** Spring and Angular rely on constructor injection for explicit dependency management and testability.
+
+### 2.4 Data Flow
+```mermaid
+sequenceDiagram
+    participant SourceA as Source A Data
+    participant SourceB as Source B Data
+    participant ETL as ETL Pipeline
+    participant DB as Staging Tables
+    participant Engine as Matching Engine
+    participant API as REST API
+    participant UI as Angular UI
+
+    SourceA->>ETL: Provide raw files/feeds
+    SourceB->>ETL: Provide raw files/feeds
+    ETL->>DB: Normalize & load standardized records
+    UI->>API: Trigger reconciliation run
+    API->>Engine: Initiate matching job with metadata
+    Engine->>DB: Fetch staged data & metadata
+    Engine->>DB: Persist run summary & breaks
+    API->>UI: Return run analytics & break snapshot
+    UI->>API: Request workflow actions & comments
+    API->>DB: Persist workflow state & audit logs
+```
+
+### 2.5 Deployment Topology
+The platform is typically deployed across three tiers to isolate user traffic, service execution, and persistent data.
+
+```mermaid
+graph TD
+  subgraph Edge
+    WAF[Web Application Firewall]
+    LB[Internal Load Balancer]
+  end
+  subgraph Application
+    FE["Angular SPA (served via CDN)"]
+    API[Spring Boot Pods]
+  end
+  subgraph Data & Integrations
+    DBPrimary[(MariaDB Primary)]
+    DBReplica[(MariaDB Replica)]
+    LDAP[(Corporate LDAP)]
+  end
+
+  Users -->|HTTPS| WAF --> LB --> FE
+  FE -->|JWT| API
+  API --> DBPrimary
+  DBPrimary --> DBReplica
+  API --> LDAP
+```
+
+**Deployment notes**
+- Angular assets are served via CDN/edge caching while API calls terminate at the internal load balancer.
+- Stateful services (MariaDB) reside on a protected subnet with automated backups and read replicas for analytics.
+
+## 4. Code Organization
+
+### 4.1 Directory Structure
+| Path | Purpose |
+| --- | --- |
+| `backend/src/main/java` | Spring Boot application, controllers, services, domain model, repositories. |
+| `backend/src/main/resources` | Configuration files, ETL fixtures, application properties, and embedded LDAP data. |
+| `backend/src/test/java` | Unit and integration tests with Spring Boot Test. |
+| `frontend/src/app` | Angular standalone components, services, and routing. |
+| `frontend/src/environments` | Environment-specific configuration files. |
+| `docs/wiki` | Centralized wiki with feature, developer, and onboarding guides. |
+| `docs/Bootstrap.md` | Historical project charter and phased rollout notes. |
+
+### 4.2 Key Files
+- `UniversalReconciliationPlatformApplication.java` – Application entry point and bootstrap configuration.
+- `ReconciliationController.java` – REST surface for listing reconciliations, triggering runs, and retrieving analytics.
+- `BreakController.java` – Manages break lifecycle, comments, status transitions, and bulk updates.
+- `ExportController.java` – Streams Excel exports and records activity events when users download reports.
+- `SystemActivityController.java` – Exposes the activity feed consumed by the dashboard timeline.
+- `SampleEtlRunner.java` – Boots demo ETL pipelines that seed source data on application startup.
+- `ReconciliationStateService.ts` – Angular service managing global reconciliation state.
+- `api.service.ts` – Angular wrapper around backend REST endpoints with typed request/response contracts.
+
+### 4.3 Important Modules
+- **Matching module (`service/matching`):** `MatchingEngine` interface with `ExactMatchingEngine` implementation that evaluates configured reconciliation fields and produces `MatchingResult` aggregates.
+- **Break management (`service/BreakService`, `BreakAccessService`):** Applies maker/checker rules, enforces security scopes, and persists comments or status updates.
+- **Analytics (`service/RunAnalyticsCalculator`):** Computes chart-ready aggregations for the dashboard, including break counts by status, type, product, and age buckets.
+- **Exporting (`service/ExportService`):** Generates XLSX workbooks from run results and tracks download activity through `SystemActivityService`.
+- **Security (`config/SecurityConfig`, `security/*`):** Configures Spring Security with LDAP authentication, JWT issuance/validation, and per-request user context resolution.
+- **ETL pipelines (`etl/*`):** Normalise raw CSV fixtures into `source_a_records`/`source_b_records` tables to simulate upstream feeds in non-production environments.
+
+## 5. Core Concepts
+
+### 5.1 Domain Models
+```mermaid
+erDiagram
+    RECONCILIATION_DEFINITION ||--o{ RECONCILIATION_FIELD : configures
+    RECONCILIATION_DEFINITION ||--o{ RECONCILIATION_RUN : produces
+    RECONCILIATION_DEFINITION ||--o{ SOURCE_A_RECORD : ingests
+    RECONCILIATION_DEFINITION ||--o{ SOURCE_B_RECORD : ingests
+    RECONCILIATION_DEFINITION ||--o{ REPORT_TEMPLATE : templates
+    REPORT_TEMPLATE ||--o{ REPORT_COLUMN : formats
+    RECONCILIATION_DEFINITION ||--o{ ACCESS_CONTROL_ENTRY : secures
+    RECONCILIATION_RUN ||--o{ BREAK_ITEM : contains
+    BREAK_ITEM ||--o{ BREAK_COMMENT : logs
+    SYSTEM_ACTIVITY_LOG }o..|| RECONCILIATION_RUN : narrates
+```
+
+### 5.2 Key Interfaces & Services
+- `MatchingEngine` – Abstraction for executing the matching algorithm; implemented by `ExactMatchingEngine`.
+- `ReconciliationService` – Coordinates entitlement checks, invokes the matching engine, persists runs, and assembles `RunDetailDto` responses.
+- `BreakService` – Applies maker/checker rules, updates break status, and appends comments through transactional operations.
+- `BreakAccessService` – Filters breaks and reconciliations based on LDAP group entitlements and optional dimensional restrictions.
+- `RunAnalyticsCalculator` – Aggregates break data into charts consumed by the Angular dashboard.
+- `ExportService` – Generates Excel exports leveraging Apache POI and the configured report templates.
+- `SystemActivityService` – Persists audit events (`SystemEventType`) and exposes them to the `/api/activity` endpoint.
+- `UserContext` – Lightweight wrapper around Spring Security providing current username and group memberships for downstream services.
+
+### 5.3 Application Properties
+| Property | Purpose | Example |
+| --- | --- | --- |
+| `spring.datasource.url` | JDBC connection string; defaults to in-memory H2 for local development. | `jdbc:mariadb://localhost:3306/recon` |
+| `spring.jpa.hibernate.ddl-auto` | Controls schema management strategy (`update` in dev, `validate` in prod). | `update` |
+| `app.security.jwt.secret` | Symmetric key used to sign JWTs; set via environment variable in every environment. | `change-me-super-secret` |
+| `app.security.jwt.expiration-seconds` | Token lifetime expressed in seconds. | `86400` |
+| `app.security.ldap.people-base` | LDAP base DN for users; override when binding to enterprise directories. | `ou=people,dc=corp,dc=example` |
+| `app.security.cors.allowed-origins[0]` | Allowed frontend origins for browser requests. | `http://localhost:4200` |
+| `logging.level.com.universal.reconciliation` | Fine-tunes logging verbosity for application packages. | `DEBUG` |

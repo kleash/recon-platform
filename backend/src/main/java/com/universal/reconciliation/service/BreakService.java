@@ -2,6 +2,7 @@ package com.universal.reconciliation.service;
 
 import com.universal.reconciliation.domain.dto.AddBreakCommentRequest;
 import com.universal.reconciliation.domain.dto.BreakItemDto;
+import com.universal.reconciliation.domain.dto.BulkBreakUpdateRequest;
 import com.universal.reconciliation.domain.dto.UpdateBreakStatusRequest;
 import com.universal.reconciliation.domain.entity.AccessControlEntry;
 import com.universal.reconciliation.domain.entity.BreakComment;
@@ -13,6 +14,7 @@ import com.universal.reconciliation.repository.BreakCommentRepository;
 import com.universal.reconciliation.repository.BreakItemRepository;
 import com.universal.reconciliation.security.UserContext;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -104,6 +106,65 @@ public class BreakService {
         return breakMapper.toDto(
                 breakItem,
                 breakAccessService.allowedStatuses(breakItem, context.definition(), context.entries()));
+    }
+
+    @Transactional
+    public List<BreakItemDto> bulkUpdate(BulkBreakUpdateRequest request) {
+        String username = userContext.getUsername();
+        String actorDn = userDirectoryService.personDn(username);
+        List<BreakItemDto> responses = new ArrayList<>();
+        int statusChanges = 0;
+        int commentsAdded = 0;
+
+        for (Long breakId : request.breakIds()) {
+            BreakContext context = loadBreakContext(breakId);
+            BreakItem breakItem = context.breakItem();
+
+            if (request.hasStatusChange()) {
+                breakAccessService.assertTransitionAllowed(
+                        breakItem, context.definition(), context.entries(), request.status());
+                BreakStatus previousStatus = breakItem.getStatus();
+                if (previousStatus != request.status()) {
+                    breakItem.setStatus(request.status());
+                    breakItemRepository.save(breakItem);
+                    statusChanges++;
+
+                    BreakComment auditTrail = new BreakComment();
+                    auditTrail.setBreakItem(breakItem);
+                    auditTrail.setAction("BULK_STATUS_CHANGE");
+                    auditTrail.setComment("Status updated to " + request.status().name());
+                    auditTrail.setCreatedAt(Instant.now());
+                    auditTrail.setActorDn(actorDn);
+                    breakCommentRepository.save(auditTrail);
+                }
+            }
+
+            if (request.hasComment()) {
+                BreakComment comment = new BreakComment();
+                comment.setBreakItem(breakItem);
+                comment.setAction(request.resolvedAction());
+                comment.setComment(request.comment().trim());
+                comment.setCreatedAt(Instant.now());
+                comment.setActorDn(actorDn);
+                breakCommentRepository.save(comment);
+                commentsAdded++;
+            }
+
+            responses.add(breakMapper.toDto(
+                    breakItem,
+                    breakAccessService.allowedStatuses(breakItem, context.definition(), context.entries())));
+        }
+
+        systemActivityService.recordEvent(
+                SystemEventType.BREAK_BULK_ACTION,
+                String.format(
+                        "%s applied bulk update to %d breaks (%d status changes, %d comments)",
+                        username,
+                        request.breakIds().size(),
+                        statusChanges,
+                        commentsAdded));
+
+        return responses;
     }
 
     private BreakContext loadBreakContext(Long id) {

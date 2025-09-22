@@ -6,7 +6,9 @@ import {
   ReconciliationListItem,
   RunDetail,
   FilterMetadata,
-  SystemActivityEntry
+  SystemActivityEntry,
+  TriggerRunPayload,
+  BulkBreakUpdatePayload
 } from '../models/api-models';
 import { BreakStatus } from '../models/break-status';
 import { BreakFilter } from '../models/break-filter';
@@ -33,14 +35,14 @@ export class ReconciliationStateService {
 
   loadReconciliations(): void {
     this.filterSubject.next({});
-    this.api.getReconciliations().subscribe((data) => {
+    this.api.getReconciliations().subscribe((data: ReconciliationListItem[]) => {
       this.reconciliationsSubject.next(data);
       const currentSelection = this.selectedReconciliationSubject.value;
-      if (currentSelection && data.some((item) => item.id === currentSelection.id)) {
+      if (currentSelection && data.some((item: ReconciliationListItem) => item.id === currentSelection.id)) {
         this.fetchLatestRun(currentSelection.id);
         return;
       }
-      const nextSelection = data.length > 0 ? data[0] : null;
+      const nextSelection = data.length > 0 ? data[0] ?? null : null;
       this.selectedReconciliationSubject.next(nextSelection);
       if (nextSelection) {
         this.fetchLatestRun(nextSelection.id);
@@ -59,12 +61,12 @@ export class ReconciliationStateService {
     this.fetchLatestRun(reconciliation.id);
   }
 
-  triggerRun(): void {
+  triggerRun(payload: TriggerRunPayload): void {
     const selected = this.selectedReconciliationSubject.value;
     if (!selected) {
       return;
     }
-    this.api.triggerRun(selected.id).subscribe(() => {
+    this.api.triggerRun(selected.id, payload).subscribe(() => {
       this.fetchLatestRun(selected.id);
       this.refreshActivity();
     });
@@ -75,15 +77,22 @@ export class ReconciliationStateService {
   }
 
   addComment(breakId: number, comment: string, action: string): void {
-    this.api.addComment(breakId, comment, action).subscribe((updated) => {
+    this.api.addComment(breakId, comment, action).subscribe((updated: BreakItem) => {
       this.updateBreak(updated);
       this.refreshActivity();
     });
   }
 
   updateStatus(breakId: number, status: BreakStatus): void {
-    this.api.updateStatus(breakId, status).subscribe((updated) => {
+    this.api.updateStatus(breakId, status).subscribe((updated: BreakItem) => {
       this.updateBreak(updated);
+      this.refreshActivity();
+    });
+  }
+
+  bulkUpdateBreaks(payload: BulkBreakUpdatePayload): void {
+    this.api.bulkUpdateBreaks(payload).subscribe((updated: BreakItem[]) => {
+      this.applyBreakUpdates(updated);
       this.refreshActivity();
     });
   }
@@ -124,7 +133,7 @@ export class ReconciliationStateService {
 
   private fetchLatestRun(reconciliationId: number): void {
     const filter = this.filterSubject.value;
-    this.api.getLatestRun(reconciliationId, filter).subscribe((detail) => {
+    this.api.getLatestRun(reconciliationId, filter).subscribe((detail: RunDetail) => {
       this.runDetailSubject.next(detail);
       this.filterMetadataSubject.next(detail.filters);
       this.selectedBreakSubject.next(detail.breaks[0] ?? null);
@@ -136,7 +145,7 @@ export class ReconciliationStateService {
     if (!currentDetail) {
       return;
     }
-    const updatedBreaks = currentDetail.breaks.map((item) => (item.id === updated.id ? updated : item));
+    const updatedBreaks = currentDetail.breaks.map((item: BreakItem) => (item.id === updated.id ? updated : item));
     const newDetail: RunDetail = { ...currentDetail, breaks: updatedBreaks };
     this.runDetailSubject.next(newDetail);
     if (this.selectedBreakSubject.value?.id === updated.id) {
@@ -144,8 +153,23 @@ export class ReconciliationStateService {
     }
   }
 
+  private applyBreakUpdates(updated: BreakItem[]): void {
+    const currentDetail = this.runDetailSubject.value;
+    if (!currentDetail || updated.length === 0) {
+      return;
+    }
+    const map = new Map(updated.map((item: BreakItem) => [item.id, item] as const));
+    const refreshedBreaks = currentDetail.breaks.map((item: BreakItem) => map.get(item.id) ?? item);
+    const newDetail: RunDetail = { ...currentDetail, breaks: refreshedBreaks };
+    this.runDetailSubject.next(newDetail);
+    const selected = this.selectedBreakSubject.value;
+    if (selected && map.has(selected.id)) {
+      this.selectedBreakSubject.next(map.get(selected.id)!);
+    }
+  }
+
   private refreshActivity(): void {
-    this.api.getSystemActivity().subscribe((entries) => {
+    this.api.getSystemActivity().subscribe((entries: SystemActivityEntry[]) => {
       this.activitySubject.next(entries);
     });
   }

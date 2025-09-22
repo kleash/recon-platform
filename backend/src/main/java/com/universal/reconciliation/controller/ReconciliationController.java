@@ -43,7 +43,10 @@ public class ReconciliationController {
     @PostMapping("/{id}/run")
     public ResponseEntity<RunDetailDto> triggerRun(
             @PathVariable("id") Long reconciliationId, @Valid @RequestBody(required = false) TriggerRunRequest request) {
-        return ResponseEntity.ok(reconciliationService.triggerRun(reconciliationId, userContext.getGroups()));
+        TriggerRunRequest effectiveRequest =
+                request != null ? request : new TriggerRunRequest(null, null, null, null);
+        return ResponseEntity.ok(reconciliationService.triggerRun(
+                reconciliationId, userContext.getGroups(), userContext.getUsername(), effectiveRequest));
     }
 
     @GetMapping("/{id}/runs/latest")

@@ -2,9 +2,11 @@ package com.universal.reconciliation.controller;
 
 import com.universal.reconciliation.domain.dto.AddBreakCommentRequest;
 import com.universal.reconciliation.domain.dto.BreakItemDto;
+import com.universal.reconciliation.domain.dto.BulkBreakUpdateRequest;
 import com.universal.reconciliation.domain.dto.UpdateBreakStatusRequest;
 import com.universal.reconciliation.service.BreakService;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -36,5 +38,11 @@ public class BreakController {
     public ResponseEntity<BreakItemDto> updateStatus(
             @PathVariable("id") Long breakId, @Valid @RequestBody UpdateBreakStatusRequest request) {
         return ResponseEntity.ok(breakService.updateStatus(breakId, request));
+    }
+
+    @PostMapping("/bulk")
+    public ResponseEntity<List<BreakItemDto>> bulkUpdate(
+            @Valid @RequestBody BulkBreakUpdateRequest request) {
+        return ResponseEntity.ok(breakService.bulkUpdate(request));
     }
 }

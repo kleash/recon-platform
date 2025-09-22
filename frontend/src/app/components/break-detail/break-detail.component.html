@@ -6,16 +6,25 @@
     <span><strong>Entity:</strong> {{ active.entity || '—' }}</span>
     <span><strong>Status:</strong> {{ active.status }}</span>
   </div>
-  <div class="detail-columns">
-    <div>
-      <h4>Source A</h4>
-      <pre>{{ active.sourceA | json }}</pre>
-    </div>
-    <div>
-      <h4>Source B</h4>
-      <pre>{{ active.sourceB | json }}</pre>
-    </div>
-  </div>
+  <table class="source-table" *ngIf="fieldKeys.length > 0; else noFields">
+    <thead>
+      <tr>
+        <th>Field</th>
+        <th>Source A</th>
+        <th>Source B</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let key of fieldKeys">
+        <td>{{ key }}</td>
+        <td [class.different]="isDifferent(key)">{{ displayValue(valueFor('A', key)) }}</td>
+        <td [class.different]="isDifferent(key)">{{ displayValue(valueFor('B', key)) }}</td>
+      </tr>
+    </tbody>
+  </table>
+  <ng-template #noFields>
+    <p class="empty-source">No field level detail available.</p>
+  </ng-template>
 
   <div class="commentary">
     <h4>Commentary</h4>

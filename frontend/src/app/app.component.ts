@@ -5,7 +5,13 @@ import { takeUntil } from 'rxjs/operators';
 import { ApiService } from './services/api.service';
 import { SessionService } from './services/session.service';
 import { ReconciliationStateService } from './services/reconciliation-state.service';
-import { BreakItem, ReconciliationListItem } from './models/api-models';
+import {
+  BreakItem,
+  BulkBreakUpdatePayload,
+  LoginResponse,
+  ReconciliationListItem,
+  TriggerRunPayload
+} from './models/api-models';
 import { BreakStatus } from './models/break-status';
 import { BreakFilter } from './models/break-filter';
 import { LoginComponent } from './components/login/login.component';
@@ -69,7 +75,7 @@ export class AppComponent implements OnInit, OnDestroy {
       .login(credentials.username, credentials.password)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (response) => {
+        next: (response: LoginResponse) => {
           this.session.storeSession(response);
           this.isLoading = false;
           this.state.loadReconciliations();
@@ -91,8 +97,8 @@ export class AppComponent implements OnInit, OnDestroy {
     this.state.selectReconciliation(reconciliation);
   }
 
-  handleTriggerRun(): void {
-    this.state.triggerRun();
+  handleTriggerRun(payload: TriggerRunPayload): void {
+    this.state.triggerRun(payload);
   }
 
   handleSelectBreak(breakItem: BreakItem): void {
@@ -111,6 +117,10 @@ export class AppComponent implements OnInit, OnDestroy {
     this.state.updateFilter(filter);
   }
 
+  handleBulkAction(payload: BulkBreakUpdatePayload): void {
+    this.state.bulkUpdateBreaks(payload);
+  }
+
   handleExportRun(): void {
     const runDetail = this.state.getCurrentRunDetail();
     const runId = runDetail?.summary.runId;
@@ -120,7 +130,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.state
       .exportLatestRun()
       .pipe(takeUntil(this.destroy$))
-      .subscribe((blob) => {
+      .subscribe((blob: Blob) => {
         const url = window.URL.createObjectURL(blob);
         const anchor = document.createElement('a');
         anchor.href = url;

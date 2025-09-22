@@ -1,0 +1,43 @@
+:host {
+  font-family: 'Segoe UI', sans-serif;
+  color: #1f2933;
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: #f4f7fb;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  background: #172554;
+  color: #fff;
+}
+
+.user-context {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.user-context button {
+  padding: 0.5rem 1rem;
+  border: none;
+  background: #ff6b6b;
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.content-grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 1.5rem;
+  padding: 1.5rem;
+}
+

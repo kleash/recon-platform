@@ -1,0 +1,41 @@
+<div class="app-container">
+  <header class="app-header">
+    <h1>{{ title }}</h1>
+    <div *ngIf="session.isAuthenticated()" class="user-context">
+      <span>Welcome, {{ session.getDisplayName() || 'User' }}!</span>
+      <button type="button" (click)="logout()">Logout</button>
+    </div>
+  </header>
+
+  <urp-login
+    *ngIf="!session.isAuthenticated()"
+    [isLoading]="isLoading"
+    [error]="loginError"
+    (login)="handleLogin($event)"
+  ></urp-login>
+
+  <section *ngIf="session.isAuthenticated()" class="content-grid">
+    <urp-reconciliation-list
+      [reconciliations]="reconciliations$ | async ?? []"
+      [selectedReconciliation]="selectedReconciliation$ | async"
+      [canExport]="!!((runDetail$ | async)?.summary.runId)"
+      (selectReconciliation)="handleSelectReconciliation($event)"
+      (triggerRun)="handleTriggerRun()"
+      (exportRun)="handleExportRun()"
+    ></urp-reconciliation-list>
+
+    <section class="card">
+      <urp-run-detail
+        [runDetail]="runDetail$ | async"
+        [selectedBreak]="selectedBreak$ | async"
+        (selectBreak)="handleSelectBreak($event)"
+      ></urp-run-detail>
+      <urp-break-detail
+        [breakItem]="selectedBreak$ | async"
+        [statusOptions]="breakStatusOptions"
+        (addComment)="handleAddComment($event)"
+        (updateStatus)="handleStatusChange($event)"
+      ></urp-break-detail>
+    </section>
+  </section>
+</div>

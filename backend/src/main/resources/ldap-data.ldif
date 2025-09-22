@@ -1,0 +1,30 @@
+dn: dc=universal,dc=local
+objectClass: top
+objectClass: domain
+dc: universal
+
+dn: ou=people,dc=universal,dc=local
+objectClass: top
+objectClass: organizationalUnit
+ou: people
+
+dn: ou=groups,dc=universal,dc=local
+objectClass: top
+objectClass: organizationalUnit
+ou: groups
+
+dn: uid=ops1,ou=people,dc=universal,dc=local
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+uid: ops1
+sn: Operations
+cn: Operations User
+userPassword: {bcrypt}$2a$10$7EqJtq98hPqEX7fNZaFWo.6so2IGe1ZR3eZKjuJIddZrTrsg8vLXK
+
+dn: cn=recon-ops,ou=groups,dc=universal,dc=local
+objectClass: top
+objectClass: groupOfUniqueNames
+cn: recon-ops
+uniqueMember: uid=ops1,ou=people,dc=universal,dc=local

@@ -1,0 +1,30 @@
+body {
+  margin: 0;
+  background: #e2e8f0;
+}
+
+.card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.1);
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: #2563eb;
+  color: #fff;
+  padding: 0.6rem 1rem;
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+button:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+}
+
+button:not(:disabled):hover {
+  background: #1d4ed8;
+}

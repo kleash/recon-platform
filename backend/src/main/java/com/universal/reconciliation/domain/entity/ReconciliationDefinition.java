@@ -41,4 +41,7 @@ public class ReconciliationDefinition {
     @Column(nullable = false)
     private boolean makerCheckerEnabled;
 
+    @OneToMany(mappedBy = "definition", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<ReportTemplate> reportTemplates = new LinkedHashSet<>();
+
 }

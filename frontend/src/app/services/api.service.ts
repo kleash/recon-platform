@@ -6,7 +6,9 @@ import {
   LoginResponse,
   ReconciliationListItem,
   RunDetail,
-  SystemActivityEntry
+  SystemActivityEntry,
+  TriggerRunPayload,
+  BulkBreakUpdatePayload
 } from '../models/api-models';
 import { BreakStatus } from '../models/break-status';
 import { environment } from '../../environments/environment';
@@ -26,8 +28,8 @@ export class ApiService {
     return this.http.get<ReconciliationListItem[]>(`${BASE_URL}/reconciliations`);
   }
 
-  triggerRun(reconciliationId: number): Observable<RunDetail> {
-    return this.http.post<RunDetail>(`${BASE_URL}/reconciliations/${reconciliationId}/run`, {});
+  triggerRun(reconciliationId: number, payload: TriggerRunPayload): Observable<RunDetail> {
+    return this.http.post<RunDetail>(`${BASE_URL}/reconciliations/${reconciliationId}/run`, payload);
   }
 
   getLatestRun(reconciliationId: number, filter?: BreakFilter): Observable<RunDetail> {
@@ -48,6 +50,10 @@ export class ApiService {
 
   updateStatus(breakId: number, status: BreakStatus): Observable<BreakItem> {
     return this.http.patch<BreakItem>(`${BASE_URL}/breaks/${breakId}/status`, { status });
+  }
+
+  bulkUpdateBreaks(payload: BulkBreakUpdatePayload): Observable<BreakItem[]> {
+    return this.http.post<BreakItem[]>(`${BASE_URL}/breaks/bulk`, payload);
   }
 
   exportRun(runId: number): Observable<Blob> {

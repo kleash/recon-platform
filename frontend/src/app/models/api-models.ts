@@ -14,8 +14,13 @@ export interface ReconciliationListItem {
 }
 
 export interface ReconciliationSummary {
+  definitionId: number;
   runId: number | null;
   runDateTime: string | null;
+  triggerType: string | null;
+  triggeredBy: string | null;
+  triggerCorrelationId: string | null;
+  triggerComments: string | null;
   matched: number;
   mismatched: number;
   missing: number;
@@ -52,8 +57,34 @@ export interface FilterMetadata {
 
 export interface RunDetail {
   summary: ReconciliationSummary;
+  analytics: RunAnalytics;
   breaks: BreakItem[];
   filters: FilterMetadata;
+}
+
+export interface RunAnalytics {
+  breaksByStatus: Record<string, number>;
+  breaksByType: Record<string, number>;
+  breaksByProduct: Record<string, number>;
+  breaksByEntity: Record<string, number>;
+  openBreaksByAgeBucket: Record<string, number>;
+  filteredBreakCount: number;
+  totalBreakCount: number;
+  totalMatchedCount: number;
+}
+
+export interface TriggerRunPayload {
+  triggerType: string;
+  correlationId?: string;
+  comments?: string;
+  initiatedBy?: string;
+}
+
+export interface BulkBreakUpdatePayload {
+  breakIds: number[];
+  status?: BreakStatus;
+  comment?: string;
+  action?: string;
 }
 
 export interface SystemActivityEntry {

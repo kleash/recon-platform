@@ -47,6 +47,15 @@ public class ReconciliationRun {
     @Column(nullable = false)
     private RunStatus status;
 
+    @Column(name = "triggered_by")
+    private String triggeredBy;
+
+    @Column(name = "trigger_comments")
+    private String triggerComments;
+
+    @Column(name = "trigger_correlation_id")
+    private String triggerCorrelationId;
+
     @Column(nullable = false)
     private int matchedCount;
 

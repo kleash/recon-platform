@@ -6,6 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.universal.reconciliation.domain.dto.BreakItemDto;
+import com.universal.reconciliation.domain.dto.BulkBreakUpdateRequest;
 import com.universal.reconciliation.domain.entity.AccessControlEntry;
 import com.universal.reconciliation.domain.entity.BreakItem;
 import com.universal.reconciliation.domain.entity.ReconciliationDefinition;
@@ -16,6 +17,7 @@ import com.universal.reconciliation.repository.BreakItemRepository;
 import com.universal.reconciliation.security.UserContext;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -79,6 +81,46 @@ class BreakServiceTest {
         assertThat(response).isNotNull();
         verify(breakCommentRepository).save(any());
         verify(systemActivityService).recordEvent(any(), any());
+    }
+
+    @Test
+    @DisplayName("bulkUpdate applies comment and status across requested breaks")
+    void bulkUpdate_updatesMultipleBreaks() {
+        BreakItem first = breakItem();
+        first.setId(101L);
+        BreakItem second = breakItem();
+        second.setId(202L);
+
+        when(breakItemRepository.findById(101L)).thenReturn(Optional.of(first));
+        when(breakItemRepository.findById(202L)).thenReturn(Optional.of(second));
+        when(userContext.getGroups()).thenReturn(List.of("recon-makers"));
+        when(userContext.getUsername()).thenReturn("ops1");
+        when(userDirectoryService.personDn("ops1")).thenReturn("uid=ops1");
+        List<AccessControlEntry> entries = List.of(new AccessControlEntry());
+        when(breakAccessService.findEntries(any(ReconciliationDefinition.class), any())).thenReturn(entries);
+        when(breakAccessService.allowedStatuses(any(), any(), any())).thenReturn(List.of(BreakStatus.CLOSED));
+        when(breakMapper.toDto(any(), any()))
+                .thenReturn(new BreakItemDto(
+                        1L,
+                        null,
+                        BreakStatus.CLOSED,
+                        null,
+                        null,
+                        null,
+                        List.of(),
+                        null,
+                        java.util.Map.of(),
+                        java.util.Map.of(),
+                        List.of()));
+
+        BulkBreakUpdateRequest request = new BulkBreakUpdateRequest(
+                List.of(101L, 202L), BreakStatus.CLOSED, "Bulk closing", "BULK_CLOSE");
+
+        List<BreakItemDto> responses = breakService.bulkUpdate(request);
+
+        assertThat(responses).hasSize(2);
+        verify(systemActivityService).recordEvent(any(), any());
+        verify(breakCommentRepository, Mockito.atLeast(2)).save(any());
     }
 
     private BreakItem breakItem() {

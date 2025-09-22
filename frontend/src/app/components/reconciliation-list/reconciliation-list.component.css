@@ -24,3 +24,72 @@
   background: #eff6ff;
   border-color: #3b82f6;
 }
+
+.run-controls {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.run-controls h3 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.control-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.control-grid label,
+.comments {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.control-grid select,
+.control-grid input,
+.comments textarea {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #cbd5f5;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.comments textarea {
+  resize: vertical;
+}
+
+.button-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.button-row button {
+  flex: 1;
+  padding: 0.6rem 0.75rem;
+  border: none;
+  border-radius: 4px;
+  background: #2563eb;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s ease;
+}
+
+.button-row button[disabled] {
+  background: #cbd5f5;
+  cursor: not-allowed;
+}
+
+.button-row button:not([disabled]):hover {
+  background: #1d4ed8;
+}

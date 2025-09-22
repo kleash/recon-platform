@@ -10,6 +10,18 @@
       <span>{{ detail.summary.runDateTime || 'Not available' }}</span>
     </div>
     <div>
+      <span class="label">Trigger type</span>
+      <span>{{ detail.summary.triggerType || 'Unknown' }}</span>
+    </div>
+    <div>
+      <span class="label">Triggered by</span>
+      <span>{{ detail.summary.triggeredBy || 'N/A' }}</span>
+    </div>
+    <div>
+      <span class="label">Correlation</span>
+      <span>{{ detail.summary.triggerCorrelationId || '—' }}</span>
+    </div>
+    <div>
       <span class="label">Matched</span>
       <span>{{ detail.summary.matched }}</span>
     </div>
@@ -22,6 +34,48 @@
       <span>{{ detail.summary.missing }}</span>
     </div>
   </div>
+  <p class="trigger-comment" *ngIf="detail.summary.triggerComments">
+    {{ detail.summary.triggerComments }}
+  </p>
+
+  <section class="analytics" *ngIf="analytics as stats">
+    <div class="analytics-card">
+      <h4>Visible breaks</h4>
+      <p class="metric">{{ stats.filteredBreakCount }}</p>
+      <p class="hint">of {{ stats.totalBreakCount }} total breaks</p>
+    </div>
+    <div class="analytics-card">
+      <h4>Status distribution</h4>
+      <ul>
+        <li *ngFor="let item of statusAnalytics">
+          <span>{{ item.label }}</span>
+          <strong>{{ item.value }}</strong>
+          <em>{{ item.percent }}%</em>
+        </li>
+        <li *ngIf="statusAnalytics.length === 0">No break data available.</li>
+      </ul>
+    </div>
+    <div class="analytics-card">
+      <h4>Breaks by product</h4>
+      <ul>
+        <li *ngFor="let item of productAnalytics | slice:0:4">
+          <span>{{ item.label }}</span>
+          <strong>{{ item.value }}</strong>
+        </li>
+        <li *ngIf="productAnalytics.length === 0">No product distribution.</li>
+      </ul>
+    </div>
+    <div class="analytics-card">
+      <h4>Open break aging</h4>
+      <ul>
+        <li *ngFor="let bucket of (stats.openBreaksByAgeBucket | keyvalue)">
+          <span>{{ bucket.key }}</span>
+          <strong>{{ bucket.value }}</strong>
+        </li>
+        <li *ngIf="(stats.openBreaksByAgeBucket | keyvalue).length === 0">No open breaks.</li>
+      </ul>
+    </div>
+  </section>
 
   <div class="filters" *ngIf="filterMetadata as metadata">
     <div class="filter-control">
@@ -74,10 +128,38 @@
     </div>
   </div>
 
+  <div class="bulk-selection">
+    <span>{{ selectedIds.size }} break{{ selectedIds.size === 1 ? '' : 's' }} selected</span>
+    <div class="actions">
+      <button type="button" (click)="selectAll()" [disabled]="!detail.breaks.length">Select all</button>
+      <button type="button" (click)="clearSelection()" [disabled]="selectedIds.size === 0">Clear</button>
+    </div>
+  </div>
+
+  <form class="bulk-form" (ngSubmit)="submitBulkAction()" *ngIf="selectedIds.size > 0">
+    <label>
+      Status transition
+      <select [(ngModel)]="bulkStatus" name="bulkStatus">
+        <option [ngValue]="null">Leave unchanged</option>
+        <option *ngFor="let status of bulkStatusOptions" [ngValue]="status">{{ formatStatus(status) }}</option>
+      </select>
+    </label>
+    <label>
+      Action code
+      <input type="text" [(ngModel)]="bulkActionCode" name="bulkActionCode" />
+    </label>
+    <label class="comment">
+      Comment
+      <textarea rows="2" [(ngModel)]="bulkComment" name="bulkComment"></textarea>
+    </label>
+    <button type="submit" [disabled]="!bulkStatus && !bulkComment.trim()">Apply bulk update</button>
+  </form>
+
   <h3>Break inventory</h3>
   <table class="break-table">
     <thead>
       <tr>
+        <th></th>
         <th>ID</th>
         <th>Product</th>
         <th>Sub-product</th>
@@ -93,6 +175,14 @@
         (click)="onSelectBreak(item)"
         [class.active]="selectedBreak?.id === item.id"
       >
+        <td>
+          <input
+            type="checkbox"
+            [checked]="isSelected(item.id)"
+            (click)="$event.stopPropagation()"
+            (change)="toggleSelection(item, $event.target.checked)"
+          />
+        </td>
         <td>{{ item.id }}</td>
         <td>{{ item.product || '—' }}</td>
         <td>{{ item.subProduct || '—' }}</td>

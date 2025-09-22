@@ -43,12 +43,15 @@
           "options": {
             "main": "src/test.ts",
             "polyfills": [],
-            "tsConfig": "tsconfig.app.json",
+            "tsConfig": "tsconfig.spec.json",
             "karmaConfig": "karma.conf.js"
           }
         }
       }
     }
   },
-  "defaultProject": "universal-reconciliation-platform-ui"
+  "defaultProject": "universal-reconciliation-platform-ui",
+  "cli": {
+    "analytics": false
+  }
 }

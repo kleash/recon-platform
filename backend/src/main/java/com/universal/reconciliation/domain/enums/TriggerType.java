@@ -5,5 +5,7 @@ package com.universal.reconciliation.domain.enums;
  */
 public enum TriggerType {
     MANUAL_API,
-    SCHEDULED_CRON
+    SCHEDULED_CRON,
+    EXTERNAL_API,
+    KAFKA_EVENT
 }

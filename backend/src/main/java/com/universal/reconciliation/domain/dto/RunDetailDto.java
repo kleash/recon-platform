@@ -6,5 +6,7 @@ import java.util.List;
  * Contains summary metrics and break details for a reconciliation run.
  */
 public record RunDetailDto(
-        ReconciliationSummaryDto summary, List<BreakItemDto> breaks, FilterMetadataDto filters) {
-}
+        ReconciliationSummaryDto summary,
+        RunAnalyticsDto analytics,
+        List<BreakItemDto> breaks,
+        FilterMetadataDto filters) {}

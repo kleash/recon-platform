@@ -6,6 +6,8 @@ package com.universal.reconciliation.domain.enums;
 public enum SystemEventType {
     RECONCILIATION_RUN,
     BREAK_STATUS_CHANGE,
-    BREAK_COMMENT
+    BREAK_COMMENT,
+    BREAK_BULK_ACTION,
+    REPORT_EXPORT
 }
 

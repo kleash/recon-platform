@@ -67,3 +67,41 @@ VALUES
   (1, 'TXN-1001', 100.00, 'USD', '2024-04-01', 'Payments', 'Wire', 'US'),
   (2, 'TXN-1002', 200.50, 'USD', '2024-04-01', 'Payments', 'Wire', 'US'),
   (3, 'TXN-1004', 50.00, 'USD', '2024-04-02', 'Payments', 'Wire', 'US');
+
+INSERT INTO report_templates (
+    id,
+    definition_id,
+    name,
+    description,
+    include_matched,
+    include_mismatched,
+    include_missing,
+    highlight_differences)
+VALUES (
+    1,
+    1,
+    'Phase 3 Default Template',
+    'Configured export layout for the cash vs GL reconciliation.',
+    true,
+    true,
+    true,
+    true);
+
+INSERT INTO report_columns (
+    id,
+    template_id,
+    header,
+    source,
+    source_field,
+    display_order,
+    highlight_differences)
+VALUES
+  (1, 1, 'Transaction ID (A)', 'SOURCE_A', 'transactionId', 1, true),
+  (2, 1, 'Transaction ID (B)', 'SOURCE_B', 'transactionId', 2, true),
+  (3, 1, 'Amount (A)', 'SOURCE_A', 'amount', 3, true),
+  (4, 1, 'Amount (B)', 'SOURCE_B', 'amount', 4, true),
+  (5, 1, 'Currency (A)', 'SOURCE_A', 'currency', 5, true),
+  (6, 1, 'Currency (B)', 'SOURCE_B', 'currency', 6, true),
+  (7, 1, 'Trade Date (A)', 'SOURCE_A', 'tradeDate', 7, true),
+  (8, 1, 'Trade Date (B)', 'SOURCE_B', 'tradeDate', 8, true),
+  (9, 1, 'Workflow Status', 'BREAK_METADATA', 'status', 9, false);

@@ -17,6 +17,67 @@
   letter-spacing: 0.05em;
 }
 
+.trigger-comment {
+  background: #f1f5f9;
+  border-left: 3px solid #2563eb;
+  padding: 0.75rem 1rem;
+  border-radius: 4px;
+  margin-bottom: 1.5rem;
+  color: #1e293b;
+}
+
+.analytics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.analytics-card {
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.analytics-card h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.analytics-card .metric {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.analytics-card .hint {
+  margin: 0.2rem 0 0 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.analytics-card ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.analytics-card li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.analytics-card li em {
+  color: #64748b;
+}
+
 .filters {
   display: flex;
   flex-wrap: wrap;
@@ -68,6 +129,79 @@
   text-decoration: underline;
 }
 
+.bulk-selection {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+  color: #0f172a;
+}
+
+.bulk-selection .actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.bulk-selection button {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid #cbd5f5;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.bulk-selection button[disabled] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.bulk-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.bulk-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.bulk-form select,
+.bulk-form input,
+.bulk-form textarea {
+  padding: 0.45rem;
+  border: 1px solid #cbd5f5;
+  border-radius: 4px;
+}
+
+.bulk-form textarea {
+  resize: vertical;
+}
+
+.bulk-form button {
+  align-self: flex-end;
+  padding: 0.6rem 0.8rem;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.bulk-form button[disabled] {
+  background: #cbd5f5;
+  cursor: not-allowed;
+}
+
 .break-table {
   width: 100%;
   border-collapse: collapse;
@@ -79,6 +213,12 @@
   padding: 0.6rem;
   border-bottom: 1px solid #e2e8f0;
   text-align: left;
+}
+
+.break-table th:first-child,
+.break-table td:first-child {
+  width: 40px;
+  text-align: center;
 }
 
 .break-table tr.active {

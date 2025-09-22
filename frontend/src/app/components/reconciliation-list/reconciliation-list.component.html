@@ -10,10 +10,36 @@
       <p>{{ recon.description }}</p>
     </li>
   </ul>
-  <button type="button" (click)="onTriggerRun()" [disabled]="!selectedReconciliation">
-    Run reconciliation
-  </button>
-  <button type="button" (click)="onExport()" [disabled]="!canExport">
-    Export latest run
-  </button>
+  <div class="run-controls" *ngIf="selectedReconciliation">
+    <h3>Trigger configuration</h3>
+    <div class="control-grid">
+      <label>
+        Trigger type
+        <select [(ngModel)]="triggerType">
+          <option value="MANUAL_API">Manual API</option>
+          <option value="EXTERNAL_API">External API</option>
+          <option value="SCHEDULED_CRON">Scheduled CRON</option>
+          <option value="KAFKA_EVENT">Kafka Event</option>
+        </select>
+      </label>
+      <label>
+        Correlation ID
+        <input type="text" [(ngModel)]="correlationId" placeholder="Optional" />
+      </label>
+      <label>
+        Initiated by
+        <input type="text" [(ngModel)]="initiatedBy" placeholder="System or user" />
+      </label>
+    </div>
+    <label class="comments">
+      Comments / Notes
+      <textarea rows="2" [(ngModel)]="comments" placeholder="Describe the trigger context"></textarea>
+    </label>
+    <div class="button-row">
+      <button type="button" (click)="onTriggerRun()">Run reconciliation</button>
+      <button type="button" (click)="onExport()" [disabled]="!canExport">
+        Export latest run
+      </button>
+    </div>
+  </div>
 </section>

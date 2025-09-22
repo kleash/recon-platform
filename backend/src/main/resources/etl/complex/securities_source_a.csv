@@ -1,0 +1,4 @@
+transactionId,accountId,isin,quantity,marketValue,valuationCurrency,valuationDate,product,subProduct,entityName,custodian,portfolioManager
+COMPLEX-001,ACC-1001,US1234567890,1500.25,345000.75,USD,2024-04-01,Securities,Equities,Global,PrimeBank,Jane Doe
+COMPLEX-002,ACC-1002,US0987654321,2000.00,410500.50,USD,2024-04-01,Securities,Equities,Global,PrimeBank,Jane Doe
+COMPLEX-003,ACC-1003,GB00B03MLX29,1200.75,250000.10,GBP,2024-04-01,Securities,Equities,EMEA,TrustBank,John Smith

@@ -1,0 +1,4 @@
+transactionId,accountId,isin,quantity,marketValue,valuationCurrency,valuationDate,product,subProduct,entityName,custodian,portfolioManager
+COMPLEX-001,ACC-1001,US1234567890,1500.00,344500.00,usd,2024-04-01,Securities,Equities,Global,PrimeBank,Jane Doe
+COMPLEX-002,ACC-1002,US0987654321,1980.00,390000.00,USD,2024-04-01,Securities,Equities,Global,PrimeBank,Jane Doe
+COMPLEX-004,ACC-1004,US5555555555,500.00,125000.00,USD,2024-04-01,Securities,Equities,APAC,PrimeBank,Alex Li

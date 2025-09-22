@@ -3,7 +3,7 @@
 This guide explains how to deploy, operate, and use the Universal Reconciliation Platform in a lower environment.
 
 ## System overview
-- **Backend**: Spring Boot application exposing REST APIs at `/api`. Uses in-memory H2 for demo data.
+- **Backend**: Spring Boot application exposing REST APIs at `/api`. Uses in-memory H2 for demo data populated by startup ETL pipelines.
 - **Frontend**: Angular SPA served via `npm start` in development; build artefacts can be hosted on any static server in production.
 - **Authentication**: Demo implementation uses an in-memory session service with mock login.
 
@@ -31,10 +31,14 @@ This guide explains how to deploy, operate, and use the Universal Reconciliation
 8. Export the latest run to Excel using the button in the trigger configuration card.
 9. Monitor activity feed for audit events such as runs, comments, status changes, bulk actions, and exports.
 
+## Phase 4 sample datasets
+- **Cash vs General Ledger (Simple)**: Demonstrates a lightweight reconciliation without maker-checker. Records live under the `Payments/Wire/US` scope and include both matched and missing transactions.
+- **Global Securities Positions (Complex)**: Exercises numeric tolerances, maker-checker workflow, and richer metadata (custodian, portfolio manager). Records span multiple entities and intentionally include mismatches and missing entries for training purposes.
+
 ## Maintenance tasks
-- **Data refresh**: Restart the backend to reload seed data from `data.sql` (resets all runtime changes).
-- **Report templates**: Modify `report_templates` and `report_columns` in the database to adjust export layout; restart backend or rerun migrations.
-- **User access**: Update `access_control_entries` table to change maker/checker assignments.
+- **Data refresh**: Restart the backend to rerun the Phase 4 ETL pipelines. They recreate the example reconciliations and reload sample source data.
+- **Report templates**: Modify `report_templates` and `report_columns` in the database to adjust export layout; restart backend or rerun migrations. The ETL seeds phase-specific templates if they are missing.
+- **User access**: Update `access_control_entries` table to change maker/checker assignments. The ETL grants makers/checkers for the demo groups `recon-makers` and `recon-checkers`.
 
 ## Operational monitoring
 - Inspect backend logs for matching errors or Excel export issues (`ExportService` logs serialization failures).
@@ -49,8 +53,8 @@ This guide explains how to deploy, operate, and use the Universal Reconciliation
 | Symptom | Resolution |
 | --- | --- |
 | Frontend cannot reach API | Confirm backend is running on `localhost:8080` and proxy configuration matches. |
-| Excel export fails | Check backend logs for serialization errors and ensure report templates exist. |
+| Excel export fails | Check backend logs for serialization errors and ensure report templates exist. If templates were removed, restart the backend to reapply the ETL seed data. |
 | Bulk update rejected | Ensure request includes at least a status change or comment; UI enforces this but API will return validation error otherwise. |
-| Filters return no data | Review access control entries; filters are intersected with allowed scope. |
+| Filters return no data | Review access control entries; filters are intersected with allowed scope. Restarting the backend also rehydrates the demo access control entries. |
 
 For escalations, capture backend logs, frontend console output, and the steps to reproduce before contacting the engineering team.

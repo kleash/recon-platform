@@ -146,8 +146,8 @@ graph TD
 
 ### 3.4 Data Seeding & Sample Jobs
 - **Schema creation:** `spring.jpa.hibernate.ddl-auto=update` creates or updates tables automatically for development profiles. For a clean rebuild, start H2 with `-Dspring.jpa.hibernate.ddl-auto=create` once and revert to `update` afterward.
-- **Sample ETL:** `SampleEtlRunner` executes the registered pipelines (`SecuritiesPositionEtlPipeline`, `SimpleCashGlEtlPipeline`) during startup, loading demo records into `source_a_records`, `source_b_records`, and attaching a reconciliation definition.
-- **Refreshing data:** Restarting the backend clears the in-memory H2 database. For MariaDB, run `DELETE FROM source_a_records`, `source_b_records`, and `break_items` before rerunning the application to let the ETL pipelines repopulate data.
+- **Sample ETL:** `EtlBootstrapper` inspects the Spring context for any `EtlPipeline` beans (including those packaged inside example modules) and executes them during application startup. This keeps the platform agnostic of which reconciliations are present while still seeding demo data.
+- **Refreshing data:** Restarting the backend clears the in-memory H2 database. For MariaDB, run `DELETE FROM source_a_records`, `source_b_records`, and `break_items` before rerunning the application so the pipelines can repopulate data.
 - **User identities:** `ldap-data.ldif` seeds demo users and groups when using the embedded LDAP server. Update this file or point Spring LDAP to an external directory for enterprise integration.
 
 ## 4. Code Organization
@@ -169,7 +169,9 @@ graph TD
 - `BreakController.java` – Manages break lifecycle, comments, status transitions, and bulk updates.
 - `ExportController.java` – Streams Excel exports and records activity events when users download reports.
 - `SystemActivityController.java` – Exposes the activity feed consumed by the dashboard timeline.
-- `SampleEtlRunner.java` – Boots demo ETL pipelines that seed source data on application startup.
+- `EtlBootstrapper.java` – Executes every available `EtlPipeline` bean so the platform and standalone examples can seed data without code changes.
+- `examples/common` – Shared support library for example ETL pipelines (dataset readers, helper abstractions).
+- `examples/<module>` – Standalone reconciliation examples (cash-vs-gl, securities-position, custodian-trade) with dedicated Spring Boot applications, resources, and end-to-end tests.
 - `ReconciliationStateService.ts` – Angular service managing global reconciliation state.
 - `api.service.ts` – Angular wrapper around backend REST endpoints with typed request/response contracts.
 
@@ -180,6 +182,12 @@ graph TD
 - **Exporting (`service/ExportService`):** Generates XLSX workbooks from run results and tracks download activity through `SystemActivityService`.
 - **Security (`config/SecurityConfig`, `security/*`):** Configures Spring Security with LDAP authentication, JWT issuance/validation, and per-request user context resolution.
 - **ETL pipelines (`etl/*`):** Normalise raw CSV fixtures into `source_a_records`/`source_b_records` tables to simulate upstream feeds in non-production environments.
+
+### 4.4 Standalone Example Library
+- **Location:** The `examples/` directory contains Maven modules that package full-stack reference implementations. Each module includes its own Spring Boot application, ETL pipeline, resources, documentation, and an end-to-end integration test invoked through `scripts/run_e2e.sh`.
+- **Isolation:** Example modules depend on the shared `examples/common` library but remain decoupled from the main platform packaging so teams can copy/paste or fork them independently.
+- **Data assets:** To avoid committing binary workbooks, Excel fixtures are stored as Base64 text files with the suffix `.xlsx.b64`. `AbstractExampleEtlPipeline#readExcel` transparently decodes these files at runtime, preserving the Excel ingestion behaviour while keeping the repository diff-friendly.
+- **Extensibility:** New reconciliations can be prototyped by duplicating an example module, updating its `pom.xml` coordinates, and contributing an `EtlPipeline` bean. The platform will automatically execute it via `EtlBootstrapper` when the application starts.
 
 ## 5. Core Concepts
 

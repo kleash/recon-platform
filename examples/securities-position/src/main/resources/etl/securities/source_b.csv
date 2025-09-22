@@ -1,0 +1,5 @@
+transactionId,accountId,isin,quantity,marketValue,valuationCurrency,valuationDate,product,subProduct,entityName,custodian,portfolioManager
+COMPLEX-001,ACC-1001,US1234567890,999.7,1024805.00,USD,2024-03-18,Securities,Equities,GlobalFund,BNY Mellon,Alex Morgan
+COMPLEX-002,ACC-1002,GB0987654321,860,925100.75,GBP,2024-03-18,Securities,Equities,GlobalFund,State Street,Sophia Patel
+COMPLEX-004,ACC-1004,JP1122334455,420,489500.25,JPY,2024-03-18,Securities,Equities,WealthFund,Mizuho,Jordan Smith
+COMPLEX-005,ACC-1005,HK6677889900,250,315000.10,HKD,2024-03-18,Securities,Equities,AsiaFund,HSBC,Jamie Chen

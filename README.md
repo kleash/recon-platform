@@ -22,3 +22,10 @@ The Universal Reconciliation Platform delivers a configurable matching engine, w
 The complete project wiki, including feature deep dives, developer workflows, and reconciliation onboarding playbooks, lives under [`docs/wiki`](docs/wiki/README.md). Start with the wiki home for navigation to specialized guides and diagrams.
 
 For the original project charter and phased rollout notes, refer to [`docs/Bootstrap.md`](docs/Bootstrap.md).
+
+## Standalone Examples
+Ready-to-run reconciliation samples now live in the [`examples/`](examples/README.md) directory. Each
+example seeds the platform with its own ETL pipeline, data files, and an end-to-end integration test
+that can be executed via the module-specific `scripts/run_e2e.sh` helper. Examples cover scenarios
+ranging from introductory cash versus GL workflows to complex multi-custodian trade reconciliations
+with automated scheduling.

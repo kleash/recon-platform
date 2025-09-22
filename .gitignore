@@ -4,3 +4,4 @@ frontend/dist/
 frontend/.angular/
 .idea/
 .DS_Store
+*.xlsx

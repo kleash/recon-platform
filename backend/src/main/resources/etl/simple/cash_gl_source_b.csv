@@ -1,4 +1,0 @@
-transactionId,amount,currency,tradeDate,product,subProduct,entityName
-CASH-1001,100.00,USD,2024-04-01,Payments,Wire,US
-CASH-1002,200.50,USD,2024-04-01,Payments,Wire,US
-CASH-1004,50.00,USD,2024-04-02,Payments,Wire,US

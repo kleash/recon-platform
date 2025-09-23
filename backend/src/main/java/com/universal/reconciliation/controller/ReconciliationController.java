@@ -1,6 +1,7 @@
 package com.universal.reconciliation.controller;
 
 import com.universal.reconciliation.domain.dto.ReconciliationListItemDto;
+import com.universal.reconciliation.domain.dto.ReconciliationSummaryDto;
 import com.universal.reconciliation.domain.dto.RunDetailDto;
 import com.universal.reconciliation.domain.dto.TriggerRunRequest;
 import com.universal.reconciliation.domain.enums.BreakStatus;
@@ -38,6 +39,15 @@ public class ReconciliationController {
     @GetMapping
     public ResponseEntity<List<ReconciliationListItemDto>> listReconciliations() {
         return ResponseEntity.ok(reconciliationService.listAccessible(userContext.getGroups()));
+    }
+
+    @GetMapping("/{id}/runs")
+    public ResponseEntity<List<ReconciliationSummaryDto>> listRuns(
+            @PathVariable("id") Long reconciliationId,
+            @RequestParam(value = "limit", required = false, defaultValue = "5") int limit) {
+        int boundedLimit = limit <= 0 ? 5 : Math.min(limit, 50);
+        return ResponseEntity.ok(
+                reconciliationService.listRuns(reconciliationId, userContext.getGroups(), boundedLimit));
     }
 
     @PostMapping("/{id}/run")

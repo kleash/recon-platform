@@ -222,11 +222,4 @@ Create documentation on explaining how this reconciliation is created and how it
 | Authentication | JWT (JSON Web Tokens) | Enables stateless authentication across services. |
 | Styling | Modern UI library (TBD) | Final selection will be confirmed during UI design. |
 
-## Phase 1 Delivery Notes
-
-The repository now contains a working Phase 1 MVP implementation split into two folders:
-
-* `backend/` – Spring Boot service with embedded LDAP, H2 development database, matching engine, break management APIs, and Excel export support.
-* `frontend/` – Angular 17 standalone application that consumes the backend APIs for sign-in, reconciliation execution, break review, annotation, status changes, and export initiation.
-
 Refer to the [Feature Compendium](wiki/features.md) for the business release narrative and the [Developer Guide](wiki/developer-guide.md) for exhaustive line-by-line technical documentation.

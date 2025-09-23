@@ -11,6 +11,7 @@ platform code base and is backed by its own end-to-end integration test.
 | [`cash-vs-gl`](cash-vs-gl/README.md) | Introductory cash versus general ledger reconciliation using CSV inputs. | `examples/cash-vs-gl/scripts/run_e2e.sh` |
 | [`securities-position`](securities-position/README.md) | Maker-checker securities position example with tolerance-based comparisons. | `examples/securities-position/scripts/run_e2e.sh` |
 | [`custodian-trade`](custodian-trade/README.md) | Complex multi-custodian trade reconciliation with cutoffs and report automation. | `examples/custodian-trade/scripts/run_e2e.sh` |
+| [`integration-harness`](integration-harness/README.md) | Boots the platform with multiple examples and validates runtime workflows. | `examples/integration-harness/scripts/run_multi_example_e2e.sh` |
 
 ## Usage notes
 

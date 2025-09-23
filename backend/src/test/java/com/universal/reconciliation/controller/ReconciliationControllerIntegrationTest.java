@@ -2,6 +2,7 @@ package com.universal.reconciliation.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -132,6 +133,25 @@ class ReconciliationControllerIntegrationTest {
         assertThat(groupsCaptor.getValue()).containsExactly("recon-makers");
         assertThat(filterCaptor.getValue())
                 .isEqualTo(new BreakFilterCriteria(null, null, "EU", Set.<BreakStatus>of()));
+    }
+
+    @Test
+    @WithMockUser(username = "api-user", authorities = {"recon-makers"})
+    void listRuns_sanitizesLimitAndPropagatesGroups() throws Exception {
+        List<ReconciliationSummaryDto> runs = List.of(sampleRunDetail().summary());
+        when(reconciliationService.listRuns(anyLong(), anyList(), anyInt())).thenReturn(runs);
+
+        mockMvc.perform(get("/api/reconciliations/{id}/runs", 9L).param("limit", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].runId").value(runs.get(0).runId()));
+
+        ArgumentCaptor<List<String>> groupsCaptor = ArgumentCaptor.forClass(List.class);
+        ArgumentCaptor<Integer> limitCaptor = ArgumentCaptor.forClass(Integer.class);
+        verify(reconciliationService)
+                .listRuns(eq(9L), groupsCaptor.capture(), limitCaptor.capture());
+
+        assertThat(groupsCaptor.getValue()).containsExactly("recon-makers");
+        assertThat(limitCaptor.getValue()).isEqualTo(1);
     }
 
     private RunDetailDto sampleRunDetail() {

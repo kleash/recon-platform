@@ -128,6 +128,34 @@ class ReconciliationServiceIntegrationTest {
         assertThat(detail.filters().products()).isEmpty();
     }
 
+    @Test
+    void listRuns_returnsRecentSummariesInDescendingOrder() {
+        Long definitionId = definitionId(SIMPLE_CODE);
+
+        reconciliationService.triggerRun(
+                definitionId,
+                groups,
+                "integration-test",
+                new TriggerRunRequest(TriggerType.MANUAL_API, "first", "first manual run", "first-tester"));
+        reconciliationService.triggerRun(
+                definitionId,
+                groups,
+                "integration-test",
+                new TriggerRunRequest(TriggerType.MANUAL_API, "second", "second manual run", "second-tester"));
+
+        var summaries = reconciliationService.listRuns(definitionId, groups, 5);
+
+        assertThat(summaries).hasSizeGreaterThanOrEqualTo(2);
+        assertThat(summaries.get(0).triggerComments()).isEqualTo("second manual run");
+        assertThat(summaries.get(0).triggerCorrelationId()).isEqualTo("second");
+        assertThat(summaries.get(1).triggerComments()).isEqualTo("first manual run");
+
+        assertThat(reconciliationService.listRuns(definitionId, groups, 1))
+                .singleElement()
+                .extracting(summary -> summary.triggerComments())
+                .isEqualTo("second manual run");
+    }
+
     private Long definitionId(String code) {
         ReconciliationDefinition definition = definitionRepository
                 .findByCode(code)

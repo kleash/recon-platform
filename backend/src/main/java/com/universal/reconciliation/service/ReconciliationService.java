@@ -160,6 +160,29 @@ public class ReconciliationService {
         return fetchRunDetail(runId, userGroups, BreakFilterCriteria.none());
     }
 
+    @Transactional(readOnly = true)
+    public List<ReconciliationSummaryDto> listRuns(Long definitionId, List<String> userGroups, int limit) {
+        if (limit <= 0) {
+            return List.of();
+        }
+        ReconciliationDefinition definition = loadDefinition(definitionId);
+        ensureAccess(definition, userGroups);
+        return runRepository.findByDefinitionOrderByRunDateTimeDesc(definition).stream()
+                .limit(limit)
+                .map(run -> new ReconciliationSummaryDto(
+                        definition.getId(),
+                        run.getId(),
+                        run.getRunDateTime(),
+                        run.getTriggerType(),
+                        run.getTriggeredBy(),
+                        run.getTriggerCorrelationId(),
+                        run.getTriggerComments(),
+                        run.getMatchedCount(),
+                        run.getMismatchedCount(),
+                        run.getMissingCount()))
+                .toList();
+    }
+
     private ReconciliationDefinition loadDefinition(Long definitionId) {
         return definitionRepository.findById(definitionId)
                 .orElseThrow(() -> new IllegalArgumentException("Reconciliation not found"));

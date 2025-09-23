@@ -9,10 +9,10 @@
         <relativePath/>
     </parent>
     <groupId>com.universal.reconciliation.examples</groupId>
-    <artifactId>custodian-trade-example</artifactId>
+    <artifactId>multi-example-harness</artifactId>
     <version>0.1.0</version>
-    <name>Custodian Trade Reconciliation Example</name>
-    <description>Complex multi-file reconciliation with scheduling and reporting automation.</description>
+    <name>Multi-example Reconciliation Harness</name>
+    <description>Aggregated Spring Boot launcher that exposes multiple reconciliation examples simultaneously.</description>
     <properties>
         <java.version>17</java.version>
     </properties>
@@ -24,7 +24,12 @@
         </dependency>
         <dependency>
             <groupId>com.universal.reconciliation.examples</groupId>
-            <artifactId>example-support</artifactId>
+            <artifactId>cash-vs-gl-example</artifactId>
+            <version>0.1.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.universal.reconciliation.examples</groupId>
+            <artifactId>custodian-trade-example</artifactId>
             <version>0.1.0</version>
         </dependency>
         <dependency>
@@ -38,9 +43,6 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
-                <configuration>
-                    <classifier>exec</classifier>
-                </configuration>
             </plugin>
         </plugins>
     </build>

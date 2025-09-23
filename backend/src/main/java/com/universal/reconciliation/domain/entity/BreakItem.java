@@ -45,6 +45,9 @@ public class BreakItem {
     @Column(nullable = false)
     private BreakStatus status = BreakStatus.OPEN;
 
+    @Column(nullable = false)
+    private Instant detectedAt;
+
     @Column
     private String product;
 
@@ -54,13 +57,27 @@ public class BreakItem {
     @Column(name = "entity_name")
     private String entityName;
 
-    @Column(nullable = false)
-    private Instant detectedAt;
+    @Lob
+    @Column(name = "source_payload_json", columnDefinition = "CLOB")
+    private String sourcePayloadJson;
 
+    @Lob
+    @Column(name = "classification_json", columnDefinition = "CLOB")
+    private String classificationJson;
+
+    @Column(name = "missing_sources_json", columnDefinition = "CLOB")
+    private String missingSourcesJson;
+
+    /**
+     * Legacy columns retained for compatibility while the dynamic engine is
+     * rolled out. New breaks should persist the consolidated payload instead.
+     */
+    @Deprecated(forRemoval = true)
     @Lob
     @Column(columnDefinition = "CLOB")
     private String sourceAJson;
 
+    @Deprecated(forRemoval = true)
     @Lob
     @Column(columnDefinition = "CLOB")
     private String sourceBJson;

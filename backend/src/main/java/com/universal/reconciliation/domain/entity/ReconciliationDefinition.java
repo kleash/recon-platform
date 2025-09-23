@@ -35,13 +35,25 @@ public class ReconciliationDefinition {
     @Column(nullable = false)
     private String description;
 
-    @OneToMany(mappedBy = "definition", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<ReconciliationField> fields = new LinkedHashSet<>();
-
     @Column(nullable = false)
     private boolean makerCheckerEnabled;
 
     @OneToMany(mappedBy = "definition", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<ReportTemplate> reportTemplates = new LinkedHashSet<>();
+
+    /**
+     * Legacy field metadata retained for backward compatibility while the
+     * dynamic configuration model is introduced. New reconciliations should
+     * rely on {@link #canonicalFields} instead.
+     */
+    @Deprecated(forRemoval = true)
+    @OneToMany(mappedBy = "definition", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<ReconciliationField> fields = new LinkedHashSet<>();
+
+    @OneToMany(mappedBy = "definition", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<ReconciliationSource> sources = new LinkedHashSet<>();
+
+    @OneToMany(mappedBy = "definition", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<CanonicalField> canonicalFields = new LinkedHashSet<>();
 
 }

@@ -19,6 +19,7 @@ import com.universal.reconciliation.repository.BreakItemRepository;
 import com.universal.reconciliation.security.UserContext;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.BeforeEach;
@@ -70,13 +71,11 @@ class BreakServiceTest {
                         1L,
                         null,
                         BreakStatus.OPEN,
-                        null,
-                        null,
-                        null,
+                        Map.of(),
                         List.of(),
                         null,
-                        java.util.Map.of(),
-                        java.util.Map.of(),
+                        Map.of(),
+                        List.of(),
                         List.of()));
 
         var response = breakService.addComment(42L, new com.universal.reconciliation.domain.dto.AddBreakCommentRequest("Investigate", "Note"));
@@ -106,13 +105,11 @@ class BreakServiceTest {
                         1L,
                         null,
                         BreakStatus.CLOSED,
-                        null,
-                        null,
-                        null,
+                        Map.of(),
                         List.of(),
                         null,
-                        java.util.Map.of(),
-                        java.util.Map.of(),
+                        Map.of(),
+                        List.of(),
                         List.of()));
 
         BulkBreakUpdateRequest request = new BulkBreakUpdateRequest(
@@ -155,4 +152,3 @@ class BreakServiceTest {
         return item;
     }
 }
-

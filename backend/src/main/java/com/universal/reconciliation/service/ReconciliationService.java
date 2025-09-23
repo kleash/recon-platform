@@ -203,11 +203,15 @@ public class ReconciliationService {
             breakItem.setRun(run);
             breakItem.setBreakType(candidate.type());
             breakItem.setDetectedAt(Instant.now());
-            breakItem.setProduct(candidate.product());
-            breakItem.setSubProduct(candidate.subProduct());
-            breakItem.setEntityName(candidate.entity());
-            breakItem.setSourceAJson(writeJson(candidate.sourceA()));
-            breakItem.setSourceBJson(writeJson(candidate.sourceB()));
+            String product = candidate.classifications().get("product");
+            String subProduct = candidate.classifications().get("subProduct");
+            String entity = candidate.classifications().get("entity");
+            breakItem.setProduct(product);
+            breakItem.setSubProduct(subProduct);
+            breakItem.setEntityName(entity);
+            breakItem.setClassificationJson(writeJson(candidate.classifications()));
+            breakItem.setSourcePayloadJson(writeJson(candidate.sources()));
+            breakItem.setMissingSourcesJson(writeJson(candidate.missingSources()));
             items.add(breakItem);
         }
         breakItemRepository.saveAll(items);
@@ -269,9 +273,15 @@ public class ReconciliationService {
                 List.copyOf(EnumSet.allOf(BreakStatus.class)));
     }
 
-    private String writeJson(Map<String, Object> data) {
-        if (data == null || data.isEmpty()) {
+    private String writeJson(Object data) {
+        if (data == null) {
             return "{}";
+        }
+        if (data instanceof Map<?, ?> map && map.isEmpty()) {
+            return "{}";
+        }
+        if (data instanceof List<?> list && list.isEmpty()) {
+            return "[]";
         }
         try {
             return objectMapper.writeValueAsString(data);
@@ -287,4 +297,3 @@ public class ReconciliationService {
         return defaultInitiator;
     }
 }
-

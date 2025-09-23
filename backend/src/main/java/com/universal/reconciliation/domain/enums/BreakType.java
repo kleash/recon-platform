@@ -5,6 +5,10 @@ package com.universal.reconciliation.domain.enums;
  */
 public enum BreakType {
     MISMATCH,
+    @Deprecated(forRemoval = true)
     MISSING_IN_SOURCE_A,
-    MISSING_IN_SOURCE_B
+    @Deprecated(forRemoval = true)
+    MISSING_IN_SOURCE_B,
+    ANCHOR_MISSING,
+    SOURCE_MISSING
 }

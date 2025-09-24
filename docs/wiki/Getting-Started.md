@@ -1,7 +1,7 @@
 ## 3. Setup & Installation
 
 ### 3.1 Prerequisites
-- JDK 17+
+- JDK 17 (LTS)
 - Maven 3.9+
 - Node.js 18+ and npm 9+
 - Docker Desktop (optional for containerized MariaDB/LDAP)

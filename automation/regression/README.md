@@ -8,7 +8,7 @@ local development or CI pipelines.
 
 - Node.js 18+
 - npm 9+
-- Java 21 (the same runtime used by the backend `mvnw` wrapper)
+- Java 17 (the same runtime used by the backend `mvnw` wrapper)
 
 ## Running the checks
 

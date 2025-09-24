@@ -49,7 +49,7 @@
         ></urp-break-detail>
         <urp-checker-queue
           *ngIf="session.hasCheckerRole()"
-          [pendingBreaks]="detail.breaks.filter((item) => item.status === BreakStatus.PendingApproval)"
+          [pendingBreaks]="getPendingApprovalBreaks(detail)"
           [filterMetadata]="filterMetadata$ | async"
           (approve)="handleQueueApprove($event)"
           (reject)="handleQueueReject($event)"

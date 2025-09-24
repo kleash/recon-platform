@@ -11,6 +11,7 @@ import {
   BulkBreakUpdatePayload,
   LoginResponse,
   ReconciliationListItem,
+  RunDetail,
   TriggerRunPayload
 } from './models/api-models';
 import { BreakStatus } from './models/break-status';
@@ -129,6 +130,10 @@ export class AppComponent implements OnInit, OnDestroy {
 
   handleBulkAction(payload: BulkBreakUpdatePayload): void {
     this.state.bulkUpdateBreaks(payload);
+  }
+
+  getPendingApprovalBreaks(detail: RunDetail): BreakItem[] {
+    return detail?.breaks?.filter((item) => item.status === BreakStatus.PendingApproval) ?? [];
   }
 
   dismissNotification(id: number): void {

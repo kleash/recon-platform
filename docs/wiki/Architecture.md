@@ -3,25 +3,28 @@
 ### 2.1 High-Level Overview
 ```mermaid
 graph LR
-  subgraph Frontend
+  subgraph Client Experience
     UI[Angular SPA]
   end
-  subgraph Backend
+  subgraph Application Services
     API[Spring Boot REST APIs]
     Engine[Matching Engine]
     Workflow[Workflow Services]
-    Exports[Excel Exporter]
-    Activity[Activity & Audit Log]
+    Exports[Reporting & Excel Engine]
+    Activity[Activity Stream]
   end
-  subgraph Data
-    DB[(MariaDB/H2)]
-    LDAP[(Enterprise LDAP)]
+  subgraph Data & Identity
+    DB[(MariaDB / H2)]
+    LDAP[(Enterprise LDAP / Embedded LDIF)]
   end
   subgraph Integrations
-    Upstream[(ETL Pipelines)]
+    ETL[ETL Pipelines]
+    Schedulers[Schedulers / RPA]
+    Kafka[(Kafka Topics)]
+    Observability[(APM / SIEM)]
   end
 
-  UI -->|HTTPS| API
+  UI -->|HTTPS + JWT| API
   API --> Engine
   API --> Workflow
   API --> Exports
@@ -29,8 +32,11 @@ graph LR
   Engine --> DB
   Workflow --> DB
   Exports --> DB
+  Activity --> Observability
   API --> LDAP
-  Upstream -->|Data Loads| DB
+  ETL -->|Normalized Loads| DB
+  Schedulers -->|Run Triggers| API
+  Kafka -->|Event Hooks| API
 ```
 
 ### 2.2 Key Components
@@ -40,6 +46,8 @@ graph LR
 - **Workflow services:** Handle maker/checker transitions, comments, and audit logging.
 - **Reporting engine:** Builds Excel outputs from database templates and exposes download endpoints via `/api/exports`.
 - **Activity service:** Streams structured events for observability, compliance, and analytics.
+- **Integration connectors:** Metadata-driven ETL pipelines, scheduler/RPA triggers, and Kafka topics orchestrate data ingest and downstream automation.
+- **Observability stack:** Activity telemetry and platform metrics flow into enterprise APM/SIEM tooling for health monitoring.
 
 ### 2.3 Design Patterns Used
 - **Hexagonal architecture:** Controllers adapt HTTP requests into service calls; services remain domain-focused and persistence-agnostic.

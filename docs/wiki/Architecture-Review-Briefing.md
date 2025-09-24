@@ -134,7 +134,7 @@ gantt
 
 ## 10. Developer Experience
 ### 10.1 Onboarding & Tooling
-- **Prerequisites:** JDK 17+, Maven 3.9+, Node.js 18+, optional Docker for MariaDB/LDAP containers.
+- **Prerequisites:** JDK 17 (LTS), Maven 3.9+, Node.js 18+, optional Docker for MariaDB/LDAP containers.
 - **Bootstrap steps:** `./mvnw dependency:go-offline` for backend, `npm install` for frontend, optional profile overrides via `application-local.yml` and Angular environment files.
 - **Sample data:** `SampleEtlRunner` seeds demo datasets and reconciliation definitions for immediate testing.
 

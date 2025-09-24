@@ -19,6 +19,8 @@ export class BreakDetailComponent implements OnChanges {
   commentText = '';
   commentAction = 'INVESTIGATION_NOTE';
   fieldKeys: string[] = [];
+  sourceKeys: string[] = [];
+  classificationEntries: Array<{ key: string; value: string }> = [];
   differenceKeys = new Set<string>();
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -69,13 +71,33 @@ export class BreakDetailComponent implements OnChanges {
     return this.differenceKeys.has(field);
   }
 
-  valueFor(source: 'A' | 'B', field: string): unknown {
-    if (!this.breakItem) {
+  valueFor(source: string, field: string): unknown {
+    if (!this.breakItem?.sources) {
+      return null;
+    }
+    return this.breakItem.sources[source]?.[field] ?? null;
+  }
+
+  formatSourceLabel(source: string): string {
+    if (!source) {
       return '';
     }
-    return source === 'A'
-      ? this.breakItem.sourceA[field as keyof typeof this.breakItem.sourceA]
-      : this.breakItem.sourceB[field as keyof typeof this.breakItem.sourceB];
+    return source
+      .toLowerCase()
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (character) => character.toUpperCase());
+  }
+
+  formatClassificationKey(key: string): string {
+    if (!key) {
+      return '';
+    }
+    return key
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+      .replace(/_/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/^./, (character) => character.toUpperCase());
   }
 
   displayValue(value: unknown): string {
@@ -101,19 +123,53 @@ export class BreakDetailComponent implements OnChanges {
   private recomputeKeys(): void {
     if (!this.breakItem) {
       this.fieldKeys = [];
+      this.sourceKeys = [];
+      this.classificationEntries = [];
       this.differenceKeys.clear();
       return;
     }
-    const keys = new Set<string>();
-    Object.keys(this.breakItem.sourceA ?? {}).forEach((key) => keys.add(key));
-    Object.keys(this.breakItem.sourceB ?? {}).forEach((key) => keys.add(key));
-    this.fieldKeys = Array.from(keys).sort();
+
+    const sources = this.breakItem.sources ?? {};
+    this.sourceKeys = Object.keys(sources);
+
+    const fields = new Set<string>();
+    this.sourceKeys.forEach((source) => {
+      const payload = sources[source];
+      if (!payload) {
+        return;
+      }
+      Object.keys(payload).forEach((field) => fields.add(field));
+    });
+    this.fieldKeys = Array.from(fields).sort((a, b) => a.localeCompare(b));
+
     this.differenceKeys = new Set(
-      this.fieldKeys.filter((key) => {
-        const left = this.breakItem?.sourceA[key as keyof typeof this.breakItem.sourceA];
-        const right = this.breakItem?.sourceB[key as keyof typeof this.breakItem.sourceB];
-        return JSON.stringify(left) !== JSON.stringify(right);
+      this.fieldKeys.filter((field) => {
+        const values = this.sourceKeys.map((source) => this.serializeValue(sources[source]?.[field]));
+        const distinct = new Set(values);
+        return distinct.size > 1;
       })
     );
+
+    const classifications = Object.entries(this.breakItem.classifications ?? {});
+    this.classificationEntries = classifications
+      .map(([key, value]) => ({ key, value }))
+      .sort((a, b) => a.key.localeCompare(b.key));
+  }
+
+  private serializeValue(value: unknown): string {
+    if (value === undefined) {
+      return '__undefined__';
+    }
+    if (value === null) {
+      return '__null__';
+    }
+    if (typeof value === 'object') {
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return String(value);
+      }
+    }
+    return String(value);
   }
 }

@@ -33,6 +33,7 @@ export class RunDetailComponent implements OnChanges {
   bulkComment = '';
   bulkActionCode = 'BULK_NOTE';
   bulkStatus: BreakStatus | null = null;
+  classificationKeys: string[] = [];
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['filter']) {
@@ -44,6 +45,7 @@ export class RunDetailComponent implements OnChanges {
       this.bulkComment = '';
       this.bulkStatus = null;
       this.bulkActionCode = 'BULK_NOTE';
+      this.recomputeClassificationKeys();
     }
   }
 
@@ -77,6 +79,23 @@ export class RunDetailComponent implements OnChanges {
 
   formatStatus(status: BreakStatus): string {
     return status.replace(/_/g, ' ');
+  }
+
+  classificationValue(item: BreakItem, key: string): string {
+    const value = item.classifications?.[key];
+    return value && value.length > 0 ? value : '—';
+  }
+
+  formatClassificationKey(key: string): string {
+    if (!key) {
+      return '';
+    }
+    return key
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+      .replace(/_/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/^./, (character) => character.toUpperCase());
   }
 
   toggleSelection(item: BreakItem, checked: boolean): void {
@@ -157,5 +176,46 @@ export class RunDetailComponent implements OnChanges {
       label,
       value
     }));
+  }
+
+  private recomputeClassificationKeys(): void {
+    if (!this.runDetail?.breaks || this.runDetail.breaks.length === 0) {
+      this.classificationKeys = [];
+      return;
+    }
+
+    const keyUsage = new Map<string, boolean>();
+    this.runDetail.breaks.forEach((item) => {
+      const entries = Object.entries(item.classifications ?? {});
+      entries.forEach(([key, value]) => {
+        const hasValue = typeof value === 'string' ? value.trim().length > 0 : value !== null && value !== undefined;
+        keyUsage.set(key, (keyUsage.get(key) ?? false) || hasValue);
+      });
+    });
+
+    const priorityOrder = new Map<string, number>([
+      ['product', 0],
+      ['subProduct', 1],
+      ['entity', 2]
+    ]);
+
+    this.classificationKeys = Array.from(keyUsage.entries())
+      .filter(([, hasValue]) => hasValue)
+      .map(([key]) => key)
+      .sort((a, b) => {
+        const priorityA = priorityOrder.get(a);
+        const priorityB = priorityOrder.get(b);
+
+        if (priorityA !== undefined && priorityB !== undefined) {
+          return priorityA - priorityB;
+        }
+        if (priorityA !== undefined) {
+          return -1;
+        }
+        if (priorityB !== undefined) {
+          return 1;
+        }
+        return a.localeCompare(b);
+      });
   }
 }

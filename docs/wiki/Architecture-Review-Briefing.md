@@ -20,28 +20,36 @@
 
 ### 3.1 High-Level Component Map
 ```mermaid
-graph LR
+graph TD
   subgraph Client Experience
-    UI[Angular SPA]
+    UI[Angular SPA\nAnalyst & Config Consoles]
   end
   subgraph Application Services
-    API[Spring Boot REST APIs]
+    API[REST API Gateway]
     Match[Matching Engine]
-    Workflow[Workflow Services]
-    Export[Reporting & Excel Engine]
-    Activity[Activity Stream]
+    Workflow[Workflow Orchestrator]
+    Export[Reporting & Distribution]
+    Activity[Activity Stream Service]
   end
   subgraph Data & Identity
-    DB[(MariaDB / H2)]
+    DB[(MariaDB / H2\nConfig, Breaks, Audit)]
     LDAP[(Enterprise LDAP / Embedded LDIF)]
   end
   subgraph Integrations
-    ETL[ETL Pipelines]
-    Schedulers[Schedulers / RPA]
-    Kafka[(Kafka Topics)]
-    Observability[(APM / SIEM)]
+    Upstream[Upstream Data Feeds]
+    ETL[Metadata-Driven ETL Runners]
+    Scheduler[Schedulers / RPA]
+    Downstream[Downstream Consumers]
+  end
+  subgraph Operations & Observability
+    Telemetry[Telemetry Stream\nKafka Topics]
+    Health[Health Monitoring\nDashboards & Alerts]
+    Diagnostics[Diagnostics Toolkit\nLog Search & Replay]
   end
 
+  Upstream -->|Files / APIs| ETL
+  ETL -->|Normalized Loads| DB
+  Scheduler -->|Run Triggers| API
   UI -->|HTTPS + JWT| API
   API --> Match
   API --> Workflow
@@ -50,11 +58,13 @@ graph LR
   Match --> DB
   Workflow --> DB
   Export --> DB
-  Activity --> Observability
+  Activity --> Telemetry
+  Telemetry --> Health
+  Telemetry --> Diagnostics
+  Health -->|Ops Insights| API
+  Diagnostics -->|Root Cause Guidance| API
   API --> LDAP
-  ETL -->|Normalized Loads| DB
-  Schedulers -->|Run Triggers| API
-  Kafka -->|Event Hooks| API
+  Export --> Downstream
 ```
 
 ### 3.2 Architectural Layers
@@ -87,6 +97,11 @@ graph LR
 | **Security & Compliance** | LDAP/JWT identity, scope-based entitlements, configurable data masking. | Align with enterprise security policies. |
 | **Operations & Observability** | Health monitoring, self-healing ETL, diagnostics toolset. | Simplify support and incident response. |
 
+### 5.1 Operations & Observability Capabilities Explained
+- **Health monitoring:** Spring Boot Actuator endpoints, synthetic run probes, and Grafana-style dashboards provide real-time visibility into API availability, match throughput, queue depths, and user experience indicators. Alerting hooks route anomalies to on-call rotations before analysts feel the impact.
+- **Self-healing ETL:** Metadata-driven pipelines checkpoint each stage, replay failed batches automatically, and leverage idempotent writes so that reruns do not duplicate breaks. Built-in retry policies and circuit breakers keep ingestion resilient to upstream delays or malformed files.
+- **Diagnostics toolset:** Structured activity feeds, correlation IDs spanning UI → API → ETL, and targeted data sampling scripts give support teams the context needed for root-cause analysis. Run timelines, diff viewers, and export rehydration utilities accelerate break investigations.
+
 ## 6. Deployment & Operations Blueprint
 - **Topology:** SPA assets via CDN/edge, Spring Boot pods behind internal load balancer, MariaDB primary with optional read replicas, LDAP integration over secure channels.
 - **Environments:** Dev (H2 + demo data), local MariaDB, QA/UAT, Production with hardened profiles.
@@ -98,27 +113,60 @@ graph LR
 ```mermaid
 gantt
     dateFormat  YYYY-MM-DD
-    title Platform Roadmap (Rolling 2 Quarters)
-    section Core Engine
-    Advanced Rule Configurations        :active,  a1, 2024-01-16, 2024-03-30
-    Performance & Scale Tuning          :        a2, 2024-04-01, 2024-05-31
-    section Workflow & Experience
-    Maker-Checker Enhancements          :active,  b1, 2024-02-16, 2024-04-30
-    Collaboration & Annotation Suite    :        b2, 2024-05-01, 2024-06-30
-    section Reporting & Automation
-    Scheduled Distribution              :        c1, 2024-03-15, 2024-05-31
-    API-Driven Report Publishing        :        c2, 2024-06-01, 2024-07-15
+    title Platform Roadmap (Q2–Q3 2024)
+    excludes weekends
+    section Foundation & Scale
+    Configurable Rule Library           :done, a1, 2024-02-12, 2024-03-08
+    Performance & Scale Hardening       :active, crit, a2, 2024-03-11, 2024-06-28
+    section Analyst Experience
+    Maker-Checker Enhancements          :crit, b1, 2024-03-18, 2024-05-24
+    Collaboration Workspace             :b2, 2024-05-27, 2024-07-19
+    Guided Break Resolution             :b3, 2024-07-22, 2024-08-30
+    section Automation & Operations
+    Scheduled Distribution              :crit, c1, 2024-04-01, 2024-06-14
+    Observability Command Center        :active, c2, 2024-04-22, 2024-07-05
+    Resilience Playbooks & Runbooks     :c3, 2024-07-08, 2024-08-23
 ```
-- **Focus Areas:** richer rule orchestration, collaboration tooling, automated distribution, scalability hardening.
-- **Dependencies:** Kafka/topic governance, enterprise scheduler integration, infrastructure for horizontal scaling.
+
+**Roadmap Themes**
+- **Foundation & Scale:** Finalize reusable rule templates and performance hardening so new reconciliations can be onboarded without regression risk. Success is measured by a 30% reduction in onboarding effort and stable SLA compliance under double the current transaction volume.
+- **Analyst Experience:** Deliver collaborative break resolution, contextual guidance, and activity transparency that shorten investigation cycles. We target a two-minute reduction in median break handling time and validated adoption feedback from three pilot teams.
+- **Automation & Operations:** Automate distribution, centralize observability dashboards, and codify runbooks so operations can manage at scale. The exit criterion is 24×7 monitoring coverage with automated alert routing and zero-touch reruns for common ingestion failures.
+
+**Milestones, Measures, and Dependencies**
+| Milestone | Objective | Success Measures | Key Dependencies |
+| --- | --- | --- | --- |
+| Performance & Scale Hardening | Tune matching engine concurrency and database indexing for larger datasets. | Load tests sustain 2× current peak volume with <5% latency variance. | Infrastructure capacity planning, updated database statistics. |
+| Maker-Checker Enhancements | Introduce configurable approval steps, notifications, and audit snapshots. | Pilot business lines promote ≥90% of changes through the new workflow without manual overrides. | UX research sign-off, training materials for approvers. |
+| Scheduled Distribution | Support recurring exports with delivery tracking and failure retries. | 95% of scheduled reports delivered on time during beta; automated retry clears transient failures. | SMTP/file transfer credentials, calendar for blackout windows. |
+| Observability Command Center | Provide unified dashboards, alert rules, and run health timelines. | Operations team self-serves run health insights; MTTR reduced by 20%. | Kafka topic governance, metrics retention policy, SRE onboarding. |
+- **Cross-team dependencies:** Enterprise scheduler integration for production cutover, Kafka/topic governance for telemetry streaming, and infrastructure provisioning for horizontal scaling in production.
 
 ## 8. Future Enhancement Opportunities
-1. **AI-assisted break triage:** Recommend resolution paths using historical break patterns and supervised learning.
-2. **Self-service data connectors:** Low-code interface for onboarding new source systems with validation rules and lineage tracking.
-3. **Policy-as-code entitlements:** Centralize authorization rules in declarative policies (e.g., OPA) for easier audits.
-4. **Domain-specific workspaces:** Tailored dashboards for asset classes or business units with dynamic KPI templates.
-5. **Multi-tenant deployment model:** Namespace isolation and configurable branding for shared services or SaaS offerings.
-6. **Automated remediation hooks:** Trigger downstream adjustments or journal entries when breaks meet predefined criteria.
+1. **AI-assisted break triage**
+   - *Opportunity:* Harness historical reconciliation outcomes to propose resolution codes, ownership routing, and next-best actions.
+   - *Approach:* Build a feature store from break metadata, train supervised models with human-in-the-loop feedback, and surface explainable recommendations inside the analyst workspace.
+   - *Value:* Reduce repetitive break handling effort by 40% while standardizing classification for audit defensibility.
+2. **Self-service data connectors**
+   - *Opportunity:* Enable operations teams to onboard new data feeds without backend releases.
+   - *Approach:* Deliver a guided wizard with schema discovery, validation rules, lineage capture, and automated promotion to lower environments.
+   - *Value:* Shrink onboarding timelines from weeks to days and improve data quality through enforced validations.
+3. **Policy-as-code entitlements**
+   - *Opportunity:* Simplify audits and segregation-of-duty reviews by centralizing authorization logic.
+   - *Approach:* Externalize entitlements into OPA/Rego policies, version them alongside configuration metadata, and integrate policy testing into CI/CD.
+   - *Value:* Provide transparent, reviewable access controls and accelerate compliance sign-offs.
+4. **Domain-specific workspaces**
+   - *Opportunity:* Provide business-aligned KPIs and workflows for different asset classes or regions.
+   - *Approach:* Introduce modular dashboard templates, contextual insights (e.g., FX rates, settlement calendars), and saved perspectives per persona.
+   - *Value:* Increase analyst productivity and adoption by delivering relevant insights without customization projects.
+5. **Multi-tenant deployment model**
+   - *Opportunity:* Support shared-services and SaaS offerings without duplicating infrastructure.
+   - *Approach:* Implement namespace isolation for data and configuration, tenant-aware branding, and resource quota enforcement.
+   - *Value:* Unlock new commercial models while preserving data privacy and predictable performance per tenant.
+6. **Automated remediation hooks**
+   - *Opportunity:* Close the loop on recurring breaks through controlled downstream adjustments.
+   - *Approach:* Orchestrate templated journal postings, API calls, or ticket creation when break conditions meet risk thresholds, with maker-checker governance.
+   - *Value:* Prevent manual rework, reduce operational risk, and shorten the time to financial close.
 
 ## 9. Architecture Review Q&A Preparation
 | Likely Question | Prepared Response |

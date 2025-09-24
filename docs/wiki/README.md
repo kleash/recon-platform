@@ -29,3 +29,4 @@ These documents cover the business-level processes and features of the platform.
 
 - **[Onboarding Playbook](./onboarding-guide.md)**: A checklist and process guide for onboarding a new reconciliation from a business perspective.
 - **[Feature Overview](./features.md)**: A description of the platform's features from a user's point of view.
+- **[Feature Request: Admin Reconciliation Configurator](./Feature-Request-Admin-Reconciliation-Configurator.md)**: Comprehensive plan for delivering the admin UI and API enhancements that let a single platform instance host multiple reconciliations configured through metadata.

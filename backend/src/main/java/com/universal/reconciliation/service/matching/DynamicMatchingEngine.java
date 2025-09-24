@@ -17,7 +17,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Component;
 
@@ -91,24 +90,28 @@ public class DynamicMatchingEngine implements MatchingEngine {
         }
 
         // identify records that exist in non-anchor sources but not in the anchor dataset
-        Set<String> anchorKeys = anchorRecords.keySet();
+        Map<String, Map<String, Map<String, Object>>> missingInAnchor = new LinkedHashMap<>();
         for (DynamicSourceDataset dataset : otherSources) {
             for (Map.Entry<String, Map<String, Object>> entry : dataset.recordsByKey().entrySet()) {
-                if (anchorKeys.contains(entry.getKey())) {
-                    continue;
+                if (!anchorRecords.containsKey(entry.getKey())) {
+                    missingInAnchor
+                            .computeIfAbsent(entry.getKey(), k -> new LinkedHashMap<>())
+                            .put(dataset.source().getCode(), entry.getValue());
                 }
-                Map<String, Map<String, Object>> sourcesSnapshot = new LinkedHashMap<>();
-                sourcesSnapshot.put(context.anchor().source().getCode(), Map.of());
-                sourcesSnapshot.put(dataset.source().getCode(), entry.getValue());
-                Map<String, String> classifications = resolveClassifications(sourcesSnapshot, context.classifierFields());
-                List<String> missingSources = List.of(context.anchor().source().getCode());
-                missing++;
-                breakCandidates.add(new BreakCandidate(
-                        BreakType.ANCHOR_MISSING,
-                        immutableSnapshot(sourcesSnapshot),
-                        Map.copyOf(classifications),
-                        missingSources));
             }
+        }
+
+        for (Map.Entry<String, Map<String, Map<String, Object>>> entry : missingInAnchor.entrySet()) {
+            Map<String, Map<String, Object>> sourcesSnapshot = new LinkedHashMap<>(entry.getValue());
+            sourcesSnapshot.put(context.anchor().source().getCode(), Map.of());
+            Map<String, String> classifications = resolveClassifications(sourcesSnapshot, context.classifierFields());
+            List<String> missingSources = List.of(context.anchor().source().getCode());
+            missing++;
+            breakCandidates.add(new BreakCandidate(
+                    BreakType.ANCHOR_MISSING,
+                    immutableSnapshot(sourcesSnapshot),
+                    Map.copyOf(classifications),
+                    missingSources));
         }
 
         return new MatchingResult(matched, mismatched, missing, breakCandidates);

@@ -94,10 +94,11 @@ public class DynamicReconciliationContextLoader {
                     .orElse(null);
             Map<String, Map<String, Object>> records = new LinkedHashMap<>();
             if (batch != null) {
-                List<SourceDataRecord> dataRecords = recordRepository.findByBatch(batch);
-                for (SourceDataRecord record : dataRecords) {
-                    Map<String, Object> payload = parsePayload(record);
-                    records.put(record.getCanonicalKey(), payload);
+                try (var dataRecords = recordRepository.streamByBatch(batch)) {
+                    dataRecords.forEach(record -> {
+                        Map<String, Object> payload = parsePayload(record);
+                        records.put(record.getCanonicalKey(), payload);
+                    });
                 }
             } else {
                 log.warn(

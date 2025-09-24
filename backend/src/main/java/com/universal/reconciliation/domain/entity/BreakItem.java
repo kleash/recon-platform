@@ -65,6 +65,7 @@ public class BreakItem {
     @Column(name = "classification_json", columnDefinition = "CLOB")
     private String classificationJson;
 
+    @Lob
     @Column(name = "missing_sources_json", columnDefinition = "CLOB")
     private String missingSourcesJson;
 

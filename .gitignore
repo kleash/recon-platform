@@ -4,8 +4,4 @@ frontend/dist/
 frontend/.angular/
 .idea/
 .DS_Store
-examples/securities-position/target/
-examples/integration-harness/target/
-examples/custodian-trade/target/
-examples/cash-vs-gl/target/
-examples/common/target/
+examples/**/target/

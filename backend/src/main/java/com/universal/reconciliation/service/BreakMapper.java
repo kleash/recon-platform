@@ -1,6 +1,7 @@
 package com.universal.reconciliation.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.universal.reconciliation.domain.dto.BreakCommentDto;
 import com.universal.reconciliation.domain.dto.BreakItemDto;
@@ -94,13 +95,12 @@ public class BreakMapper {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private Map<String, Map<String, Object>> readNestedMap(Long breakId, String label, String json) {
         if (json == null || json.isBlank()) {
             return null;
         }
         try {
-            return objectMapper.readValue(json, Map.class);
+            return objectMapper.readValue(json, new TypeReference<Map<String, Map<String, Object>>>() {});
         } catch (JsonProcessingException e) {
             log.error("Failed to deserialize nested break payload for break {} ({})", breakId, label, e);
             return Map.of();
@@ -112,7 +112,7 @@ public class BreakMapper {
             return null;
         }
         try {
-            return objectMapper.readValue(json, Map.class);
+            return objectMapper.readValue(json, new TypeReference<Map<String, String>>() {});
         } catch (JsonProcessingException e) {
             log.error("Failed to deserialize classification map for break {} ({})", breakId, label, e);
             return Map.of();
@@ -124,7 +124,7 @@ public class BreakMapper {
             return null;
         }
         try {
-            return objectMapper.readValue(json, List.class);
+            return objectMapper.readValue(json, new TypeReference<List<String>>() {});
         } catch (JsonProcessingException e) {
             log.error("Failed to deserialize missing sources for break {} ({})", breakId, label, e);
             return List.of();

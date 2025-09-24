@@ -1,50 +1,89 @@
 # Custodian Trade Reconciliation Example
 
-This example demonstrates how to run the Universal Reconciliation Platform in a fully standalone mode
-while orchestrating a complex multi-source trade reconciliation. It showcases:
+This module exercises a complex multi-source trade reconciliation in a standalone Spring Boot
+application. It demonstrates how the Universal Reconciliation Platform can orchestrate multiple
+custodian feeds, enforce cutoffs, and deliver scheduled reports without relying on external runtime
+infrastructure.
 
-- Loading three custodian CSV feeds plus an internal trading platform extract.
-- Automatically triggering reconciliations twice per day when inputs are available.
-- Enforcing a 6pm cutoff when a custodian feed is late.
-- Scheduling reports at 3pm, 9pm, and 2am for the previous day's activity.
+## Scenario highlights
 
-## Scenario overview
+- **Custodians:** Alpha Bank, Beta Trust, and Omega Clear deliver morning and evening CSV files that
+  include the originating source for each trade.
+- **Internal platform:** A trading platform extract provides the firm's golden source of trades and
+  identifies which custodian should have reported each item.
+- **Matching logic:** Trades are keyed by `trade_id` and `source` with tolerance-based comparisons on
+  quantity and gross amount so minor rounding differences are tolerated.
+- **Cutoffs and scheduling:** Morning runs are triggered automatically when all files are present,
+  while the evening run is forced at 18:00 if a custodian is late. Report jobs run at 15:00, 21:00,
+  and 02:00 to cover operational and compliance needs.
+- **Workflow:** Maker-checker is enabled and access roles are provisioned for makers, checkers, and
+  operations viewers across the equities desk.
 
-* **Custodians:** Alpha Bank, Beta Trust, and Omega Clear deliver files (20+ columns) via SFTP.
-* **Trading platform:** Provides a consolidated Excel extract containing source attribution.
-* **Reconciliation key:** Composite of `trade_id` and `source`.
-* **Cutoffs:** 11:00 ET (morning) and 18:00 ET (evening). Runs are auto-triggered when all files are
-  present; otherwise the scheduler forces execution at the cutoff time.
-* **Reporting cadence:**
-  * 15:00 ET – midday report using the morning run.
-  * 21:00 ET – evening report using the 18:00 run.
-  * 02:00 ET next day – overnight report for compliance operations.
+## Module layout
 
-The ETL pipeline stores the custodian name alongside each record and mirrors that source into the
-platform file. Variances are intentionally injected so the example produces mismatches and missing
-records.
+- `src/main/java/.../CustodianTradeExampleApplication.java` – Spring Boot application that boots the
+  example pipeline alongside the scenario clock and scheduler components.
+- `src/main/java/.../CustodianTradeEtlPipeline.java` – defines canonical fields, report templates,
+  access control entries, and registers custodian-specific scheduling rules.
+- `src/main/java/.../CustodianTradeScheduler.java` – drives automated ingestion cutoffs and report
+  dispatch windows using the simulated clock.
+- `src/main/resources/etl/custodian/*.csv` – sample custodian and trading platform files grouped by
+  delivery window.
+- `src/test/java/.../CustodianTradeEndToEndTest.java` – integration test that verifies batch counts,
+  cutoff behaviour, and workbook generation for each scheduled report.
+- `scripts/run_e2e.sh` – shell script that compiles prerequisites and executes the integration test
+  with the backend Maven wrapper.
 
-## Running the end-to-end test
+## Prerequisites
 
-From the module directory run:
+- JDK 17+ and a POSIX shell for the helper script.
+- Network access is not required; all data files and dependencies are bundled locally.
+
+## Quick start
 
 ```bash
+cd examples/custodian-trade
 ./scripts/run_e2e.sh
 ```
 
-The helper script installs the backend jar (skipping backend tests for speed) and then executes the
-`CustodianTradeEndToEndTest`. The integration test bootstraps the platform, runs both cutoffs, verifies
-that the evening run was forced at 18:00 due to a missing custodian file, and asserts that the three
-scheduled reports were generated with non-empty Excel workbooks.
+The helper script installs the backend jar (skipping backend tests for speed), builds the shared
+`example-support` library, and runs the `CustodianTradeEndToEndTest` class so you can observe the
+full scheduler-driven scenario.
 
-## Data files
+## Manual execution
 
-All sample inputs are stored as comma-delimited files under `src/main/resources/etl/custodian`:
+To step through the workflow manually from the repository root:
 
-- `custodian_*_morning.csv` and `custodian_*_evening.csv` represent the individual custodian deliveries.
-- `trading_platform_morning.csv` and `trading_platform_evening.csv` contain the internal platform
-  perspective with embedded source names.
+```bash
+./backend/mvnw -f backend/pom.xml clean install -DskipTests -Dspring-boot.repackage.skip=true
+./backend/mvnw -f examples/common/pom.xml install -DskipTests
+./backend/mvnw -f examples/custodian-trade/pom.xml test
+```
 
-The ETL pipeline ingests these resources through the platform's CSV adapter while the canonical field
-configuration maps them into the dynamic metadata model. Replace the CSV files with environment-specific
-extracts to adapt the scenario for real testing or demos.
+The third command launches the Spring Boot context, ingests all CSV fixtures, evaluates morning and
+evening cutoffs, advances the scenario clock to the overnight window, and verifies that each report
+execution produced a non-empty Excel workbook.
+
+## Inspecting the results
+
+Review the generated `target/surefire-reports/CustodianTradeEndToEndTest.txt` file for detailed
+assertion output. The report enumerates the six custodian batches, two platform batches, and the
+scheduled run metadata that confirms which executions were triggered automatically versus forced at
+the cutoff.
+
+The scheduler retains an in-memory record of each cutoff and report execution. You can log or expose
+these results by extending `CustodianTradeScheduler` if you need additional observability hooks.
+
+## Customizing the scenario
+
+- Update `configureFields` inside `CustodianTradeEtlPipeline` to adjust comparison tolerances, add
+  custom classifiers, or map additional CSV columns.
+- Modify the CSV fixtures under `src/main/resources/etl/custodian/` to mirror your custodian layouts.
+  The filenames align with the ingestion logic used by the scheduler helper methods.
+- Extend `CustodianTradeScheduler` to incorporate your firm's cutoff calendar or to push status
+  updates into downstream notification systems.
+- Swap the simulated clock for a real-time implementation when adapting the module for pilot
+  environments.
+
+Pair this module with the cash vs. GL and securities position examples for a comprehensive demo tour
+covering payments, trading, and asset-servicing reconciliations.

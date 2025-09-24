@@ -46,6 +46,7 @@ graph TD
 6. API consumers can fetch reconciliation schemas and ingestion endpoints for automation tooling.
 7. Configuration changes emit audit events and respect optimistic locking.
 8. Retiring a reconciliation hides it from analyst lists without deleting historical runs.
+9. Reconcillation auto-trigger and schedulers.
 
 ## Acceptance Criteria
 - **CRUD operations** for reconciliation definitions, sources, fields, reports, and access entries are protected by `ROLE_RECON_ADMIN`.
@@ -107,9 +108,9 @@ graph TD
 - Reuse design system components (cards, steppers, tables) for visual consistency.
 
 ## Custodian Reconciliation Example Workflow
-1. **Admin authoring:** Admin creates `CUSTODY_GL` reconciliation, adds `CUSTODY_FEED` (CSV adapter, anchor) and `GL_LEDGER` (JDBC adapter). Defines key fields (`tradeId`, `settlementDate`), comparison fields (`netAmount` with ±0.5% tolerance, `currency` case-insensitive), and classifiers (`product`, `entity`). Configures a Break Investigation report and assigns maker/checker LDAP groups.
+1. **Admin authoring:** Admin creates `CUSTODY_GL` reconciliation, adds `CUSTODY_FEED` (CSV adapter, anchor) and `GL_LEDGER` (JDBC adapter). Defines key fields (`tradeId`, `settlementDate`), comparison fields (`netAmount` with ±0.5% tolerance, `currency` case-insensitive), and classifiers (`product`, `entity`). Configures a Break Investigation report and assigns maker/checker LDAP groups. Configure auto reconcillation when all sources available or cutoff reconcillation by specific scheduler timings if auto reconcillation didn't trigger by that time.
 2. **ETL implementation:** Custodian recon team builds a jar that parses CSV inputs, transforms them into the canonical schema from `/schema`, and writes batches via JDBC or the ingestion API endpoint.
-3. **Operations:** Once data lands, the existing platform scheduler triggers matching and populates dashboards, breaks, and reports without any platform redeployments.
+3. **Operations:** Once data lands, the configured platform scheduler triggers matching and populates dashboards, breaks, and reports without any platform redeployments.
 
 ## Data Model Impacts
 - Metadata tables gain versioning and retirement columns.
@@ -144,11 +145,11 @@ graph TD
 | Role misconfiguration granting excessive access | Enforce admin-only feature flag and comprehensive audit trail |
 | Performance bottlenecks on ingestion endpoint | Support direct MariaDB writes as alternative path with documented schema |
 
-## Open Questions
+## FAQ
 1. Should reconciliation configurations support version history and rollback beyond soft-retire? If yes, design archival tables.
+A: Yes
 2. Do we need a staging status (draft vs. published) to allow multi-step authoring before activation?
-3. What is the expected SLA for schema export updates after admin edits (immediate vs. cached)?
-4. How will we manage feature flags for early adopters (Spring profiles, LaunchDarkly, custom table)?
+A: Yes
 
 ## Success Metrics
 - Time to onboard a new reconciliation drops from weeks to days without platform redeployments.

@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 import { resolve } from 'node:path';
 
 const rootDir = resolve(__dirname, '..', '..');
-const backendJar = resolve(rootDir, 'backend', 'target', 'reconciliation-platform-0.1.0.jar');
+const backendJar = resolve(rootDir, 'backend', 'target', 'reconciliation-platform-0.1.0-exec.jar');
 
 export default defineConfig({
   testDir: './tests',

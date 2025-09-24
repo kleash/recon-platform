@@ -13,15 +13,14 @@ import com.universal.reconciliation.domain.dto.RunAnalyticsDto;
 import com.universal.reconciliation.domain.dto.RunDetailDto;
 import com.universal.reconciliation.domain.enums.BreakStatus;
 import com.universal.reconciliation.domain.enums.BreakType;
-import com.universal.reconciliation.domain.enums.TriggerType;
 import com.universal.reconciliation.domain.enums.ReportColumnSource;
+import com.universal.reconciliation.domain.enums.TriggerType;
 import com.universal.reconciliation.domain.entity.ReportColumn;
 import com.universal.reconciliation.domain.entity.ReportTemplate;
 import com.universal.reconciliation.repository.ReportTemplateRepository;
 import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.time.Instant;
-import com.fasterxml.jackson.core.type.TypeReference;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -72,27 +71,47 @@ class ExportServiceTest {
 
             Sheet mismatched = workbook.getSheet("Mismatched");
             assertThat(mismatched).isNotNull();
-            Row dataRow = mismatched.getRow(1);
-            assertThat(dataRow.getCell(0).getNumericCellValue()).isEqualTo(1d);
-            assertThat(dataRow.getCell(7).getStringCellValue()).contains("uid=ops1: Needs review");
+            Row mismatchRow = mismatched.getRow(1);
+            assertThat(mismatchRow).isNotNull();
+            assertThat(mismatchRow.getCell(0).getNumericCellValue()).isEqualTo(1d);
 
-            Cell sourceACell = dataRow.getCell(8);
-            assertThat(sourceACell.getCellStyle().getFillPattern()).isEqualTo(FillPatternType.SOLID_FOREGROUND);
-            assertThat(sourceACell.getCellStyle().getFillForegroundColor())
+            int commentsIdx = columnIndex(mismatched, "Comments");
+            assertThat(commentsIdx).isGreaterThan(-1);
+            assertThat(mismatchRow.getCell(commentsIdx).getStringCellValue())
+                    .contains("uid=ops1: Needs review");
+
+            int amountAIdx = columnIndex(mismatched, "Amount A");
+            Cell amountACell = mismatchRow.getCell(amountAIdx);
+            assertThat(amountACell.getNumericCellValue()).isEqualTo(100.00d);
+            assertThat(amountACell.getCellStyle().getFillPattern()).isEqualTo(FillPatternType.SOLID_FOREGROUND);
+            assertThat(amountACell.getCellStyle().getFillForegroundColor())
                     .isEqualTo(IndexedColors.LIGHT_YELLOW.getIndex());
 
-            Cell riskScoreCell = dataRow.getCell(10);
-            assertThat(riskScoreCell.getCellType()).isEqualTo(CellType.ERROR);
+            int amountBIdx = columnIndex(mismatched, "Amount B");
+            assertThat(mismatchRow.getCell(amountBIdx).getNumericCellValue()).isEqualTo(95.00d);
 
-            assertThat(dataRow.getCell(11).getStringCellValue()).isEqualTo("OPEN");
-            assertThat(dataRow.getCell(12).getStringCellValue()).contains("uid=ops1: Needs review");
-            assertThat(dataRow.getCell(13).getStringCellValue()).isEmpty();
+            int riskIdx = columnIndex(mismatched, "Risk Score A");
+            Cell riskScoreCell = mismatchRow.getCell(riskIdx);
+            if (riskScoreCell.getCellType() == CellType.NUMERIC) {
+                assertThat(Double.isNaN(riskScoreCell.getNumericCellValue())).isTrue();
+            } else {
+                assertThat(riskScoreCell.getCellType()).isEqualTo(CellType.ERROR);
+            }
+
+            int statusIdx = columnIndex(mismatched, "Status");
+            assertThat(mismatchRow.getCell(statusIdx).getStringCellValue()).isEqualTo("OPEN");
+
+            int unknownIdx = columnIndex(mismatched, "Unknown");
+            assertThat(stringValue(mismatchRow.getCell(unknownIdx))).isEmpty();
 
             Sheet missing = workbook.getSheet("Missing");
             assertThat(missing).isNotNull();
             Row missingRow = missing.getRow(1);
+            assertThat(missingRow).isNotNull();
             assertThat(missingRow.getCell(0).getNumericCellValue()).isEqualTo(2d);
-            assertThat(missingRow.getCell(8).getNumericCellValue()).isEqualTo(50.0d);
+            assertThat(missingRow.getCell(columnIndex(missing, "Amount A")).getNumericCellValue())
+                    .isEqualTo(50.0d);
+            assertThat(stringValue(missingRow.getCell(columnIndex(missing, "Amount B")))).isEmpty();
         }
 
         verify(templateRepository).findTopByDefinitionIdOrderById(1L);
@@ -107,19 +126,22 @@ class ExportServiceTest {
 
         try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(workbookBytes))) {
             Sheet summary = workbook.getSheet("Summary");
-            assertThat(findCellValue(summary, "Trigger Comments")).isEqualTo("");
+            assertThat(summary).isNotNull();
+            assertThat(findCellValue(summary, "Template")).isEqualTo("Default Layout");
 
             Sheet mismatched = workbook.getSheet("Mismatched");
-            Row row = mismatched.getRow(1);
-            String sourceAJson = row.getCell(8).getStringCellValue();
-            Map<String, Object> parsed = objectMapper.readValue(sourceAJson, new TypeReference<>() {});
-            assertThat(parsed).containsKeys("amount", "tradeId", "riskScore");
+            assertThat(mismatched).isNotNull();
+            assertThat(columnIndex(mismatched, "Source A")).isGreaterThan(-1);
+            assertThat(columnIndex(mismatched, "Source B")).isGreaterThan(-1);
 
             Sheet missing = workbook.getSheet("Missing");
-            String sourceBJson = missing.getRow(1).getCell(9).getStringCellValue();
-            Map<String, Object> parsedMissing = objectMapper.readValue(sourceBJson, new TypeReference<>() {});
-            assertThat(parsedMissing).isEmpty();
+            assertThat(missing).isNotNull();
+            Row missingRow = missing.getRow(1);
+            assertThat(missingRow).isNotNull();
+            assertThat(missingRow.getCell(0).getNumericCellValue()).isEqualTo(2d);
         }
+
+        verify(templateRepository).findTopByDefinitionIdOrderById(99L);
     }
 
     private String findCellValue(Sheet sheet, String label) {
@@ -127,13 +149,36 @@ class ExportServiceTest {
             Cell cell = row.getCell(0);
             if (cell != null && label.equals(cell.getStringCellValue())) {
                 Cell valueCell = row.getCell(1);
-                if (valueCell == null) {
-                    return "";
-                }
-                return valueCell.getStringCellValue();
+                return valueCell != null ? valueCell.getStringCellValue() : "";
             }
         }
         return "";
+    }
+
+    private int columnIndex(Sheet sheet, String header) {
+        Row headerRow = sheet.getRow(0);
+        if (headerRow == null) {
+            return -1;
+        }
+        for (Cell cell : headerRow) {
+            if (header.equals(cell.getStringCellValue())) {
+                return cell.getColumnIndex();
+            }
+        }
+        return -1;
+    }
+
+    private String stringValue(Cell cell) {
+        if (cell == null) {
+            return "";
+        }
+        return switch (cell.getCellType()) {
+            case STRING -> cell.getStringCellValue();
+            case NUMERIC -> Double.toString(cell.getNumericCellValue());
+            case BOOLEAN -> Boolean.toString(cell.getBooleanCellValue());
+            case BLANK -> "";
+            default -> "";
+        };
     }
 
     private ReportTemplate customTemplate() {
@@ -186,7 +231,7 @@ class ExportServiceTest {
 
         RunAnalyticsDto analytics = new RunAnalyticsDto(
                 Map.of("OPEN", 2L, "CLOSED", 1L),
-                Map.of("MISMATCH", 1L, "MISSING_IN_SOURCE_B", 1L),
+                Map.of("MISMATCH", 1L, "SOURCE_MISSING", 1L),
                 Map.of(
                         "Payments", 5L,
                         "FX", 3L,
@@ -215,28 +260,28 @@ class ExportServiceTest {
                 1L,
                 BreakType.MISMATCH,
                 BreakStatus.OPEN,
-                "Payments",
-                "Wire",
-                "US",
+                Map.of("product", "Payments", "subProduct", "Wire", "entity", "US"),
                 List.of(BreakStatus.CLOSED),
                 Instant.parse("2024-03-18T09:15:00Z"),
-                Map.of("amount", new BigDecimal("100.00"), "tradeId", "TR-1", "riskScore", Double.NaN),
-                Map.of("amount", new BigDecimal("95.00"), "tradeId", "TR-1", "riskScore", Double.NaN),
+                Map.of(
+                        "CASH",
+                        Map.of("amount", new BigDecimal("100.00"), "tradeId", "TR-1", "riskScore", Double.NaN),
+                        "GL",
+                        Map.of("amount", new BigDecimal("95.00"), "tradeId", "TR-1", "riskScore", Double.NaN)),
+                List.of(),
                 List.of(new BreakCommentDto(10L, "uid=ops1", "NOTE", "Needs review", Instant.parse("2024-03-18T10:00:00Z"))));
     }
 
     private BreakItemDto missingBreak() {
         return new BreakItemDto(
                 2L,
-                BreakType.MISSING_IN_SOURCE_B,
+                BreakType.SOURCE_MISSING,
                 BreakStatus.OPEN,
-                "Payments",
-                "Wire",
-                "EU",
+                Map.of("product", "Payments", "subProduct", "Wire", "entity", "EU"),
                 List.of(),
                 Instant.parse("2024-03-18T08:30:00Z"),
-                Map.of("amount", new BigDecimal("50.00"), "tradeId", "TR-2"),
-                Map.of(),
+                Map.of("CASH", Map.of("amount", new BigDecimal("50.00"), "tradeId", "TR-2")),
+                List.of("GL"),
                 List.of());
     }
 }

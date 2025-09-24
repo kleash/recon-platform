@@ -170,13 +170,13 @@ class ReconciliationControllerIntegrationTest {
                 1L,
                 BreakType.MISMATCH,
                 BreakStatus.OPEN,
-                "Payments",
-                "Wire",
-                "US",
+                Map.of("product", "Payments", "subProduct", "Wire", "entity", "US"),
                 List.of(BreakStatus.CLOSED),
                 Instant.parse("2024-01-15T10:20:30Z"),
-                Map.of("amount", 100),
-                Map.of("amount", 90),
+                Map.of(
+                        "CASH", Map.of("amount", 100),
+                        "GL", Map.of("amount", 90)),
+                List.of(),
                 List.of());
         FilterMetadataDto metadata = new FilterMetadataDto(
                 List.of("Payments"),

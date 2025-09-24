@@ -72,7 +72,11 @@ public class ExportService {
                         workbook.createSheet("Missing"),
                         columnLayouts,
                         highlightStyle,
-                        Set.of(BreakType.MISSING_IN_SOURCE_A, BreakType.MISSING_IN_SOURCE_B));
+                        Set.of(
+                                BreakType.MISSING_IN_SOURCE_A,
+                                BreakType.MISSING_IN_SOURCE_B,
+                                BreakType.SOURCE_MISSING,
+                                BreakType.ANCHOR_MISSING));
             }
             workbook.write(out);
             return out.toByteArray();
@@ -177,9 +181,9 @@ public class ExportService {
             row.createCell(idx++).setCellValue(item.breakType().name());
             row.createCell(idx++).setCellValue(item.status().name());
             row.createCell(idx++).setCellValue(item.detectedAt() != null ? item.detectedAt().toString() : "");
-            row.createCell(idx++).setCellValue(item.product() != null ? item.product() : "");
-            row.createCell(idx++).setCellValue(item.subProduct() != null ? item.subProduct() : "");
-            row.createCell(idx++).setCellValue(item.entity() != null ? item.entity() : "");
+            row.createCell(idx++).setCellValue(classificationValue(item, "product"));
+            row.createCell(idx++).setCellValue(classificationValue(item, "subProduct"));
+            row.createCell(idx++).setCellValue(classificationValue(item, "entity"));
             row.createCell(idx++)
                     .setCellValue(item.comments().stream()
                             .map(comment -> String.format("%s: %s", comment.actorDn(), comment.comment()))
@@ -263,9 +267,16 @@ public class ExportService {
         if (field == null) {
             return false;
         }
-        Object left = item.sourceA().get(field);
-        Object right = item.sourceB().get(field);
-        return !valuesEqual(left, right);
+        Map<String, Object> anchor = anchorPayload(item);
+        List<Map<String, Object>> peers = peerPayloads(item);
+        Object left = anchor.get(field);
+        for (Map<String, Object> peer : peers) {
+            Object right = peer.get(field);
+            if (!valuesEqual(left, right)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean valuesEqual(Object left, Object right) {
@@ -298,11 +309,11 @@ public class ExportService {
     private Object resolveValue(ColumnLayout layout, BreakItemDto item) {
         return switch (layout.source()) {
             case SOURCE_A -> layout.sourceField() == null
-                    ? writeJson(item.sourceA())
-                    : item.sourceA().getOrDefault(layout.sourceField(), "");
+                    ? writeJson(anchorPayload(item))
+                    : anchorPayload(item).getOrDefault(layout.sourceField(), "");
             case SOURCE_B -> layout.sourceField() == null
-                    ? writeJson(item.sourceB())
-                    : item.sourceB().getOrDefault(layout.sourceField(), "");
+                    ? writeJson(peerPayloads(item))
+                    : resolvePeerValue(layout.sourceField(), item);
             case BREAK_METADATA -> resolveMetadata(layout.sourceField(), item);
         };
     }
@@ -315,9 +326,10 @@ public class ExportService {
             case "id" -> item.id();
             case "status" -> item.status().name();
             case "breakType" -> item.breakType().name();
-            case "product" -> item.product();
-            case "subProduct" -> item.subProduct();
-            case "entity" -> item.entity();
+            case "product" -> classificationValue(item, "product");
+            case "subProduct" -> classificationValue(item, "subProduct");
+            case "entity" -> classificationValue(item, "entity");
+            case "missingSources" -> String.join(", ", item.missingSources());
             case "detectedAt" -> item.detectedAt() != null ? item.detectedAt().toString() : "";
             case "comments" -> item.comments().stream()
                     .map(comment -> String.format("%s: %s", comment.actorDn(), comment.comment()))
@@ -327,6 +339,31 @@ public class ExportService {
                 yield "";
             }
         };
+    }
+
+    private String classificationValue(BreakItemDto item, String key) {
+        return item.classifications().getOrDefault(key, "");
+    }
+
+    private Map<String, Object> anchorPayload(BreakItemDto item) {
+        return item.sources().values().stream().findFirst().orElse(Map.of());
+    }
+
+    private List<Map<String, Object>> peerPayloads(BreakItemDto item) {
+        return item.sources().values().stream().skip(1).toList();
+    }
+
+    private Object resolvePeerValue(String field, BreakItemDto item) {
+        List<Map<String, Object>> peers = peerPayloads(item);
+        if (peers.isEmpty()) {
+            return "";
+        }
+        if (peers.size() == 1) {
+            return peers.get(0).getOrDefault(field, "");
+        }
+        return peers.stream()
+                .map(payload -> Objects.toString(payload.get(field), ""))
+                .collect(Collectors.joining(" | "));
     }
 
     private String writeJson(Object data) {

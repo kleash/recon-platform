@@ -24,12 +24,11 @@ class BreakMapperTest {
         item.setId(123L);
         item.setBreakType(BreakType.MISMATCH);
         item.setStatus(BreakStatus.OPEN);
-        item.setProduct("Payments");
-        item.setSubProduct("Wire");
-        item.setEntityName("US");
         item.setDetectedAt(Instant.parse("2024-05-01T10:15:30Z"));
-        item.setSourceAJson("{\"amount\":100,\"currency\":\"USD\"}");
-        item.setSourceBJson("{invalid-json}");
+        item.setClassificationJson("{\"product\":\"Payments\",\"subProduct\":\"Wire\",\"entity\":\"US\"}");
+        item.setSourcePayloadJson(
+                "{\"CASH\":{\"amount\":100,\"currency\":\"USD\"},\"GL\":{\"amount\":95}}");
+        item.setMissingSourcesJson("[\"GL\"]");
 
         BreakComment earlier = comment(1L, "uid=ops1", "NOTE", "earlier", Instant.parse("2024-05-01T11:00:00Z"));
         BreakComment later = comment(2L, "uid=ops2", "NOTE", "later", Instant.parse("2024-05-01T12:00:00Z"));
@@ -47,8 +46,10 @@ class BreakMapperTest {
         assertThat(dto.allowedStatusTransitions()).containsExactly(BreakStatus.OPEN, BreakStatus.CLOSED);
 
         assertThat(dto.comments()).extracting(BreakCommentDto::id).containsExactly(1L, 2L);
-        assertThat(dto.sourceA()).containsEntry("amount", 100);
-        assertThat(dto.sourceB()).isEmpty();
+        assertThat(dto.classifications()).containsEntry("product", "Payments");
+        assertThat(dto.sources()).containsKeys("CASH", "GL");
+        assertThat(dto.sources().get("CASH")).containsEntry("amount", 100);
+        assertThat(dto.missingSources()).containsExactly("GL");
     }
 
     private BreakComment comment(Long id, String actor, String action, String text, Instant createdAt) {

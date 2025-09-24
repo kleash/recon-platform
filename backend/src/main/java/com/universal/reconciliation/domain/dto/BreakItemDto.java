@@ -13,12 +13,10 @@ public record BreakItemDto(
         Long id,
         BreakType breakType,
         BreakStatus status,
-        String product,
-        String subProduct,
-        String entity,
+        Map<String, String> classifications,
         List<BreakStatus> allowedStatusTransitions,
         Instant detectedAt,
-        Map<String, Object> sourceA,
-        Map<String, Object> sourceB,
+        Map<String, Map<String, Object>> sources,
+        List<String> missingSources,
         List<BreakCommentDto> comments) {
 }

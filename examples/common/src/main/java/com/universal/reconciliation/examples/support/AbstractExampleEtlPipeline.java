@@ -1,68 +1,77 @@
 package com.universal.reconciliation.examples.support;
 
 import com.universal.reconciliation.domain.entity.AccessControlEntry;
+import com.universal.reconciliation.domain.entity.CanonicalField;
+import com.universal.reconciliation.domain.entity.CanonicalFieldMapping;
 import com.universal.reconciliation.domain.entity.ReconciliationDefinition;
-import com.universal.reconciliation.domain.entity.ReconciliationField;
+import com.universal.reconciliation.domain.entity.ReconciliationSource;
 import com.universal.reconciliation.domain.entity.ReportColumn;
 import com.universal.reconciliation.domain.entity.ReportTemplate;
 import com.universal.reconciliation.domain.enums.AccessRole;
 import com.universal.reconciliation.domain.enums.ComparisonLogic;
 import com.universal.reconciliation.domain.enums.FieldDataType;
 import com.universal.reconciliation.domain.enums.FieldRole;
+import com.universal.reconciliation.domain.enums.IngestionAdapterType;
 import com.universal.reconciliation.domain.enums.ReportColumnSource;
 import com.universal.reconciliation.repository.AccessControlEntryRepository;
+import com.universal.reconciliation.repository.CanonicalFieldRepository;
 import com.universal.reconciliation.repository.ReconciliationDefinitionRepository;
-import com.universal.reconciliation.repository.SourceRecordARepository;
-import com.universal.reconciliation.repository.SourceRecordBRepository;
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
+import com.universal.reconciliation.repository.ReconciliationSourceRepository;
+import com.universal.reconciliation.repository.ReportTemplateRepository;
+import com.universal.reconciliation.service.ingestion.IngestionAdapterRequest;
+import com.universal.reconciliation.service.ingestion.SourceIngestionService;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.LinkedHashMap;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StreamUtils;
-import org.springframework.util.StringUtils;
 
 /**
- * Shared utilities for the standalone reconciliation example pipelines.
+ * Shared utilities for the standalone reconciliation example pipelines under
+ * {@code examples/}. The helper methods expose the dynamic metadata model so
+ * examples can seed definitions without touching core platform code.
  */
 public abstract class AbstractExampleEtlPipeline {
 
     protected final Logger log = LoggerFactory.getLogger(getClass());
 
     protected final ReconciliationDefinitionRepository definitionRepository;
+    protected final ReconciliationSourceRepository sourceRepository;
+    protected final CanonicalFieldRepository canonicalFieldRepository;
+    protected final ReportTemplateRepository reportTemplateRepository;
     protected final AccessControlEntryRepository accessControlEntryRepository;
-    protected final SourceRecordARepository sourceRecordARepository;
-    protected final SourceRecordBRepository sourceRecordBRepository;
+    protected final SourceIngestionService sourceIngestionService;
 
     protected AbstractExampleEtlPipeline(
             ReconciliationDefinitionRepository definitionRepository,
+            ReconciliationSourceRepository sourceRepository,
+            CanonicalFieldRepository canonicalFieldRepository,
+            ReportTemplateRepository reportTemplateRepository,
             AccessControlEntryRepository accessControlEntryRepository,
-            SourceRecordARepository sourceRecordARepository,
-            SourceRecordBRepository sourceRecordBRepository) {
+            SourceIngestionService sourceIngestionService) {
         this.definitionRepository = definitionRepository;
+        this.sourceRepository = sourceRepository;
+        this.canonicalFieldRepository = canonicalFieldRepository;
+        this.reportTemplateRepository = reportTemplateRepository;
         this.accessControlEntryRepository = accessControlEntryRepository;
-        this.sourceRecordARepository = sourceRecordARepository;
-        this.sourceRecordBRepository = sourceRecordBRepository;
+        this.sourceIngestionService = sourceIngestionService;
     }
 
     protected boolean definitionExists(String code) {
         return definitionRepository.findByCode(code).isPresent();
+    }
+
+    @Transactional
+    protected ReconciliationDefinition persistDefinition(ReconciliationDefinition definition) {
+        return definitionRepository.save(definition);
     }
 
     protected ReconciliationDefinition definition(
@@ -75,27 +84,65 @@ public abstract class AbstractExampleEtlPipeline {
         return definition;
     }
 
-    protected ReconciliationField field(
+    protected ReconciliationSource source(
             ReconciliationDefinition definition,
-            String sourceField,
+            String code,
+            String displayName,
+            boolean anchor,
+            IngestionAdapterType adapterType) {
+        ReconciliationSource source = new ReconciliationSource();
+        source.setDefinition(definition);
+        source.setCode(code);
+        source.setDisplayName(displayName);
+        source.setAnchor(anchor);
+        source.setAdapterType(adapterType);
+        source.setCreatedAt(Instant.now());
+        source.setUpdatedAt(Instant.now());
+        definition.getSources().add(source);
+        return source;
+    }
+
+    protected CanonicalField canonicalField(
+            ReconciliationDefinition definition,
+            String canonicalName,
             String displayName,
             FieldRole role,
             FieldDataType dataType,
-            ComparisonLogic logic,
-            BigDecimal threshold) {
-        ReconciliationField field = new ReconciliationField();
+            ComparisonLogic comparisonLogic,
+            BigDecimal threshold,
+            Integer displayOrder,
+            boolean required) {
+        CanonicalField field = new CanonicalField();
         field.setDefinition(definition);
-        field.setSourceField(source(sourceField));
+        field.setCanonicalName(canonicalName);
         field.setDisplayName(displayName);
         field.setRole(role);
         field.setDataType(dataType);
-        field.setComparisonLogic(logic);
+        field.setComparisonLogic(comparisonLogic);
         field.setThresholdPercentage(threshold);
+        field.setDisplayOrder(displayOrder);
+        field.setRequired(required);
+        field.setCreatedAt(Instant.now());
+        field.setUpdatedAt(Instant.now());
+        definition.getCanonicalFields().add(field);
         return field;
     }
 
-    private String source(String value) {
-        return value;
+    protected CanonicalFieldMapping mapping(
+            CanonicalField field,
+            ReconciliationSource source,
+            String sourceColumn,
+            boolean required) {
+        CanonicalFieldMapping mapping = new CanonicalFieldMapping();
+        mapping.setCanonicalField(field);
+        mapping.setSource(source);
+        mapping.setSourceColumn(sourceColumn);
+        mapping.setRequired(required);
+        mapping.setCreatedAt(Instant.now());
+        mapping.setUpdatedAt(Instant.now());
+        field.getMappings().add(mapping);
+        source.getFieldMappings().add(mapping);
+        return mapping;
     }
 
     protected ReportTemplate template(
@@ -114,6 +161,7 @@ public abstract class AbstractExampleEtlPipeline {
         template.setIncludeMismatched(includeMismatched);
         template.setIncludeMissing(includeMissing);
         template.setHighlightDifferences(highlightDifferences);
+        definition.getReportTemplates().add(template);
         return template;
     }
 
@@ -131,6 +179,7 @@ public abstract class AbstractExampleEtlPipeline {
         column.setSourceField(sourceField);
         column.setDisplayOrder(order);
         column.setHighlightDifferences(highlight);
+        template.getColumns().add(column);
         return column;
     }
 
@@ -151,105 +200,53 @@ public abstract class AbstractExampleEtlPipeline {
         return entry;
     }
 
-    protected BigDecimal decimal(String value) {
-        return value == null ? null : new BigDecimal(value);
+    protected void saveAccessControlEntries(List<AccessControlEntry> entries) {
+        accessControlEntryRepository.saveAll(entries);
     }
 
-    protected LocalDate date(String value) {
-        return value == null ? null : LocalDate.parse(value);
-    }
-
-    protected List<Map<String, String>> readCsv(String resourcePath) {
-        Resource resource = resolveResource(resourcePath);
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(resource.getInputStream(), StandardCharsets.UTF_8))) {
-            String headerLine = reader.readLine();
-            if (!StringUtils.hasText(headerLine)) {
-                return List.of();
-            }
-            String[] headers = headerLine.split(",");
-            List<Map<String, String>> rows = new ArrayList<>();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (!StringUtils.hasText(line)) {
-                    continue;
-                }
-                rows.add(mapRow(headers, line.split(",")));
-            }
-            return rows;
-        } catch (IOException ex) {
-            throw new IllegalStateException("Failed to read ETL resource " + resourcePath, ex);
-        }
-    }
-
-    protected List<Map<String, String>> readExcel(String resourcePath) {
-        try (InputStream inputStream = openExcelStream(resourcePath);
-                Workbook workbook = WorkbookFactory.create(inputStream)) {
-            Sheet sheet = workbook.getNumberOfSheets() > 0 ? workbook.getSheetAt(0) : null;
-            if (sheet == null || sheet.getLastRowNum() == 0) {
-                return List.of();
-            }
-            Row headerRow = sheet.getRow(0);
-            int columnCount = headerRow.getLastCellNum();
-            List<String> headers = new ArrayList<>();
-            for (int i = 0; i < columnCount; i++) {
-                headers.add(headerRow.getCell(i).getStringCellValue());
-            }
-            List<Map<String, String>> rows = new ArrayList<>();
-            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
-                Row row = sheet.getRow(i);
-                if (row == null) {
-                    continue;
-                }
-                String[] values = new String[columnCount];
-                for (int c = 0; c < columnCount; c++) {
-                    values[c] = row.getCell(c) != null ? row.getCell(c).toString() : null;
-                }
-                rows.add(mapRow(headers.toArray(String[]::new), values));
-            }
-            return rows;
-        } catch (IOException ex) {
-            throw new IllegalStateException("Failed to read Excel resource " + resourcePath, ex);
-        }
-    }
-
-    private InputStream openExcelStream(String resourcePath) throws IOException {
-        Resource resource = new ClassPathResource(resourcePath);
-        if (resource.exists()) {
-            return resource.getInputStream();
-        }
-        if (resourcePath.endsWith(".xlsx")) {
-            Resource base64Resource = new ClassPathResource(resourcePath + ".b64");
-            if (base64Resource.exists()) {
-                try (InputStream base64Stream = base64Resource.getInputStream()) {
-                    String encoded = StreamUtils.copyToString(base64Stream, StandardCharsets.UTF_8);
-                    byte[] decoded = Base64.getMimeDecoder().decode(encoded);
-                    return new ByteArrayInputStream(decoded);
-                }
-            }
-        }
-        throw new IllegalStateException("Missing ETL resource: " + resourcePath);
-    }
-
-    private Resource resolveResource(String resourcePath) {
+    protected void ingestCsv(ReconciliationDefinition definition, String sourceCode, String resourcePath) {
         Resource resource = new ClassPathResource(resourcePath);
         if (!resource.exists()) {
-            throw new IllegalStateException("Missing ETL resource: " + resourcePath);
+            throw new IllegalArgumentException("Missing ETL resource: " + resourcePath);
         }
-        return resource;
+        IngestionAdapterRequest request = new IngestionAdapterRequest(
+                () -> openResource(resource),
+                Map.of("charset", StandardCharsets.UTF_8));
+        sourceIngestionService.ingest(definition, sourceCode, IngestionAdapterType.CSV_FILE, request);
     }
 
-    private Map<String, String> mapRow(String[] headers, String[] values) {
-        Map<String, String> row = new LinkedHashMap<>();
-        for (int i = 0; i < headers.length; i++) {
-            String header = headers[i].trim();
-            String raw = i < values.length && values[i] != null ? values[i].trim() : null;
-            if (StringUtils.hasText(raw)) {
-                row.put(header, raw.replace("\r", ""));
-            } else {
-                row.put(header, null);
-            }
+    private InputStream openResource(Resource resource) {
+        try {
+            return resource.getInputStream();
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to open ETL resource " + resource.getFilename(), e);
         }
-        return row;
+    }
+
+    protected String readResourceAsString(String resourcePath) {
+        Resource resource = new ClassPathResource(resourcePath);
+        try (InputStream inputStream = resource.getInputStream()) {
+            return StreamUtils.copyToString(inputStream, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to read ETL resource " + resourcePath, e);
+        }
+    }
+
+    protected void registerReportTemplates(ReconciliationDefinition definition) {
+        if (!definition.getReportTemplates().isEmpty()) {
+            reportTemplateRepository.saveAll(definition.getReportTemplates());
+        }
+    }
+
+    protected void persistSources(ReconciliationDefinition definition) {
+        if (!definition.getSources().isEmpty()) {
+            sourceRepository.saveAll(definition.getSources());
+        }
+    }
+
+    protected void persistCanonicalFields(ReconciliationDefinition definition) {
+        if (!definition.getCanonicalFields().isEmpty()) {
+            canonicalFieldRepository.saveAll(definition.getCanonicalFields());
+        }
     }
 }

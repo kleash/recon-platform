@@ -1,25 +1,24 @@
 package com.universal.reconciliation.examples.cashgl;
 
-import com.universal.reconciliation.domain.entity.AccessControlEntry;
+import com.universal.reconciliation.domain.entity.CanonicalField;
 import com.universal.reconciliation.domain.entity.ReconciliationDefinition;
-import com.universal.reconciliation.domain.entity.ReconciliationField;
-import com.universal.reconciliation.domain.entity.ReportTemplate;
-import com.universal.reconciliation.domain.entity.SourceRecordA;
-import com.universal.reconciliation.domain.entity.SourceRecordB;
+import com.universal.reconciliation.domain.entity.ReconciliationSource;
 import com.universal.reconciliation.domain.enums.AccessRole;
 import com.universal.reconciliation.domain.enums.ComparisonLogic;
 import com.universal.reconciliation.domain.enums.FieldDataType;
 import com.universal.reconciliation.domain.enums.FieldRole;
+import com.universal.reconciliation.domain.enums.IngestionAdapterType;
 import com.universal.reconciliation.domain.enums.ReportColumnSource;
 import com.universal.reconciliation.examples.support.AbstractExampleEtlPipeline;
 import com.universal.reconciliation.etl.EtlPipeline;
 import com.universal.reconciliation.repository.AccessControlEntryRepository;
+import com.universal.reconciliation.repository.CanonicalFieldRepository;
 import com.universal.reconciliation.repository.ReconciliationDefinitionRepository;
-import com.universal.reconciliation.repository.SourceRecordARepository;
-import com.universal.reconciliation.repository.SourceRecordBRepository;
+import com.universal.reconciliation.repository.ReconciliationSourceRepository;
+import com.universal.reconciliation.repository.ReportTemplateRepository;
+import com.universal.reconciliation.service.ingestion.SourceIngestionService;
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Map;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,10 +33,18 @@ public class CashVsGlEtlPipeline extends AbstractExampleEtlPipeline implements E
 
     public CashVsGlEtlPipeline(
             ReconciliationDefinitionRepository definitionRepository,
+            ReconciliationSourceRepository sourceRepository,
+            CanonicalFieldRepository canonicalFieldRepository,
+            ReportTemplateRepository reportTemplateRepository,
             AccessControlEntryRepository accessControlEntryRepository,
-            SourceRecordARepository sourceRecordARepository,
-            SourceRecordBRepository sourceRecordBRepository) {
-        super(definitionRepository, accessControlEntryRepository, sourceRecordARepository, sourceRecordBRepository);
+            SourceIngestionService sourceIngestionService) {
+        super(
+                definitionRepository,
+                sourceRepository,
+                canonicalFieldRepository,
+                reportTemplateRepository,
+                accessControlEntryRepository,
+                sourceIngestionService);
     }
 
     @Override
@@ -59,49 +66,118 @@ public class CashVsGlEtlPipeline extends AbstractExampleEtlPipeline implements E
                 "Illustrative single-ledger reconciliation without maker-checker workflow.",
                 false);
 
-        registerFields(definition);
-        configureReportTemplate(definition);
-        definitionRepository.save(definition);
+        ReconciliationSource cashSource = source(
+                definition, "CASH", "Cash Ledger", true, IngestionAdapterType.CSV_FILE);
+        ReconciliationSource glSource = source(
+                definition, "GL", "General Ledger", false, IngestionAdapterType.CSV_FILE);
 
-        List<AccessControlEntry> entries = List.of(
-                entry(definition, "recon-makers", AccessRole.MAKER, "Payments", "Wire", "US"),
-                entry(definition, "recon-makers", AccessRole.MAKER, "Payments", "Wire", "EU"),
-                entry(definition, "recon-checkers", AccessRole.CHECKER, "Payments", "Wire", "US"),
-                entry(definition, "recon-checkers", AccessRole.CHECKER, "Payments", "Wire", "EU"));
-        accessControlEntryRepository.saveAll(entries);
+        CanonicalField transactionId = canonicalField(
+                definition,
+                "transactionId",
+                "Transaction ID",
+                FieldRole.KEY,
+                FieldDataType.STRING,
+                ComparisonLogic.EXACT_MATCH,
+                null,
+                1,
+                true);
+        mapping(transactionId, cashSource, "transactionId", true);
+        mapping(transactionId, glSource, "transactionId", true);
 
-        List<SourceRecordA> sourceARecords = readCsv("etl/cash_gl/source_a.csv").stream()
-                .map(row -> mapSourceA(definition, row))
-                .toList();
-        sourceRecordARepository.saveAll(sourceARecords);
+        CanonicalField amount = canonicalField(
+                definition,
+                "amount",
+                "Amount",
+                FieldRole.COMPARE,
+                FieldDataType.DECIMAL,
+                ComparisonLogic.EXACT_MATCH,
+                null,
+                2,
+                true);
+        mapping(amount, cashSource, "amount", true);
+        mapping(amount, glSource, "amount", true);
 
-        List<SourceRecordB> sourceBRecords = readCsv("etl/cash_gl/source_b.csv").stream()
-                .map(row -> mapSourceB(definition, row))
-                .toList();
-        sourceRecordBRepository.saveAll(sourceBRecords);
+        CanonicalField currency = canonicalField(
+                definition,
+                "currency",
+                "Currency",
+                FieldRole.COMPARE,
+                FieldDataType.STRING,
+                ComparisonLogic.CASE_INSENSITIVE,
+                null,
+                3,
+                true);
+        mapping(currency, cashSource, "currency", true);
+        mapping(currency, glSource, "currency", true);
 
-        log.info(
-                "Seeded {} with {} source A and {} source B records",
-                DEFINITION_CODE,
-                sourceARecords.size(),
-                sourceBRecords.size());
-    }
+        CanonicalField tradeDate = canonicalField(
+                definition,
+                "tradeDate",
+                "Trade Date",
+                FieldRole.COMPARE,
+                FieldDataType.DATE,
+                ComparisonLogic.DATE_ONLY,
+                null,
+                4,
+                true);
+        mapping(tradeDate, cashSource, "tradeDate", true);
+        mapping(tradeDate, glSource, "tradeDate", true);
 
-    private void registerFields(ReconciliationDefinition definition) {
-        addField(definition, "transactionId", "Transaction ID", FieldRole.KEY, FieldDataType.STRING, ComparisonLogic.EXACT_MATCH, null);
-        addField(definition, "amount", "Amount", FieldRole.COMPARE, FieldDataType.DECIMAL, ComparisonLogic.EXACT_MATCH, null);
-        addField(definition, "currency", "Currency", FieldRole.COMPARE, FieldDataType.STRING, ComparisonLogic.CASE_INSENSITIVE, null);
-        addField(definition, "tradeDate", "Trade Date", FieldRole.COMPARE, FieldDataType.DATE, ComparisonLogic.DATE_ONLY, null);
-        addField(definition, "product", "Product", FieldRole.PRODUCT, FieldDataType.STRING, ComparisonLogic.EXACT_MATCH, null);
-        addField(definition, "subProduct", "Sub Product", FieldRole.SUB_PRODUCT, FieldDataType.STRING, ComparisonLogic.EXACT_MATCH, null);
-        addField(definition, "entityName", "Entity", FieldRole.ENTITY, FieldDataType.STRING, ComparisonLogic.EXACT_MATCH, null);
-        addField(definition, "transactionId", "Transaction ID", FieldRole.DISPLAY, FieldDataType.STRING, ComparisonLogic.EXACT_MATCH, null);
-        addField(definition, "amount", "Amount", FieldRole.DISPLAY, FieldDataType.DECIMAL, ComparisonLogic.EXACT_MATCH, null);
-        addField(definition, "currency", "Currency", FieldRole.DISPLAY, FieldDataType.STRING, ComparisonLogic.EXACT_MATCH, null);
-        addField(definition, "tradeDate", "Trade Date", FieldRole.DISPLAY, FieldDataType.DATE, ComparisonLogic.DATE_ONLY, null);
-    }
+        CanonicalField product = canonicalField(
+                definition,
+                "product",
+                "Product",
+                FieldRole.PRODUCT,
+                FieldDataType.STRING,
+                ComparisonLogic.EXACT_MATCH,
+                null,
+                5,
+                true);
+        product.setClassifierTag("product");
+        mapping(product, cashSource, "product", true);
+        mapping(product, glSource, "product", true);
 
-    private void configureReportTemplate(ReconciliationDefinition definition) {
+        CanonicalField subProduct = canonicalField(
+                definition,
+                "subProduct",
+                "Sub Product",
+                FieldRole.SUB_PRODUCT,
+                FieldDataType.STRING,
+                ComparisonLogic.EXACT_MATCH,
+                null,
+                6,
+                true);
+        subProduct.setClassifierTag("subProduct");
+        mapping(subProduct, cashSource, "subProduct", true);
+        mapping(subProduct, glSource, "subProduct", true);
+
+        CanonicalField entity = canonicalField(
+                definition,
+                "entity",
+                "Entity",
+                FieldRole.ENTITY,
+                FieldDataType.STRING,
+                ComparisonLogic.EXACT_MATCH,
+                null,
+                7,
+                true);
+        entity.setClassifierTag("entity");
+        mapping(entity, cashSource, "entityName", true);
+        mapping(entity, glSource, "entityName", true);
+
+        CanonicalField quantity = canonicalField(
+                definition,
+                "quantity",
+                "Quantity",
+                FieldRole.DISPLAY,
+                FieldDataType.DECIMAL,
+                ComparisonLogic.EXACT_MATCH,
+                BigDecimal.ZERO,
+                8,
+                false);
+        mapping(quantity, cashSource, "quantity", false);
+        mapping(quantity, glSource, "quantity", false);
+
         ReportTemplate template = template(
                 definition,
                 "Simple Cash Export",
@@ -110,54 +186,27 @@ public class CashVsGlEtlPipeline extends AbstractExampleEtlPipeline implements E
                 true,
                 true,
                 true);
-        definition.getReportTemplates().add(template);
-
-        template.getColumns().add(column(template, "Transaction ID (A)", ReportColumnSource.SOURCE_A, "transactionId", 1, true));
-        template.getColumns().add(column(template, "Transaction ID (B)", ReportColumnSource.SOURCE_B, "transactionId", 2, true));
-        template.getColumns().add(column(template, "Amount (A)", ReportColumnSource.SOURCE_A, "amount", 3, true));
-        template.getColumns().add(column(template, "Amount (B)", ReportColumnSource.SOURCE_B, "amount", 4, true));
-        template.getColumns().add(column(template, "Currency (A)", ReportColumnSource.SOURCE_A, "currency", 5, true));
-        template.getColumns().add(column(template, "Currency (B)", ReportColumnSource.SOURCE_B, "currency", 6, true));
-        template.getColumns().add(column(template, "Trade Date (A)", ReportColumnSource.SOURCE_A, "tradeDate", 7, true));
-        template.getColumns().add(column(template, "Trade Date (B)", ReportColumnSource.SOURCE_B, "tradeDate", 8, true));
+        template.getColumns().add(column(template, "Transaction ID (cash)", ReportColumnSource.SOURCE_A, "transactionId", 1, true));
+        template.getColumns().add(column(template, "Transaction ID (gl)", ReportColumnSource.SOURCE_B, "transactionId", 2, true));
+        template.getColumns().add(column(template, "Amount (cash)", ReportColumnSource.SOURCE_A, "amount", 3, true));
+        template.getColumns().add(column(template, "Amount (gl)", ReportColumnSource.SOURCE_B, "amount", 4, true));
+        template.getColumns().add(column(template, "Currency (cash)", ReportColumnSource.SOURCE_A, "currency", 5, true));
+        template.getColumns().add(column(template, "Currency (gl)", ReportColumnSource.SOURCE_B, "currency", 6, true));
+        template.getColumns().add(column(template, "Trade Date (cash)", ReportColumnSource.SOURCE_A, "tradeDate", 7, true));
+        template.getColumns().add(column(template, "Trade Date (gl)", ReportColumnSource.SOURCE_B, "tradeDate", 8, true));
         template.getColumns().add(column(template, "Break Status", ReportColumnSource.BREAK_METADATA, "status", 9, false));
-    }
 
-    private void addField(
-            ReconciliationDefinition definition,
-            String sourceField,
-            String displayName,
-            FieldRole role,
-            FieldDataType dataType,
-            ComparisonLogic logic,
-            BigDecimal threshold) {
-        ReconciliationField field = field(definition, sourceField, displayName, role, dataType, logic, threshold);
-        definition.getFields().add(field);
-    }
+        persistDefinition(definition);
 
-    private SourceRecordA mapSourceA(ReconciliationDefinition definition, Map<String, String> row) {
-        SourceRecordA record = new SourceRecordA();
-        record.setDefinition(definition);
-        record.setTransactionId(row.get("transactionId"));
-        record.setAmount(decimal(row.get("amount")));
-        record.setCurrency(row.get("currency"));
-        record.setTradeDate(date(row.get("tradeDate")));
-        record.setProduct(row.get("product"));
-        record.setSubProduct(row.get("subProduct"));
-        record.setEntityName(row.get("entityName"));
-        return record;
-    }
+        saveAccessControlEntries(List.of(
+                entry(definition, "recon-makers", AccessRole.MAKER, "Payments", "Wire", "US"),
+                entry(definition, "recon-makers", AccessRole.MAKER, "Payments", "Wire", "EU"),
+                entry(definition, "recon-checkers", AccessRole.CHECKER, "Payments", "Wire", "US"),
+                entry(definition, "recon-checkers", AccessRole.CHECKER, "Payments", "Wire", "EU")));
 
-    private SourceRecordB mapSourceB(ReconciliationDefinition definition, Map<String, String> row) {
-        SourceRecordB record = new SourceRecordB();
-        record.setDefinition(definition);
-        record.setTransactionId(row.get("transactionId"));
-        record.setAmount(decimal(row.get("amount")));
-        record.setCurrency(row.get("currency"));
-        record.setTradeDate(date(row.get("tradeDate")));
-        record.setProduct(row.get("product"));
-        record.setSubProduct(row.get("subProduct"));
-        record.setEntityName(row.get("entityName"));
-        return record;
+        ingestCsv(definition, cashSource.getCode(), "etl/cash_gl/source_a.csv");
+        ingestCsv(definition, glSource.getCode(), "etl/cash_gl/source_b.csv");
+
+        log.info("Seeded {} via dynamic metadata-driven pipeline", DEFINITION_CODE);
     }
 }

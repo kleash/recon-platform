@@ -1,6 +1,7 @@
 package com.universal.reconciliation.service.matching;
 
 import com.universal.reconciliation.domain.enums.BreakType;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -8,9 +9,7 @@ import java.util.Map;
  */
 public record BreakCandidate(
         BreakType type,
-        Map<String, Object> sourceA,
-        Map<String, Object> sourceB,
-        String product,
-        String subProduct,
-        String entity) {
+        Map<String, Map<String, Object>> sources,
+        Map<String, String> classifications,
+        List<String> missingSources) {
 }

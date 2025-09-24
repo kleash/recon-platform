@@ -102,6 +102,37 @@ public class BreakAccessService {
         }
     }
 
+    public AccessRole resolveActorRole(
+            BreakItem breakItem,
+            ReconciliationDefinition definition,
+            List<AccessControlEntry> entries,
+            BreakStatus targetStatus) {
+        List<AccessControlEntry> scopedEntries = scopedEntries(breakItem, entries);
+        boolean maker = hasRole(scopedEntries, AccessRole.MAKER);
+        boolean checker = hasRole(scopedEntries, AccessRole.CHECKER) && !maker;
+
+        if (definition.isMakerCheckerEnabled()) {
+            if (targetStatus == BreakStatus.CLOSED || targetStatus == BreakStatus.REJECTED) {
+                if (!checker) {
+                    throw new AccessDeniedException("Checker role required for this action");
+                }
+                return AccessRole.CHECKER;
+            }
+            if (!maker) {
+                throw new AccessDeniedException("Maker role required for this action");
+            }
+            return AccessRole.MAKER;
+        }
+
+        if (checker) {
+            return AccessRole.CHECKER;
+        }
+        if (maker) {
+            return AccessRole.MAKER;
+        }
+        throw new AccessDeniedException("No maker/checker role available for this action");
+    }
+
     public List<AccessControlEntry> scopedEntries(BreakItem breakItem, List<AccessControlEntry> entries) {
         return matchingEntries(breakItem, entries);
     }

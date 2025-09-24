@@ -90,50 +90,35 @@ public class BreakService {
     @Transactional
     public BreakItemDto updateStatus(Long breakId, UpdateBreakStatusRequest request) {
         BreakContext context = loadBreakContext(breakId);
-        BreakItem breakItem = context.breakItem();
-
-        breakAccessService.assertTransitionAllowed(
-                breakItem, context.definition(), context.entries(), request.status());
-
         String username = userContext.getUsername();
         String actorDn = userDirectoryService.personDn(username);
-        Instant now = Instant.now();
-        BreakStatus targetStatus = request.status();
-        String normalizedComment = normalizeComment(targetStatus, request.comment());
-        AccessRole actorRole = resolveActorRole(targetStatus, context);
+        StatusTransitionResult result = applyStatusTransition(
+                context,
+                request.status(),
+                request.comment(),
+                request.correlationId(),
+                actorDn,
+                true);
 
-        enforceSelfApprovalGuard(breakItem, targetStatus, actorRole, actorDn);
-
-        BreakStatus previousStatus = breakItem.getStatus();
-        breakItem.setStatus(targetStatus);
-        updateSubmissionMetadata(breakItem, targetStatus, actorDn, context.entries(), now);
-        breakItemRepository.save(breakItem);
-
-        BreakWorkflowAudit audit = new BreakWorkflowAudit();
-        audit.setBreakItem(breakItem);
-        audit.setPreviousStatus(previousStatus);
-        audit.setNewStatus(targetStatus);
-        audit.setActorDn(actorDn);
-        audit.setActorRole(actorRole);
-        audit.setComment(normalizedComment);
-        audit.setCorrelationId(request.correlationId());
-        audit.setCreatedAt(now);
-        breakItem.getWorkflowAudits().add(audit);
-        breakWorkflowAuditRepository.save(audit);
+        breakItemRepository.save(result.breakItem());
+        if (result.audit() != null) {
+            breakWorkflowAuditRepository.save(result.audit());
+        }
 
         systemActivityService.recordEvent(
                 SystemEventType.BREAK_STATUS_CHANGE,
                 String.format(
                         "Break %d transitioned from %s to %s by %s (%s)",
-                        breakItem.getId(),
-                        previousStatus.name(),
-                        targetStatus.name(),
+                        result.breakItem().getId(),
+                        result.previousStatus().name(),
+                        result.targetStatus().name(),
                         username,
-                        actorRole.name()));
+                        result.actorRole().name()));
 
         return breakMapper.toDto(
-                breakItem,
-                breakAccessService.allowedStatuses(breakItem, context.definition(), context.entries()));
+                result.breakItem(),
+                breakAccessService.allowedStatuses(
+                        result.breakItem(), context.definition(), context.entries()));
     }
 
     @Transactional
@@ -165,34 +150,21 @@ public class BreakService {
                     breakAccessService.assertCanComment(breakItem, context.entries());
                 }
 
-                AccessRole actorRole = null;
-                String statusComment = null;
                 if (request.hasStatusChange()) {
-                    breakAccessService.assertTransitionAllowed(
-                            breakItem, context.definition(), context.entries(), request.status());
-                    actorRole = resolveActorRole(request.status(), context);
-                    statusComment = normalizeComment(request.status(), request.comment());
-                    enforceSelfApprovalGuard(breakItem, request.status(), actorRole, actorDn);
+                    StatusTransitionResult transition = applyStatusTransition(
+                            context,
+                            request.status(),
+                            request.comment(),
+                            request.correlationId(),
+                            actorDn,
+                            false);
 
-                    BreakStatus previousStatus = breakItem.getStatus();
-                    if (previousStatus != request.status()) {
-                        Instant now = Instant.now();
-                        breakItem.setStatus(request.status());
-                        updateSubmissionMetadata(breakItem, request.status(), actorDn, context.entries(), now);
-                        itemsToSave.add(breakItem);
+                    if (transition.statusChanged()) {
+                        itemsToSave.add(transition.breakItem());
+                        if (transition.audit() != null) {
+                            auditsToSave.add(transition.audit());
+                        }
                         statusChanges++;
-
-                        BreakWorkflowAudit audit = new BreakWorkflowAudit();
-                        audit.setBreakItem(breakItem);
-                        audit.setPreviousStatus(previousStatus);
-                        audit.setNewStatus(request.status());
-                        audit.setActorDn(actorDn);
-                        audit.setActorRole(actorRole);
-                        audit.setComment(statusComment);
-                        audit.setCorrelationId(request.correlationId());
-                        audit.setCreatedAt(now);
-                        breakItem.getWorkflowAudits().add(audit);
-                        auditsToSave.add(audit);
                     }
                 }
 
@@ -291,34 +263,6 @@ public class BreakService {
         return status == BreakStatus.CLOSED || status == BreakStatus.REJECTED;
     }
 
-    private AccessRole resolveActorRole(BreakStatus targetStatus, BreakContext context) {
-        List<AccessControlEntry> entries =
-                breakAccessService.scopedEntries(context.breakItem(), context.entries());
-        boolean maker = hasRole(entries, AccessRole.MAKER);
-        boolean checker = hasRole(entries, AccessRole.CHECKER) && !maker;
-
-        if (context.definition().isMakerCheckerEnabled()) {
-            if (targetStatus == BreakStatus.CLOSED || targetStatus == BreakStatus.REJECTED) {
-                if (!checker) {
-                    throw new AccessDeniedException("Checker role required for this action");
-                }
-                return AccessRole.CHECKER;
-            }
-            if (!maker) {
-                throw new AccessDeniedException("Maker role required for this action");
-            }
-            return AccessRole.MAKER;
-        }
-
-        if (checker) {
-            return AccessRole.CHECKER;
-        }
-        if (maker) {
-            return AccessRole.MAKER;
-        }
-        throw new AccessDeniedException("No maker/checker role available for this action");
-    }
-
     private void enforceSelfApprovalGuard(
             BreakItem breakItem, BreakStatus targetStatus, AccessRole actorRole, String actorDn) {
         if (actorRole == AccessRole.CHECKER
@@ -347,16 +291,63 @@ public class BreakService {
         }
     }
 
-    private boolean hasRole(List<AccessControlEntry> entries, AccessRole role) {
-        return entries.stream().anyMatch(entry -> role.equals(entry.getRole()));
-    }
-
     private Optional<String> resolveGroupForRole(List<AccessControlEntry> entries, AccessRole role) {
         return entries.stream()
                 .filter(entry -> role.equals(entry.getRole()))
                 .map(AccessControlEntry::getLdapGroupDn)
                 .findFirst();
     }
+
+    private StatusTransitionResult applyStatusTransition(
+            BreakContext context,
+            BreakStatus targetStatus,
+            String comment,
+            String correlationId,
+            String actorDn,
+            boolean forceAudit) {
+        BreakItem breakItem = context.breakItem();
+
+        breakAccessService.assertTransitionAllowed(
+                breakItem, context.definition(), context.entries(), targetStatus);
+
+        AccessRole actorRole = breakAccessService.resolveActorRole(
+                breakItem, context.definition(), context.entries(), targetStatus);
+        String normalizedComment = normalizeComment(targetStatus, comment);
+        enforceSelfApprovalGuard(breakItem, targetStatus, actorRole, actorDn);
+
+        BreakStatus previousStatus = breakItem.getStatus();
+        boolean statusChanged = previousStatus != targetStatus;
+        Instant now = Instant.now();
+
+        if (statusChanged) {
+            breakItem.setStatus(targetStatus);
+            updateSubmissionMetadata(breakItem, targetStatus, actorDn, context.entries(), now);
+        }
+
+        BreakWorkflowAudit audit = null;
+        if (statusChanged || forceAudit) {
+            audit = new BreakWorkflowAudit();
+            audit.setBreakItem(breakItem);
+            audit.setPreviousStatus(previousStatus);
+            audit.setNewStatus(targetStatus);
+            audit.setActorDn(actorDn);
+            audit.setActorRole(actorRole);
+            audit.setComment(normalizedComment);
+            audit.setCorrelationId(correlationId);
+            audit.setCreatedAt(now);
+            breakItem.getWorkflowAudits().add(audit);
+        }
+
+        return new StatusTransitionResult(breakItem, previousStatus, targetStatus, actorRole, audit, statusChanged);
+    }
+
+    private record StatusTransitionResult(
+            BreakItem breakItem,
+            BreakStatus previousStatus,
+            BreakStatus targetStatus,
+            AccessRole actorRole,
+            BreakWorkflowAudit audit,
+            boolean statusChanged) {}
 
     private record BreakContext(
             BreakItem breakItem, ReconciliationDefinition definition, List<AccessControlEntry> entries) {}

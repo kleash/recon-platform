@@ -48,7 +48,7 @@
           (updateStatus)="handleStatusChange($event)"
         ></urp-break-detail>
         <urp-checker-queue
-          *ngIf="session.hasCheckerRole()"
+          *ngIf="session.hasCheckerRole(detail.breaks)"
           [pendingBreaks]="getPendingApprovalBreaks(detail)"
           [filterMetadata]="filterMetadata$ | async"
           (approve)="handleQueueApprove($event)"

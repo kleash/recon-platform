@@ -1,0 +1,2 @@
+trade_id,source_trade_id,symbol,quantity,price,gross_amount,net_amount,trade_date,settlement_date,custodian_code,desk,portfolio,trader,broker,currency,direction,source,status,fee_amount,exchange
+BETA-E-007,BT-EXT-007,BABA,140,78.40,10976.00,10920.00,2024-03-18,2024-03-21,BETA,EQD,EuropeFund,Sophia Patel,UBS,USD,BUY,BETA_TRUST,BOOKED,56.00,NYSE

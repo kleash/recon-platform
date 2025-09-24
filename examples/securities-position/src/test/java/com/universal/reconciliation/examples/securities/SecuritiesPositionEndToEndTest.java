@@ -6,8 +6,9 @@ import com.universal.reconciliation.domain.dto.TriggerRunRequest;
 import com.universal.reconciliation.domain.entity.ReconciliationDefinition;
 import com.universal.reconciliation.domain.enums.TriggerType;
 import com.universal.reconciliation.repository.ReconciliationDefinitionRepository;
-import com.universal.reconciliation.repository.SourceRecordARepository;
-import com.universal.reconciliation.repository.SourceRecordBRepository;
+import com.universal.reconciliation.repository.ReconciliationSourceRepository;
+import com.universal.reconciliation.repository.SourceDataBatchRepository;
+import com.universal.reconciliation.repository.SourceDataRecordRepository;
 import com.universal.reconciliation.service.ExportService;
 import com.universal.reconciliation.service.ReconciliationService;
 import java.util.List;
@@ -25,10 +26,13 @@ class SecuritiesPositionEndToEndTest {
     private ReconciliationService reconciliationService;
 
     @Autowired
-    private SourceRecordARepository sourceRecordARepository;
+    private ReconciliationSourceRepository sourceRepository;
 
     @Autowired
-    private SourceRecordBRepository sourceRecordBRepository;
+    private SourceDataBatchRepository batchRepository;
+
+    @Autowired
+    private SourceDataRecordRepository recordRepository;
 
     @Autowired
     private ExportService exportService;
@@ -41,8 +45,24 @@ class SecuritiesPositionEndToEndTest {
 
         assertThat(definition.isMakerCheckerEnabled()).isTrue();
 
-        assertThat(sourceRecordARepository.findByDefinition(definition)).hasSize(4);
-        assertThat(sourceRecordBRepository.findByDefinition(definition)).hasSize(4);
+        var custodianSource = sourceRepository
+                .findByDefinitionAndCode(definition, "CUSTODIAN")
+                .orElseThrow();
+        var portfolioSource = sourceRepository
+                .findByDefinitionAndCode(definition, "PORTFOLIO")
+                .orElseThrow();
+
+        var custodianBatches = batchRepository.findBySourceOrderByIngestedAtDesc(custodianSource);
+        assertThat(custodianBatches).hasSize(1);
+        var custodianBatch = custodianBatches.get(0);
+
+        var portfolioBatches = batchRepository.findBySourceOrderByIngestedAtDesc(portfolioSource);
+        assertThat(portfolioBatches).hasSize(1);
+        var portfolioBatch = portfolioBatches.get(0);
+        assertThat(custodianBatch.getRecordCount()).isEqualTo(4);
+        assertThat(portfolioBatch.getRecordCount()).isEqualTo(4);
+        assertThat(recordRepository.findByBatch(custodianBatch)).hasSize(4);
+        assertThat(recordRepository.findByBatch(portfolioBatch)).hasSize(4);
 
         var run = reconciliationService.triggerRun(
                 definition.getId(),

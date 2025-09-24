@@ -1,0 +1,2 @@
+trade_id,source_trade_id,symbol,quantity,price,gross_amount,net_amount,trade_date,settlement_date,custodian_code,desk,portfolio,trader,broker,currency,direction,source,status,fee_amount,exchange
+ALPHA-E-006,AB-EXT-006,GOOGL,80,142.50,11400.00,11370.00,2024-03-18,2024-03-21,ALPHA,EQD,NorthAmerica,Alex Morgan,Barclays,USD,SELL,ALPHA_BANK,BOOKED,30.00,NASDAQ

@@ -4,8 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.universal.reconciliation.domain.entity.ReconciliationDefinition;
 import com.universal.reconciliation.repository.ReconciliationDefinitionRepository;
-import com.universal.reconciliation.repository.SourceRecordARepository;
-import com.universal.reconciliation.repository.SourceRecordBRepository;
+import com.universal.reconciliation.repository.ReconciliationSourceRepository;
+import com.universal.reconciliation.repository.SourceDataBatchRepository;
+import com.universal.reconciliation.repository.SourceDataRecordRepository;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,10 +19,13 @@ class CustodianTradeEndToEndTest {
     private ReconciliationDefinitionRepository definitionRepository;
 
     @Autowired
-    private SourceRecordARepository sourceRecordARepository;
+    private ReconciliationSourceRepository sourceRepository;
 
     @Autowired
-    private SourceRecordBRepository sourceRecordBRepository;
+    private SourceDataBatchRepository batchRepository;
+
+    @Autowired
+    private SourceDataRecordRepository recordRepository;
 
     @Autowired
     private CustodianTradeScheduler scheduler;
@@ -32,8 +36,32 @@ class CustodianTradeEndToEndTest {
                 .findByCode("CUSTODIAN_TRADE_COMPLEX")
                 .orElseThrow();
 
-        assertThat(sourceRecordARepository.findByDefinition(definition)).hasSize(8);
-        assertThat(sourceRecordBRepository.findByDefinition(definition)).hasSize(8);
+        var custodianSource = sourceRepository
+                .findByDefinitionAndCode(definition, "CUSTODIAN")
+                .orElseThrow();
+        var platformSource = sourceRepository
+                .findByDefinitionAndCode(definition, "PLATFORM")
+                .orElseThrow();
+
+        var custodianBatches = batchRepository.findBySourceOrderByIngestedAtDesc(custodianSource);
+        var platformBatches = batchRepository.findBySourceOrderByIngestedAtDesc(platformSource);
+
+        assertThat(custodianBatches).hasSize(6);
+        assertThat(platformBatches).hasSize(2);
+        assertThat(custodianBatches).allSatisfy(batch -> assertThat(batch.getRecordCount()).isGreaterThan(0));
+        assertThat(platformBatches).allSatisfy(batch -> assertThat(batch.getRecordCount()).isGreaterThan(0));
+
+        long custodianRecords = custodianBatches.stream()
+                .mapToLong(batch -> batch.getRecordCount() == null ? 0 : batch.getRecordCount())
+                .sum();
+        long platformRecords = platformBatches.stream()
+                .mapToLong(batch -> batch.getRecordCount() == null ? 0 : batch.getRecordCount())
+                .sum();
+
+        assertThat(custodianRecords).isEqualTo(8);
+        assertThat(platformRecords).isEqualTo(8);
+        assertThat(recordRepository.findByBatch(custodianBatches.get(0))).isNotEmpty();
+        assertThat(recordRepository.findByBatch(platformBatches.get(0))).isNotEmpty();
 
         Map<CutoffCycle, CustodianTradeScheduler.CutoffResult> resultByCycle = scheduler.results().stream()
                 .collect(java.util.stream.Collectors.toMap(CustodianTradeScheduler.CutoffResult::cycle, r -> r));

@@ -1,0 +1,2 @@
+trade_id,source_trade_id,symbol,quantity,price,gross_amount,net_amount,trade_date,settlement_date,custodian_code,desk,portfolio,trader,broker,currency,direction,source,status,fee_amount,exchange
+OMEGA-E-008,OC-EXT-008,TSLA,95,175.10,16634.50,16590.00,2024-03-18,2024-03-21,OMEGA,EQD,AsiaGrowth,Jordan Smith,Jefferies,USD,BUY,OMEGA_CLEAR,BOOKED,44.50,NASDAQ

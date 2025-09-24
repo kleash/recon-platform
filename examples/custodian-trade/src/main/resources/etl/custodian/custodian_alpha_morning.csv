@@ -1,0 +1,3 @@
+trade_id,source_trade_id,symbol,quantity,price,gross_amount,net_amount,trade_date,settlement_date,custodian_code,desk,portfolio,trader,broker,currency,direction,source,status,fee_amount,exchange
+ALPHA-M-001,AB-EXT-001,AAPL,150,175.23,26284.50,26250.10,2024-03-18,2024-03-20,ALPHA,EQD,NorthAmerica,Jamie Fox,Goldman,USD,BUY,ALPHA_BANK,BOOKED,34.40,NASDAQ
+ALPHA-M-002,AB-EXT-002,MSFT,90,410.10,36909.00,36870.00,2024-03-18,2024-03-20,ALPHA,EQD,NorthAmerica,Jamie Fox,Morgan,USD,BUY,ALPHA_BANK,BOOKED,39.00,NASDAQ

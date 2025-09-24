@@ -6,8 +6,9 @@ import com.universal.reconciliation.domain.dto.TriggerRunRequest;
 import com.universal.reconciliation.domain.entity.ReconciliationDefinition;
 import com.universal.reconciliation.domain.enums.TriggerType;
 import com.universal.reconciliation.repository.ReconciliationDefinitionRepository;
-import com.universal.reconciliation.repository.SourceRecordARepository;
-import com.universal.reconciliation.repository.SourceRecordBRepository;
+import com.universal.reconciliation.repository.ReconciliationSourceRepository;
+import com.universal.reconciliation.repository.SourceDataBatchRepository;
+import com.universal.reconciliation.repository.SourceDataRecordRepository;
 import com.universal.reconciliation.service.ExportService;
 import com.universal.reconciliation.service.ReconciliationService;
 import java.util.List;
@@ -25,10 +26,13 @@ class CashVsGlEndToEndTest {
     private ReconciliationService reconciliationService;
 
     @Autowired
-    private SourceRecordARepository sourceRecordARepository;
+    private ReconciliationSourceRepository sourceRepository;
 
     @Autowired
-    private SourceRecordBRepository sourceRecordBRepository;
+    private SourceDataBatchRepository batchRepository;
+
+    @Autowired
+    private SourceDataRecordRepository recordRepository;
 
     @Autowired
     private ExportService exportService;
@@ -39,8 +43,25 @@ class CashVsGlEndToEndTest {
                 .findByCode("CASH_VS_GL_SIMPLE")
                 .orElseThrow();
 
-        assertThat(sourceRecordARepository.findByDefinition(definition)).hasSize(4);
-        assertThat(sourceRecordBRepository.findByDefinition(definition)).hasSize(4);
+        var cashSource = sourceRepository
+                .findByDefinitionAndCode(definition, "CASH")
+                .orElseThrow();
+        var glSource = sourceRepository
+                .findByDefinitionAndCode(definition, "GL")
+                .orElseThrow();
+
+        var cashBatches = batchRepository.findBySourceOrderByIngestedAtDesc(cashSource);
+        assertThat(cashBatches).hasSize(1);
+        var cashBatch = cashBatches.get(0);
+
+        var glBatches = batchRepository.findBySourceOrderByIngestedAtDesc(glSource);
+        assertThat(glBatches).hasSize(1);
+        var glBatch = glBatches.get(0);
+
+        assertThat(cashBatch.getRecordCount()).isEqualTo(4);
+        assertThat(glBatch.getRecordCount()).isEqualTo(4);
+        assertThat(recordRepository.findByBatch(cashBatch)).hasSize(4);
+        assertThat(recordRepository.findByBatch(glBatch)).hasSize(4);
 
         var result = reconciliationService.triggerRun(
                 definition.getId(),

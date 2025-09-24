@@ -111,6 +111,7 @@
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
                     <skip>${spring-boot.repackage.skip}</skip>
+                    <classifier>exec</classifier>
                 </configuration>
             </plugin>
             <plugin>

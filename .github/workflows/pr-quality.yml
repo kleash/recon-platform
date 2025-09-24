@@ -1,0 +1,284 @@
+name: PR Quality Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  backend-tests:
+    name: Backend tests and coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Run backend unit tests
+        run: ./mvnw -B test
+        working-directory: backend
+
+      - name: Summarize backend coverage
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          report_path = Path('backend/target/site/jacoco/jacoco.xml')
+          if not report_path.exists():
+              raise SystemExit('Jacoco coverage report not found at ' + str(report_path))
+
+          tree = ET.parse(report_path)
+          counters = {
+              counter.attrib['type']: (int(counter.attrib['missed']), int(counter.attrib['covered']))
+              for counter in tree.getroot().findall('counter')
+          }
+
+          def coverage_line(missed: int, covered: int) -> str:
+              total = missed + covered
+              return '0.00%' if total == 0 else f"{covered * 100 / total:.2f}%"
+
+          lines_missed, lines_covered = counters.get('LINE', (0, 0))
+          branches_missed, branches_covered = counters.get('BRANCH', (0, 0))
+          instr_missed, instr_covered = counters.get('INSTRUCTION', (0, 0))
+
+          summary = """# Backend test coverage
+
+| Metric | Covered | Missed | Coverage |
+| --- | ---: | ---: | ---: |
+| Lines | {lines_covered} | {lines_missed} | {line_pct} |
+| Branches | {branches_covered} | {branches_missed} | {branch_pct} |
+| Instructions | {instr_covered} | {instr_missed} | {instr_pct} |
+""".format(
+              lines_covered=lines_covered,
+              lines_missed=lines_missed,
+              line_pct=coverage_line(lines_missed, lines_covered),
+              branches_covered=branches_covered,
+              branches_missed=branches_missed,
+              branch_pct=coverage_line(branches_missed, branches_covered),
+              instr_covered=instr_covered,
+              instr_missed=instr_missed,
+              instr_pct=coverage_line(instr_missed, instr_covered),
+          )
+
+          summary_path = Path('backend/target/site/jacoco/coverage-summary.md')
+          summary_path.write_text(summary)
+          PY
+
+      - name: Append backend summary to job summary
+        run: cat backend/target/site/jacoco/coverage-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload backend coverage artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jacoco-report
+          path: |
+            backend/target/site/jacoco
+          if-no-files-found: warn
+
+  frontend-tests:
+    name: Frontend tests and coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci --no-audit --no-fund
+        working-directory: frontend
+
+      - name: Run frontend unit tests with coverage
+        env:
+          CI: 'true'
+          CHROME_BIN: /usr/bin/google-chrome
+        run: npm test -- --code-coverage
+        working-directory: frontend
+
+      - name: Summarize frontend coverage
+        run: |
+          python <<'PY'
+          import json
+          from pathlib import Path
+
+          coverage_root = Path('frontend/coverage')
+          summaries = list(coverage_root.rglob('coverage-summary.json'))
+          if not summaries:
+              raise SystemExit('Unable to find coverage-summary.json under ' + str(coverage_root))
+
+          data = json.loads(summaries[0].read_text())
+          totals = data.get('total', {})
+
+          def extract(metric: str):
+              section = totals.get(metric, {})
+              return section.get('covered', 0), section.get('total', 0), section.get('pct', 0.0)
+
+          lines_cov, lines_total, lines_pct = extract('lines')
+          statements_cov, statements_total, statements_pct = extract('statements')
+          branches_cov, branches_total, branches_pct = extract('branches')
+          funcs_cov, funcs_total, funcs_pct = extract('functions')
+
+          summary = f"""# Frontend test coverage
+
+| Metric | Covered | Total | Coverage |
+| --- | ---: | ---: | ---: |
+| Lines | {lines_cov} | {lines_total} | {lines_pct:.2f}% |
+| Statements | {statements_cov} | {statements_total} | {statements_pct:.2f}% |
+| Branches | {branches_cov} | {branches_total} | {branches_pct:.2f}% |
+| Functions | {funcs_cov} | {funcs_total} | {funcs_pct:.2f}% |
+"""
+
+          summary_path = Path('frontend/coverage/coverage-summary.md')
+          summary_path.write_text(summary)
+          PY
+
+      - name: Append frontend summary to job summary
+        run: cat frontend/coverage/coverage-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload frontend coverage artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-test-coverage
+          path: |
+            frontend/coverage
+          if-no-files-found: warn
+
+  regression-tests:
+    name: Automation regression and evidence
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Set up Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            automation/regression/package-lock.json
+
+      - name: Install regression harness dependencies
+        run: npm ci --no-audit --no-fund
+        working-directory: automation/regression
+
+      - name: Execute Playwright regression suite
+        env:
+          CI: 'true'
+        run: npm test
+        working-directory: automation/regression
+
+      - name: Upload Playwright HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-playwright-report
+          path: |
+            automation/regression/playwright-report
+          if-no-files-found: warn
+
+      - name: Upload regression evidence bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-evidence
+          path: |
+            automation/regression/reports/latest
+          if-no-files-found: warn
+
+  pr-metrics:
+    name: PR analytics
+    runs-on: ubuntu-latest
+    needs:
+      - backend-tests
+      - frontend-tests
+      - regression-tests
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate pull request diff statistics
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          python <<'PY'
+          import os
+          import subprocess
+          from pathlib import Path
+
+          base_sha = os.environ.get('BASE_SHA')
+          if not base_sha:
+              raise SystemExit('BASE_SHA is not available in this workflow run.')
+
+          diffstat = subprocess.run(
+              ['git', 'diff', '--stat', '--color=never', f'{base_sha}..HEAD'],
+              check=True,
+              text=True,
+              capture_output=True
+          ).stdout.strip()
+
+          numstat = subprocess.run(
+              ['git', 'diff', '--numstat', f'{base_sha}..HEAD'],
+              check=True,
+              text=True,
+              capture_output=True
+          ).stdout.strip()
+
+          content_lines = [
+              '# Pull request line of code summary',
+              '',
+              '## Diffstat',
+              '```',
+              diffstat if diffstat else 'No changes detected.',
+              '```',
+              '',
+              '## Additions and deletions by file',
+              '```',
+              numstat if numstat else 'No file level changes detected.',
+              '```',
+          ]
+
+          report_path = Path('pr-loc-report.md')
+          report_path.write_text('\n'.join(content_lines))
+          PY
+
+      - name: Append LOC summary to job summary
+        run: cat pr-loc-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload LOC report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr-loc-report
+          path: pr-loc-report.md
+          if-no-files-found: error

@@ -3,7 +3,7 @@
 This example demonstrates how to run the Universal Reconciliation Platform in a fully standalone mode
 while orchestrating a complex multi-source trade reconciliation. It showcases:
 
-- Loading three custodian Excel feeds plus an internal trading platform extract.
+- Loading three custodian CSV feeds plus an internal trading platform extract.
 - Automatically triggering reconciliations twice per day when inputs are available.
 - Enforcing a 6pm cutoff when a custodian feed is late.
 - Scheduling reports at 3pm, 9pm, and 2am for the previous day's activity.
@@ -39,14 +39,12 @@ scheduled reports were generated with non-empty Excel workbooks.
 
 ## Data files
 
-All sample inputs are stored as Base64-encoded Excel files (`*.xlsx.b64`) under
-`src/main/resources/etl/custodian`:
+All sample inputs are stored as comma-delimited files under `src/main/resources/etl/custodian`:
 
-- `custodian_*_morning.xlsx.b64` and `custodian_*_evening.xlsx.b64` represent individual custodian feeds.
-- `trading_platform_morning.xlsx.b64` and `trading_platform_evening.xlsx.b64` contain the internal platform
+- `custodian_*_morning.csv` and `custodian_*_evening.csv` represent the individual custodian deliveries.
+- `trading_platform_morning.csv` and `trading_platform_evening.csv` contain the internal platform
   perspective with embedded source names.
 
-The ETL helper transparently decodes these resources back into XLSX workbooks at runtime so the
-example still exercises Excel ingestion without checking binary artifacts into source control.
-Replace the encoded text files with environment-specific extracts (encode to Base64) to adapt the
-scenario for real testing or demos.
+The ETL pipeline ingests these resources through the platform's CSV adapter while the canonical field
+configuration maps them into the dynamic metadata model. Replace the CSV files with environment-specific
+extracts to adapt the scenario for real testing or demos.

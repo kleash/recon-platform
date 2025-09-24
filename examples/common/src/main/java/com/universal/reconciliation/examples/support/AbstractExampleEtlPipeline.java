@@ -25,6 +25,7 @@ import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -205,13 +206,24 @@ public abstract class AbstractExampleEtlPipeline {
     }
 
     protected void ingestCsv(ReconciliationDefinition definition, String sourceCode, String resourcePath) {
+        ingestCsv(definition, sourceCode, resourcePath, Map.of());
+    }
+
+    protected void ingestCsv(
+            ReconciliationDefinition definition,
+            String sourceCode,
+            String resourcePath,
+            Map<String, Object> additionalOptions) {
         Resource resource = new ClassPathResource(resourcePath);
         if (!resource.exists()) {
             throw new IllegalArgumentException("Missing ETL resource: " + resourcePath);
         }
-        IngestionAdapterRequest request = new IngestionAdapterRequest(
-                () -> openResource(resource),
-                Map.of("charset", StandardCharsets.UTF_8));
+        Map<String, Object> options = new LinkedHashMap<>();
+        options.put("charset", StandardCharsets.UTF_8);
+        if (additionalOptions != null && !additionalOptions.isEmpty()) {
+            options.putAll(additionalOptions);
+        }
+        IngestionAdapterRequest request = new IngestionAdapterRequest(() -> openResource(resource), options);
         sourceIngestionService.ingest(definition, sourceCode, IngestionAdapterType.CSV_FILE, request);
     }
 

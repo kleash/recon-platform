@@ -1,22 +1,24 @@
 package com.universal.reconciliation.examples.custodian;
 
-import com.universal.reconciliation.domain.entity.AccessControlEntry;
+import com.universal.reconciliation.domain.entity.CanonicalField;
+import com.universal.reconciliation.domain.entity.CanonicalFieldMapping;
 import com.universal.reconciliation.domain.entity.ReconciliationDefinition;
-import com.universal.reconciliation.domain.entity.ReconciliationField;
+import com.universal.reconciliation.domain.entity.ReconciliationSource;
 import com.universal.reconciliation.domain.entity.ReportTemplate;
-import com.universal.reconciliation.domain.entity.SourceRecordA;
-import com.universal.reconciliation.domain.entity.SourceRecordB;
 import com.universal.reconciliation.domain.enums.AccessRole;
 import com.universal.reconciliation.domain.enums.ComparisonLogic;
 import com.universal.reconciliation.domain.enums.FieldDataType;
 import com.universal.reconciliation.domain.enums.FieldRole;
+import com.universal.reconciliation.domain.enums.IngestionAdapterType;
 import com.universal.reconciliation.domain.enums.ReportColumnSource;
 import com.universal.reconciliation.examples.support.AbstractExampleEtlPipeline;
 import com.universal.reconciliation.etl.EtlPipeline;
 import com.universal.reconciliation.repository.AccessControlEntryRepository;
+import com.universal.reconciliation.repository.CanonicalFieldRepository;
 import com.universal.reconciliation.repository.ReconciliationDefinitionRepository;
-import com.universal.reconciliation.repository.SourceRecordARepository;
-import com.universal.reconciliation.repository.SourceRecordBRepository;
+import com.universal.reconciliation.repository.ReconciliationSourceRepository;
+import com.universal.reconciliation.repository.ReportTemplateRepository;
+import com.universal.reconciliation.service.ingestion.SourceIngestionService;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
@@ -31,6 +33,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class CustodianTradeEtlPipeline extends AbstractExampleEtlPipeline implements EtlPipeline {
 
     private static final String DEFINITION_CODE = "CUSTODIAN_TRADE_COMPLEX";
+    private static final String CUSTODIAN_SOURCE_CODE = "CUSTODIAN";
+    private static final String PLATFORM_SOURCE_CODE = "PLATFORM";
     private static final List<String> CUSTODIANS = List.of("ALPHA_BANK", "BETA_TRUST", "OMEGA_CLEAR");
     private static final LocalDate BUSINESS_DATE = LocalDate.of(2024, 3, 18);
 
@@ -39,12 +43,20 @@ public class CustodianTradeEtlPipeline extends AbstractExampleEtlPipeline implem
 
     public CustodianTradeEtlPipeline(
             ReconciliationDefinitionRepository definitionRepository,
+            ReconciliationSourceRepository sourceRepository,
+            CanonicalFieldRepository canonicalFieldRepository,
+            ReportTemplateRepository reportTemplateRepository,
             AccessControlEntryRepository accessControlEntryRepository,
-            SourceRecordARepository sourceRecordARepository,
-            SourceRecordBRepository sourceRecordBRepository,
+            SourceIngestionService sourceIngestionService,
             CustodianTradeScheduler scheduler,
             ScenarioClock clock) {
-        super(definitionRepository, accessControlEntryRepository, sourceRecordARepository, sourceRecordBRepository);
+        super(
+                definitionRepository,
+                sourceRepository,
+                canonicalFieldRepository,
+                reportTemplateRepository,
+                accessControlEntryRepository,
+                sourceIngestionService);
         this.scheduler = scheduler;
         this.clock = clock;
     }
@@ -68,15 +80,28 @@ public class CustodianTradeEtlPipeline extends AbstractExampleEtlPipeline implem
                 "Illustrates a multi-file workflow with automated cutoffs and report scheduling.",
                 true);
 
-        registerFields(definition);
-        configureReportTemplate(definition);
-        definitionRepository.save(definition);
+        ReconciliationSource custodianSource = source(
+                definition,
+                CUSTODIAN_SOURCE_CODE,
+                "Custodian Feeds",
+                false,
+                IngestionAdapterType.CSV_FILE);
+        ReconciliationSource platformSource = source(
+                definition,
+                PLATFORM_SOURCE_CODE,
+                "Trading Platform",
+                true,
+                IngestionAdapterType.CSV_FILE);
 
-        List<AccessControlEntry> entries = List.of(
+        configureFields(definition, custodianSource, platformSource);
+        configureReportTemplate(definition);
+
+        persistDefinition(definition);
+
+        saveAccessControlEntries(List.of(
                 entry(definition, "recon-makers", AccessRole.MAKER, "Global Markets", "Equities", "US"),
                 entry(definition, "recon-checkers", AccessRole.CHECKER, "Global Markets", "Equities", "US"),
-                entry(definition, "recon-ops", AccessRole.VIEWER, "Global Markets", "Equities", "US"));
-        accessControlEntryRepository.saveAll(entries);
+                entry(definition, "recon-ops", AccessRole.VIEWER, "Global Markets", "Equities", "US")));
 
         scheduler.configure(definition, CUSTODIANS);
 
@@ -87,68 +112,131 @@ public class CustodianTradeEtlPipeline extends AbstractExampleEtlPipeline implem
         scheduler.evaluateCurrentInstant();
     }
 
-    private void runMorningCutoff(ReconciliationDefinition definition) {
-        clock.advanceTo(BUSINESS_DATE, LocalTime.of(7, 45));
-        ingestCustodianFile(definition, "etl/custodian/custodian_alpha_morning.xlsx", "ALPHA_BANK");
-        scheduler.recordCustodianArrival(BUSINESS_DATE, CutoffCycle.MORNING, "ALPHA_BANK");
+    private void configureFields(
+            ReconciliationDefinition definition,
+            ReconciliationSource custodianSource,
+            ReconciliationSource platformSource) {
+        CanonicalField transactionId = canonicalField(
+                definition,
+                "transactionId",
+                "Trade ID",
+                FieldRole.KEY,
+                FieldDataType.STRING,
+                ComparisonLogic.EXACT_MATCH,
+                null,
+                1,
+                true);
+        mapping(transactionId, custodianSource, "trade_id", true);
+        mapping(transactionId, platformSource, "trade_id", true);
 
-        clock.advanceTo(BUSINESS_DATE, LocalTime.of(8, 15));
-        ingestCustodianFile(definition, "etl/custodian/custodian_beta_morning.xlsx", "BETA_TRUST");
-        scheduler.recordCustodianArrival(BUSINESS_DATE, CutoffCycle.MORNING, "BETA_TRUST");
+        CanonicalField sourceField = canonicalField(
+                definition,
+                "subProduct",
+                "Source",
+                FieldRole.KEY,
+                FieldDataType.STRING,
+                ComparisonLogic.EXACT_MATCH,
+                null,
+                2,
+                true);
+        sourceField.setClassifierTag("subProduct");
+        mapping(sourceField, custodianSource, "source", true);
+        mapping(sourceField, platformSource, "source", true);
 
-        clock.advanceTo(BUSINESS_DATE, LocalTime.of(8, 40));
-        ingestCustodianFile(definition, "etl/custodian/custodian_omega_morning.xlsx", "OMEGA_CLEAR");
-        scheduler.recordCustodianArrival(BUSINESS_DATE, CutoffCycle.MORNING, "OMEGA_CLEAR");
+        CanonicalField amount = canonicalField(
+                definition,
+                "amount",
+                "Gross Amount",
+                FieldRole.COMPARE,
+                FieldDataType.DECIMAL,
+                ComparisonLogic.NUMERIC_THRESHOLD,
+                null,
+                3,
+                true);
+        mapping(amount, custodianSource, "gross_amount", true);
+        mapping(amount, platformSource, "gross_amount", true);
 
-        clock.advanceTo(BUSINESS_DATE, LocalTime.of(9, 10));
-        ingestPlatformFile(definition, "etl/custodian/trading_platform_morning.xlsx");
-        scheduler.recordPlatformArrival(BUSINESS_DATE, CutoffCycle.MORNING);
+        CanonicalField quantity = canonicalField(
+                definition,
+                "quantity",
+                "Quantity",
+                FieldRole.COMPARE,
+                FieldDataType.DECIMAL,
+                ComparisonLogic.NUMERIC_THRESHOLD,
+                null,
+                4,
+                true);
+        mapping(quantity, custodianSource, "quantity", true);
+        mapping(quantity, platformSource, "quantity", true);
 
-        scheduler.evaluateCurrentInstant();
+        CanonicalField currency = canonicalField(
+                definition,
+                "currency",
+                "Currency",
+                FieldRole.COMPARE,
+                FieldDataType.STRING,
+                ComparisonLogic.CASE_INSENSITIVE,
+                null,
+                5,
+                true);
+        mapping(currency, custodianSource, "currency", true);
+        mapping(currency, platformSource, "currency", true);
 
-        clock.advanceTo(BUSINESS_DATE, LocalTime.of(15, 5));
-        scheduler.evaluateCurrentInstant();
-    }
+        CanonicalField tradeDate = canonicalField(
+                definition,
+                "tradeDate",
+                "Trade Date",
+                FieldRole.COMPARE,
+                FieldDataType.DATE,
+                ComparisonLogic.DATE_ONLY,
+                null,
+                6,
+                true);
+        mapping(tradeDate, custodianSource, "trade_date", true);
+        mapping(tradeDate, platformSource, "trade_date", true);
 
-    private void runEveningCutoff(ReconciliationDefinition definition) {
-        clock.advanceTo(BUSINESS_DATE, LocalTime.of(16, 35));
-        ingestCustodianFile(definition, "etl/custodian/custodian_alpha_evening.xlsx", "ALPHA_BANK");
-        scheduler.recordCustodianArrival(BUSINESS_DATE, CutoffCycle.EVENING, "ALPHA_BANK");
+        CanonicalField product = canonicalField(
+                definition,
+                "product",
+                "Product",
+                FieldRole.PRODUCT,
+                FieldDataType.STRING,
+                ComparisonLogic.EXACT_MATCH,
+                null,
+                7,
+                true);
+        product.setClassifierTag("product");
+        CanonicalFieldMapping productCustodianMapping = mapping(product, custodianSource, "product", true);
+        productCustodianMapping.setDefaultValue("Global Markets");
+        CanonicalFieldMapping productPlatformMapping = mapping(product, platformSource, "product", true);
+        productPlatformMapping.setDefaultValue("Global Markets");
 
-        clock.advanceTo(BUSINESS_DATE, LocalTime.of(17, 5));
-        ingestCustodianFile(definition, "etl/custodian/custodian_beta_evening.xlsx", "BETA_TRUST");
-        scheduler.recordCustodianArrival(BUSINESS_DATE, CutoffCycle.EVENING, "BETA_TRUST");
+        CanonicalField entity = canonicalField(
+                definition,
+                "entityName",
+                "Portfolio",
+                FieldRole.ENTITY,
+                FieldDataType.STRING,
+                ComparisonLogic.EXACT_MATCH,
+                null,
+                8,
+                true);
+        entity.setClassifierTag("entity");
+        mapping(entity, custodianSource, "portfolio", true);
+        mapping(entity, platformSource, "book", true);
 
-        clock.advanceTo(BUSINESS_DATE, LocalTime.of(17, 40));
-        ingestPlatformFile(definition, "etl/custodian/trading_platform_evening.xlsx");
-        scheduler.recordPlatformArrival(BUSINESS_DATE, CutoffCycle.EVENING);
-
-        clock.advanceTo(BUSINESS_DATE, CutoffCycle.EVENING.cutoff());
-        scheduler.evaluateCurrentInstant();
-
-        clock.advanceTo(BUSINESS_DATE, LocalTime.of(18, 12));
-        ingestCustodianFile(definition, "etl/custodian/custodian_omega_evening.xlsx", "OMEGA_CLEAR");
-        scheduler.recordCustodianArrival(BUSINESS_DATE, CutoffCycle.EVENING, "OMEGA_CLEAR");
-
-        clock.advanceTo(BUSINESS_DATE, LocalTime.of(21, 10));
-        scheduler.evaluateCurrentInstant();
-    }
-
-    private void registerFields(ReconciliationDefinition definition) {
-        addField(definition, "transactionId", "Trade ID", FieldRole.KEY, FieldDataType.STRING, ComparisonLogic.EXACT_MATCH, null);
-        addField(definition, "subProduct", "Source", FieldRole.KEY, FieldDataType.STRING, ComparisonLogic.EXACT_MATCH, null);
-        addField(definition, "amount", "Gross Amount", FieldRole.COMPARE, FieldDataType.DECIMAL, ComparisonLogic.NUMERIC_THRESHOLD, null);
-        addField(definition, "quantity", "Quantity", FieldRole.COMPARE, FieldDataType.DECIMAL, ComparisonLogic.NUMERIC_THRESHOLD, null);
-        addField(definition, "currency", "Currency", FieldRole.COMPARE, FieldDataType.STRING, ComparisonLogic.CASE_INSENSITIVE, null);
-        addField(definition, "tradeDate", "Trade Date", FieldRole.COMPARE, FieldDataType.DATE, ComparisonLogic.DATE_ONLY, null);
-        addField(definition, "product", "Product", FieldRole.PRODUCT, FieldDataType.STRING, ComparisonLogic.EXACT_MATCH, null);
-        addField(definition, "entityName", "Portfolio", FieldRole.ENTITY, FieldDataType.STRING, ComparisonLogic.EXACT_MATCH, null);
-        addField(definition, "subProduct", "Source", FieldRole.DISPLAY, FieldDataType.STRING, ComparisonLogic.EXACT_MATCH, null);
-        addField(definition, "amount", "Gross Amount", FieldRole.DISPLAY, FieldDataType.DECIMAL, ComparisonLogic.NUMERIC_THRESHOLD, null);
-        addField(definition, "quantity", "Quantity", FieldRole.DISPLAY, FieldDataType.DECIMAL, ComparisonLogic.NUMERIC_THRESHOLD, null);
-        addField(definition, "currency", "Currency", FieldRole.DISPLAY, FieldDataType.STRING, ComparisonLogic.EXACT_MATCH, null);
-        addField(definition, "entityName", "Portfolio", FieldRole.DISPLAY, FieldDataType.STRING, ComparisonLogic.EXACT_MATCH, null);
-        addField(definition, "custodian", "Custodian", FieldRole.DISPLAY, FieldDataType.STRING, ComparisonLogic.EXACT_MATCH, null);
+        CanonicalField custodian = canonicalField(
+                definition,
+                "custodian",
+                "Custodian",
+                FieldRole.DISPLAY,
+                FieldDataType.STRING,
+                ComparisonLogic.EXACT_MATCH,
+                null,
+                9,
+                true);
+        mapping(custodian, custodianSource, "source", true);
+        mapping(custodian, platformSource, "source", true);
     }
 
     private void configureReportTemplate(ReconciliationDefinition definition) {
@@ -160,83 +248,94 @@ public class CustodianTradeEtlPipeline extends AbstractExampleEtlPipeline implem
                 true,
                 true,
                 true);
-        definition.getReportTemplates().add(template);
 
         template.getColumns().add(column(template, "Trade ID", ReportColumnSource.SOURCE_A, "transactionId", 1, true));
         template.getColumns().add(column(template, "Source", ReportColumnSource.SOURCE_A, "subProduct", 2, true));
-        template.getColumns().add(column(template, "Gross Amount (A)", ReportColumnSource.SOURCE_A, "amount", 3, true));
-        template.getColumns().add(column(template, "Gross Amount (B)", ReportColumnSource.SOURCE_B, "amount", 4, true));
-        template.getColumns().add(column(template, "Quantity (A)", ReportColumnSource.SOURCE_A, "quantity", 5, true));
-        template.getColumns().add(column(template, "Quantity (B)", ReportColumnSource.SOURCE_B, "quantity", 6, true));
+        template.getColumns().add(column(template, "Gross Amount (Custodian)", ReportColumnSource.SOURCE_A, "amount", 3, true));
+        template.getColumns().add(column(template, "Gross Amount (Platform)", ReportColumnSource.SOURCE_B, "amount", 4, true));
+        template.getColumns().add(column(template, "Quantity (Custodian)", ReportColumnSource.SOURCE_A, "quantity", 5, true));
+        template.getColumns().add(column(template, "Quantity (Platform)", ReportColumnSource.SOURCE_B, "quantity", 6, true));
         template.getColumns().add(column(template, "Currency", ReportColumnSource.SOURCE_A, "currency", 7, false));
         template.getColumns().add(column(template, "Portfolio", ReportColumnSource.SOURCE_A, "entityName", 8, false));
         template.getColumns().add(column(template, "Workflow Status", ReportColumnSource.BREAK_METADATA, "status", 9, false));
     }
 
-    private void addField(
-            ReconciliationDefinition definition,
-            String sourceField,
-            String displayName,
-            FieldRole role,
-            FieldDataType dataType,
-            ComparisonLogic logic,
-            java.math.BigDecimal threshold) {
-        ReconciliationField field = field(definition, sourceField, displayName, role, dataType, logic, threshold);
-        definition.getFields().add(field);
+    private void runMorningCutoff(ReconciliationDefinition definition) {
+        clock.advanceTo(BUSINESS_DATE, LocalTime.of(7, 45));
+        ingestCsv(
+                definition,
+                CUSTODIAN_SOURCE_CODE,
+                "etl/custodian/custodian_alpha_morning.csv",
+                Map.of("label", "Alpha Morning"));
+        scheduler.recordCustodianArrival(BUSINESS_DATE, CutoffCycle.MORNING, "ALPHA_BANK");
+
+        clock.advanceTo(BUSINESS_DATE, LocalTime.of(8, 15));
+        ingestCsv(
+                definition,
+                CUSTODIAN_SOURCE_CODE,
+                "etl/custodian/custodian_beta_morning.csv",
+                Map.of("label", "Beta Morning"));
+        scheduler.recordCustodianArrival(BUSINESS_DATE, CutoffCycle.MORNING, "BETA_TRUST");
+
+        clock.advanceTo(BUSINESS_DATE, LocalTime.of(8, 40));
+        ingestCsv(
+                definition,
+                CUSTODIAN_SOURCE_CODE,
+                "etl/custodian/custodian_omega_morning.csv",
+                Map.of("label", "Omega Morning"));
+        scheduler.recordCustodianArrival(BUSINESS_DATE, CutoffCycle.MORNING, "OMEGA_CLEAR");
+
+        clock.advanceTo(BUSINESS_DATE, LocalTime.of(9, 10));
+        ingestCsv(
+                definition,
+                PLATFORM_SOURCE_CODE,
+                "etl/custodian/trading_platform_morning.csv",
+                Map.of("label", "Platform Morning"));
+        scheduler.recordPlatformArrival(BUSINESS_DATE, CutoffCycle.MORNING);
+
+        scheduler.evaluateCurrentInstant();
+
+        clock.advanceTo(BUSINESS_DATE, LocalTime.of(15, 5));
+        scheduler.evaluateCurrentInstant();
     }
 
-    private void ingestCustodianFile(ReconciliationDefinition definition, String resource, String sourceName) {
-        List<Map<String, String>> rows = readExcel(resource);
-        List<SourceRecordA> records = rows.stream()
-                .map(row -> mapCustodianRow(definition, row, sourceName))
-                .toList();
-        sourceRecordARepository.saveAll(records);
-    }
+    private void runEveningCutoff(ReconciliationDefinition definition) {
+        clock.advanceTo(BUSINESS_DATE, LocalTime.of(16, 35));
+        ingestCsv(
+                definition,
+                CUSTODIAN_SOURCE_CODE,
+                "etl/custodian/custodian_alpha_evening.csv",
+                Map.of("label", "Alpha Evening"));
+        scheduler.recordCustodianArrival(BUSINESS_DATE, CutoffCycle.EVENING, "ALPHA_BANK");
 
-    private void ingestPlatformFile(ReconciliationDefinition definition, String resource) {
-        List<Map<String, String>> rows = readExcel(resource);
-        List<SourceRecordB> records = rows.stream()
-                .map(row -> mapPlatformRow(definition, row))
-                .toList();
-        sourceRecordBRepository.saveAll(records);
-    }
+        clock.advanceTo(BUSINESS_DATE, LocalTime.of(17, 5));
+        ingestCsv(
+                definition,
+                CUSTODIAN_SOURCE_CODE,
+                "etl/custodian/custodian_beta_evening.csv",
+                Map.of("label", "Beta Evening"));
+        scheduler.recordCustodianArrival(BUSINESS_DATE, CutoffCycle.EVENING, "BETA_TRUST");
 
-    private SourceRecordA mapCustodianRow(
-            ReconciliationDefinition definition, Map<String, String> row, String sourceName) {
-        SourceRecordA record = new SourceRecordA();
-        record.setDefinition(definition);
-        record.setTransactionId(row.get("trade_id"));
-        record.setAmount(decimal(row.get("gross_amount")));
-        record.setCurrency(row.get("currency"));
-        record.setTradeDate(date(row.get("trade_date")));
-        record.setProduct("Global Markets");
-        record.setSubProduct(sourceName);
-        record.setEntityName(row.get("portfolio"));
-        record.setAccountId(row.get("custodian_code"));
-        record.setQuantity(decimal(row.get("quantity")));
-        record.setMarketValue(decimal(row.get("gross_amount")));
-        record.setValuationCurrency(row.get("currency"));
-        record.setCustodian(sourceName);
-        record.setPortfolioManager(row.get("trader"));
-        return record;
-    }
+        clock.advanceTo(BUSINESS_DATE, LocalTime.of(17, 40));
+        ingestCsv(
+                definition,
+                PLATFORM_SOURCE_CODE,
+                "etl/custodian/trading_platform_evening.csv",
+                Map.of("label", "Platform Evening"));
+        scheduler.recordPlatformArrival(BUSINESS_DATE, CutoffCycle.EVENING);
 
-    private SourceRecordB mapPlatformRow(ReconciliationDefinition definition, Map<String, String> row) {
-        SourceRecordB record = new SourceRecordB();
-        record.setDefinition(definition);
-        record.setTransactionId(row.get("trade_id"));
-        record.setAmount(decimal(row.get("gross_amount")));
-        record.setCurrency(row.get("currency"));
-        record.setTradeDate(date(row.get("trade_date")));
-        record.setProduct("Global Markets");
-        record.setSubProduct(row.get("source"));
-        record.setEntityName(row.get("book"));
-        record.setAccountId(row.get("account"));
-        record.setQuantity(decimal(row.get("quantity")));
-        record.setMarketValue(decimal(row.get("gross_amount")));
-        record.setValuationCurrency(row.get("currency"));
-        record.setCustodian(row.get("source"));
-        record.setPortfolioManager(row.get("desk_owner"));
-        return record;
+        clock.advanceTo(BUSINESS_DATE, CutoffCycle.EVENING.cutoff());
+        scheduler.evaluateCurrentInstant();
+
+        clock.advanceTo(BUSINESS_DATE, LocalTime.of(18, 12));
+        ingestCsv(
+                definition,
+                CUSTODIAN_SOURCE_CODE,
+                "etl/custodian/custodian_omega_evening.csv",
+                Map.of("label", "Omega Evening"));
+        scheduler.recordCustodianArrival(BUSINESS_DATE, CutoffCycle.EVENING, "OMEGA_CLEAR");
+
+        clock.advanceTo(BUSINESS_DATE, LocalTime.of(21, 10));
+        scheduler.evaluateCurrentInstant();
     }
 }

@@ -1,0 +1,4 @@
+trade_id,source_trade_id,symbol,quantity,price,gross_amount,net_amount,trade_date,settlement_date,account,book,desk_owner,source,status,currency,direction,oms_id,fee_amount,exchange,risk_category
+ALPHA-E-006,TP-006,GOOGL,80,142.50,11400.00,11370.00,2024-03-18,2024-03-21,ALPHA,GlobalMarkets-NA,Alex Morgan,ALPHA_BANK,PENDING,USD,SELL,OMS-1010,30.00,NASDAQ,Medium
+BETA-E-007,TP-007,BABA,135,78.40,10584.00,10520.00,2024-03-18,2024-03-21,BETA,GlobalMarkets-EU,Sophia Patel,BETA_TRUST,PENDING,USD,BUY,OMS-2002,56.00,NYSE,Medium
+TP-EXTRA-010,TP-010,NFLX,60,610.50,36630.00,36580.00,2024-03-18,2024-03-21,BETA,GlobalMarkets-NA,Alex Morgan,BETA_TRUST,PENDING,USD,SELL,OMS-2010,50.00,NASDAQ,High

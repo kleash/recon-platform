@@ -21,6 +21,7 @@ import com.universal.reconciliation.repository.ReportTemplateRepository;
 import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -256,6 +257,14 @@ class ExportServiceTest {
     }
 
     private BreakItemDto mismatchedBreak() {
+        Map<String, Map<String, Object>> sources = new LinkedHashMap<>();
+        sources.put(
+                "CASH",
+                Map.of("amount", new BigDecimal("100.00"), "tradeId", "TR-1", "riskScore", Double.NaN));
+        sources.put(
+                "GL",
+                Map.of("amount", new BigDecimal("95.00"), "tradeId", "TR-1", "riskScore", Double.NaN));
+
         return new BreakItemDto(
                 1L,
                 BreakType.MISMATCH,
@@ -263,11 +272,7 @@ class ExportServiceTest {
                 Map.of("product", "Payments", "subProduct", "Wire", "entity", "US"),
                 List.of(BreakStatus.CLOSED),
                 Instant.parse("2024-03-18T09:15:00Z"),
-                Map.of(
-                        "CASH",
-                        Map.of("amount", new BigDecimal("100.00"), "tradeId", "TR-1", "riskScore", Double.NaN),
-                        "GL",
-                        Map.of("amount", new BigDecimal("95.00"), "tradeId", "TR-1", "riskScore", Double.NaN)),
+                sources,
                 List.of(),
                 List.of(new BreakCommentDto(10L, "uid=ops1", "NOTE", "Needs review", Instant.parse("2024-03-18T10:00:00Z"))));
     }

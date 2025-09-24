@@ -38,13 +38,11 @@ export interface BreakItem {
   id: number;
   breakType: string;
   status: BreakStatus;
-  product: string | null;
-  subProduct: string | null;
-  entity: string | null;
+  classifications: Record<string, string>;
   allowedStatusTransitions: BreakStatus[];
   detectedAt: string;
-  sourceA: Record<string, unknown>;
-  sourceB: Record<string, unknown>;
+  sources: Record<string, Record<string, unknown>>;
+  missingSources: string[];
   comments: BreakComment[];
 }
 

@@ -156,43 +156,41 @@
   </form>
 
   <h3>Break inventory</h3>
-  <table class="break-table">
-    <thead>
-      <tr>
-        <th></th>
-        <th>ID</th>
-        <th>Product</th>
-        <th>Sub-product</th>
-        <th>Entity</th>
-        <th>Type</th>
-        <th>Status</th>
-        <th>Detected</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr
-        *ngFor="let item of detail.breaks"
-        (click)="onSelectBreak(item)"
-        [class.active]="selectedBreak?.id === item.id"
-      >
-        <td>
-          <input
-            type="checkbox"
-            [checked]="isSelected(item.id)"
-            (click)="$event.stopPropagation()"
-            (change)="toggleSelection(item, $event.target.checked)"
-          />
-        </td>
-        <td>{{ item.id }}</td>
-        <td>{{ item.product || '—' }}</td>
-        <td>{{ item.subProduct || '—' }}</td>
-        <td>{{ item.entity || '—' }}</td>
-        <td>{{ item.breakType }}</td>
-        <td>{{ item.status }}</td>
-        <td>{{ item.detectedAt | date: 'short' }}</td>
-      </tr>
-    </tbody>
-  </table>
+  <div class="table-container">
+    <table class="break-table">
+      <thead>
+        <tr>
+          <th></th>
+          <th>ID</th>
+          <th *ngFor="let key of classificationKeys">{{ formatClassificationKey(key) }}</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th>Detected</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr
+          *ngFor="let item of detail.breaks"
+          (click)="onSelectBreak(item)"
+          [class.active]="selectedBreak?.id === item.id"
+        >
+          <td>
+            <input
+              type="checkbox"
+              [checked]="isSelected(item.id)"
+              (click)="$event.stopPropagation()"
+              (change)="toggleSelection(item, $event.target.checked)"
+            />
+          </td>
+          <td>{{ item.id }}</td>
+          <td *ngFor="let key of classificationKeys">{{ classificationValue(item, key) }}</td>
+          <td>{{ item.breakType }}</td>
+          <td>{{ item.status }}</td>
+          <td>{{ item.detectedAt | date: 'short' }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 </ng-container>
 <ng-template #noRun>
   <p class="empty-state">No reconciliation runs have been executed yet.</p>

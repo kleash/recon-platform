@@ -8,6 +8,7 @@
 - **Backend unit/integration tests:** `cd backend && ./mvnw test`
 - **Frontend tests:** `cd frontend && npm test -- --watch=false --browsers=ChromeHeadless`
 - **Linting (optional but recommended):** `cd frontend && npm run lint`
+- **End-to-end regression smoke:** `cd automation/regression && npm install && npm test`
 
 ### 6.4 Deployment Pipeline
 ```mermaid

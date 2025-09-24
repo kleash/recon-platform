@@ -13,8 +13,8 @@
           "options": {
             "outputPath": "dist/universal-reconciliation-platform-ui",
             "index": "src/index.html",
-            "main": "src/main.ts",
-            "polyfills": [],
+            "browser": "src/main.ts",
+            "polyfills": ["zone.js"],
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "css"
           },

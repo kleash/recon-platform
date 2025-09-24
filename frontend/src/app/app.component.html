@@ -16,7 +16,7 @@
 
   <section *ngIf="session.isAuthenticated()" class="content-grid">
     <urp-reconciliation-list
-      [reconciliations]="reconciliations$ | async ?? []"
+      [reconciliations]="(reconciliations$ | async) || []"
       [selectedReconciliation]="selectedReconciliation$ | async"
       [canExport]="!!((runDetail$ | async)?.summary.runId)"
       (selectReconciliation)="handleSelectReconciliation($event)"
@@ -42,7 +42,7 @@
     </section>
 
     <section class="card activity-card">
-      <urp-system-activity [activity]="activity$ | async ?? []"></urp-system-activity>
+      <urp-system-activity [activity]="(activity$ | async) || []"></urp-system-activity>
     </section>
   </section>
 </div>

@@ -2,6 +2,10 @@ backend/target/
 frontend/node_modules/
 frontend/dist/
 frontend/.angular/
+automation/regression/node_modules/
+automation/regression/test-results/
+automation/regression/playwright-report/
+automation/regression/reports/
 .idea/
 .DS_Store
 examples/**/target/

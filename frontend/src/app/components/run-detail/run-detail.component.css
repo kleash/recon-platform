@@ -202,10 +202,16 @@
   cursor: not-allowed;
 }
 
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+}
+
 .break-table {
   width: 100%;
   border-collapse: collapse;
   margin-bottom: 1rem;
+  min-width: 640px;
 }
 
 .break-table th,

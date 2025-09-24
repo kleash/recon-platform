@@ -1,0 +1,14 @@
+{
+  "name": "recon-platform-regression",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Automation harness that boots the backend and frontend and performs end-to-end smoke checks.",
+  "scripts": {
+    "pretest": "node ./scripts/prepare.mjs",
+    "test": "playwright test",
+    "test:headed": "PWDEBUG=console playwright test --headed"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.44.1"
+  }
+}

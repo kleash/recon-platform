@@ -1,29 +1,42 @@
 <section class="break-detail" *ngIf="breakItem as active; else noBreak">
   <h3>Break {{ active.id }}</h3>
   <div class="break-meta">
-    <span><strong>Product:</strong> {{ active.product || '—' }}</span>
-    <span><strong>Sub-product:</strong> {{ active.subProduct || '—' }}</span>
-    <span><strong>Entity:</strong> {{ active.entity || '—' }}</span>
-    <span><strong>Status:</strong> {{ active.status }}</span>
+    <span class="meta-chip" *ngFor="let entry of classificationEntries">
+      <strong>{{ formatClassificationKey(entry.key) }}:</strong> {{ entry.value || '—' }}
+    </span>
+    <span class="meta-chip" *ngIf="classificationEntries.length === 0">
+      <strong>Classifications:</strong> Not available
+    </span>
+    <span class="meta-chip"><strong>Break type:</strong> {{ active.breakType }}</span>
+    <span class="meta-chip"><strong>Status:</strong> {{ active.status }}</span>
+    <span class="meta-chip"><strong>Detected:</strong> {{ active.detectedAt | date: 'short' }}</span>
   </div>
-  <table class="source-table" *ngIf="fieldKeys.length > 0; else noFields">
+
+  <p class="missing-sources" *ngIf="active.missingSources?.length">
+    Missing data from: {{ active.missingSources.join(', ') }}
+  </p>
+
+  <table class="source-table" *ngIf="fieldKeys.length > 0 && sourceKeys.length > 0; else noFields">
     <thead>
       <tr>
         <th>Field</th>
-        <th>Source A</th>
-        <th>Source B</th>
+        <th *ngFor="let source of sourceKeys">{{ formatSourceLabel(source) }}</th>
       </tr>
     </thead>
     <tbody>
       <tr *ngFor="let key of fieldKeys">
         <td>{{ key }}</td>
-        <td [class.different]="isDifferent(key)">{{ displayValue(valueFor('A', key)) }}</td>
-        <td [class.different]="isDifferent(key)">{{ displayValue(valueFor('B', key)) }}</td>
+        <td
+          *ngFor="let source of sourceKeys"
+          [class.different]="isDifferent(key)"
+        >
+          {{ displayValue(valueFor(source, key)) }}
+        </td>
       </tr>
     </tbody>
   </table>
   <ng-template #noFields>
-    <p class="empty-source">No field level detail available.</p>
+    <p class="empty-source">No field level detail available for the selected break.</p>
   </ng-template>
 
   <div class="commentary">

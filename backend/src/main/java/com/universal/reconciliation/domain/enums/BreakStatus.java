@@ -6,5 +6,6 @@ package com.universal.reconciliation.domain.enums;
 public enum BreakStatus {
     OPEN,
     PENDING_APPROVAL,
+    REJECTED,
     CLOSED
 }

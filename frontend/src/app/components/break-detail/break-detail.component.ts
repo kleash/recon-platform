@@ -14,19 +14,29 @@ import { BreakStatus } from '../../models/break-status';
 export class BreakDetailComponent implements OnChanges {
   @Input() breakItem: BreakItem | null = null;
   @Output() addComment = new EventEmitter<{ breakId: number; comment: string; action: string }>();
-  @Output() updateStatus = new EventEmitter<{ breakId: number; status: BreakStatus }>();
+  @Output() updateStatus = new EventEmitter<{
+    breakId: number;
+    status: BreakStatus;
+    comment?: string;
+    correlationId?: string;
+  }>();
 
   commentText = '';
   commentAction = 'INVESTIGATION_NOTE';
+  workflowComment = '';
+  workflowError: string | null = null;
   fieldKeys: string[] = [];
   sourceKeys: string[] = [];
   classificationEntries: Array<{ key: string; value: string }> = [];
   differenceKeys = new Set<string>();
+  readonly BreakStatus = BreakStatus;
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['breakItem']) {
       this.commentText = '';
       this.commentAction = 'INVESTIGATION_NOTE';
+      this.workflowComment = '';
+      this.workflowError = null;
       this.recomputeKeys();
     }
   }
@@ -43,11 +53,23 @@ export class BreakDetailComponent implements OnChanges {
     this.commentText = '';
   }
 
-  changeStatus(status: BreakStatus): void {
+  triggerWorkflow(status: BreakStatus): void {
     if (!this.breakItem) {
       return;
     }
-    this.updateStatus.emit({ breakId: this.breakItem.id, status });
+    this.workflowError = null;
+    const requiresComment = this.requiresComment(status);
+    const trimmed = this.workflowComment.trim();
+    if (requiresComment && !trimmed) {
+      this.workflowError = 'Comment is required for this action.';
+      return;
+    }
+    this.updateStatus.emit({
+      breakId: this.breakItem.id,
+      status,
+      comment: trimmed || undefined
+    });
+    this.workflowComment = '';
   }
 
   get statusOptions(): BreakStatus[] {
@@ -57,14 +79,43 @@ export class BreakDetailComponent implements OnChanges {
   getStatusText(status: BreakStatus): string {
     switch (status) {
       case BreakStatus.Open:
-        return 'Mark Open';
+        return this.breakItem?.status === BreakStatus.PendingApproval ? 'Withdraw Submission' : 'Mark Open';
       case BreakStatus.PendingApproval:
         return 'Submit for Approval';
       case BreakStatus.Closed:
-        return 'Mark Closed';
+        return 'Approve Break';
+      case BreakStatus.Rejected:
+        return 'Reject Break';
       default:
         return 'Update Status';
     }
+  }
+
+  get canSubmit(): boolean {
+    return this.statusOptions.includes(BreakStatus.PendingApproval);
+  }
+
+  get canApprove(): boolean {
+    return this.statusOptions.includes(BreakStatus.Closed);
+  }
+
+  get canReject(): boolean {
+    return this.statusOptions.includes(BreakStatus.Rejected);
+  }
+
+  get canReopen(): boolean {
+    return (
+      this.statusOptions.includes(BreakStatus.Open) &&
+      (this.breakItem?.status === BreakStatus.PendingApproval || this.breakItem?.status === BreakStatus.Rejected)
+    );
+  }
+
+  get canComment(): boolean {
+    return (this.statusOptions?.length ?? 0) > 0;
+  }
+
+  requiresComment(status: BreakStatus): boolean {
+    return status === BreakStatus.Closed || status === BreakStatus.Rejected;
   }
 
   isDifferent(field: string): boolean {

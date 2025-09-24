@@ -7,6 +7,13 @@
     </div>
   </header>
 
+  <section class="notification-center" *ngIf="(notifications.notifications$ | async) as notices">
+    <div *ngFor="let notice of notices" class="notification" [ngClass]="notice.type">
+      <span>{{ notice.message }}</span>
+      <button type="button" (click)="dismissNotification(notice.id)" aria-label="Dismiss notification">×</button>
+    </div>
+  </section>
+
   <urp-login
     *ngIf="!session.isAuthenticated()"
     [isLoading]="isLoading"
@@ -25,20 +32,29 @@
     ></urp-reconciliation-list>
 
     <section class="card">
-      <urp-run-detail
-        [runDetail]="runDetail$ | async"
-        [selectedBreak]="selectedBreak$ | async"
-        [filterMetadata]="filterMetadata$ | async"
-        [filter]="filter$ | async"
-        (selectBreak)="handleSelectBreak($event)"
-        (filterChange)="handleFilterChange($event)"
-        (bulkAction)="handleBulkAction($event)"
-      ></urp-run-detail>
-      <urp-break-detail
-        [breakItem]="selectedBreak$ | async"
-        (addComment)="handleAddComment($event)"
-        (updateStatus)="handleStatusChange($event)"
-      ></urp-break-detail>
+      <ng-container *ngIf="runDetail$ | async as detail">
+        <urp-run-detail
+          [runDetail]="detail"
+          [selectedBreak]="selectedBreak$ | async"
+          [filterMetadata]="filterMetadata$ | async"
+          [filter]="filter$ | async"
+          (selectBreak)="handleSelectBreak($event)"
+          (filterChange)="handleFilterChange($event)"
+          (bulkAction)="handleBulkAction($event)"
+        ></urp-run-detail>
+        <urp-break-detail
+          [breakItem]="selectedBreak$ | async"
+          (addComment)="handleAddComment($event)"
+          (updateStatus)="handleStatusChange($event)"
+        ></urp-break-detail>
+        <urp-checker-queue
+          *ngIf="session.hasCheckerRole()"
+          [pendingBreaks]="detail.breaks.filter((item) => item.status === BreakStatus.PendingApproval)"
+          [filterMetadata]="filterMetadata$ | async"
+          (approve)="handleQueueApprove($event)"
+          (reject)="handleQueueReject($event)"
+        ></urp-checker-queue>
+      </ng-container>
     </section>
 
     <section class="card activity-card">

@@ -3,15 +3,17 @@ import { BehaviorSubject, Observable, throwError } from 'rxjs';
 import { ApiService } from './api.service';
 import {
   BreakItem,
+  BulkBreakUpdatePayload,
+  BulkBreakUpdateResponse,
+  FilterMetadata,
   ReconciliationListItem,
   RunDetail,
-  FilterMetadata,
   SystemActivityEntry,
-  TriggerRunPayload,
-  BulkBreakUpdatePayload
+  TriggerRunPayload
 } from '../models/api-models';
 import { BreakStatus } from '../models/break-status';
 import { BreakFilter } from '../models/break-filter';
+import { NotificationService } from './notification.service';
 
 @Injectable({ providedIn: 'root' })
 export class ReconciliationStateService {
@@ -31,26 +33,29 @@ export class ReconciliationStateService {
   readonly filterMetadata$ = this.filterMetadataSubject.asObservable();
   readonly activity$ = this.activitySubject.asObservable();
 
-  constructor(private readonly api: ApiService) {}
+  constructor(private readonly api: ApiService, private readonly notifications: NotificationService) {}
 
   loadReconciliations(): void {
     this.filterSubject.next({});
-    this.api.getReconciliations().subscribe((data: ReconciliationListItem[]) => {
-      this.reconciliationsSubject.next(data);
-      const currentSelection = this.selectedReconciliationSubject.value;
-      if (currentSelection && data.some((item: ReconciliationListItem) => item.id === currentSelection.id)) {
-        this.fetchLatestRun(currentSelection.id);
-        return;
-      }
-      const nextSelection = data.length > 0 ? data[0] ?? null : null;
-      this.selectedReconciliationSubject.next(nextSelection);
-      if (nextSelection) {
-        this.fetchLatestRun(nextSelection.id);
-      } else {
-        this.runDetailSubject.next(null);
-        this.selectedBreakSubject.next(null);
-        this.filterMetadataSubject.next(null);
-      }
+    this.api.getReconciliations().subscribe({
+      next: (data: ReconciliationListItem[]) => {
+        this.reconciliationsSubject.next(data);
+        const currentSelection = this.selectedReconciliationSubject.value;
+        if (currentSelection && data.some((item: ReconciliationListItem) => item.id === currentSelection.id)) {
+          this.fetchLatestRun(currentSelection.id);
+          return;
+        }
+        const nextSelection = data.length > 0 ? data[0] ?? null : null;
+        this.selectedReconciliationSubject.next(nextSelection);
+        if (nextSelection) {
+          this.fetchLatestRun(nextSelection.id);
+        } else {
+          this.runDetailSubject.next(null);
+          this.selectedBreakSubject.next(null);
+          this.filterMetadataSubject.next(null);
+        }
+      },
+      error: () => this.notifications.push('Unable to load reconciliations. Please try again later.', 'error')
     });
     this.refreshActivity();
   }
@@ -66,9 +71,13 @@ export class ReconciliationStateService {
     if (!selected) {
       return;
     }
-    this.api.triggerRun(selected.id, payload).subscribe(() => {
-      this.fetchLatestRun(selected.id);
-      this.refreshActivity();
+    this.api.triggerRun(selected.id, payload).subscribe({
+      next: () => {
+        this.fetchLatestRun(selected.id);
+        this.refreshActivity();
+        this.notifications.push('Reconciliation run triggered successfully.', 'success');
+      },
+      error: () => this.notifications.push('Failed to trigger reconciliation run.', 'error')
     });
   }
 
@@ -77,23 +86,61 @@ export class ReconciliationStateService {
   }
 
   addComment(breakId: number, comment: string, action: string): void {
-    this.api.addComment(breakId, comment, action).subscribe((updated: BreakItem) => {
-      this.updateBreak(updated);
-      this.refreshActivity();
+    this.api.addComment(breakId, comment, action).subscribe({
+      next: (updated: BreakItem) => {
+        this.updateBreak(updated);
+        this.refreshActivity();
+        this.notifications.push('Comment added to break.', 'success');
+      },
+      error: () => this.notifications.push('Failed to add comment. You may not have permission.', 'error')
     });
   }
 
-  updateStatus(breakId: number, status: BreakStatus): void {
-    this.api.updateStatus(breakId, status).subscribe((updated: BreakItem) => {
-      this.updateBreak(updated);
-      this.refreshActivity();
+  updateStatus(breakId: number, payload: { status: BreakStatus; comment?: string; correlationId?: string }): void {
+    this.api.updateStatus(breakId, payload).subscribe({
+      next: (updated: BreakItem) => {
+        this.updateBreak(updated);
+        this.refreshActivity();
+        const statusText = payload.status.replace(/_/g, ' ').toLowerCase();
+        this.notifications.push(`Break ${breakId} ${statusText}.`, 'success');
+      },
+      error: (err) => {
+        const message = err?.error?.error ?? 'Status update failed.';
+        this.notifications.push(message, 'error');
+      }
     });
   }
 
   bulkUpdateBreaks(payload: BulkBreakUpdatePayload): void {
-    this.api.bulkUpdateBreaks(payload).subscribe((updated: BreakItem[]) => {
-      this.applyBreakUpdates(updated);
-      this.refreshActivity();
+    const enriched: BulkBreakUpdatePayload = {
+      ...payload,
+      correlationId: payload.correlationId ?? this.generateCorrelationId('bulk')
+    };
+    this.api.bulkUpdateBreaks(enriched).subscribe({
+      next: (response: BulkBreakUpdateResponse) => {
+        if (response.successes.length > 0) {
+          this.applyBreakUpdates(response.successes);
+          this.notifications.push(
+            `${response.successes.length} break${response.successes.length === 1 ? '' : 's'} updated successfully.`,
+            'success'
+          );
+        }
+        if (response.failures.length > 0) {
+          const details = response.failures
+            .map((failure) => `#${failure.breakId}: ${failure.reason}`)
+            .slice(0, 3)
+            .join('; ');
+          this.notifications.push(
+            `${response.failures.length} break${response.failures.length === 1 ? '' : 's'} failed to update. ${details}`,
+            'error'
+          );
+        }
+        this.refreshActivity();
+      },
+      error: (err) => {
+        const message = err?.error?.error ?? 'Bulk update failed.';
+        this.notifications.push(message, 'error');
+      }
     });
   }
 
@@ -133,10 +180,13 @@ export class ReconciliationStateService {
 
   private fetchLatestRun(reconciliationId: number): void {
     const filter = this.filterSubject.value;
-    this.api.getLatestRun(reconciliationId, filter).subscribe((detail: RunDetail) => {
-      this.runDetailSubject.next(detail);
-      this.filterMetadataSubject.next(detail.filters);
-      this.selectedBreakSubject.next(detail.breaks[0] ?? null);
+    this.api.getLatestRun(reconciliationId, filter).subscribe({
+      next: (detail: RunDetail) => {
+        this.runDetailSubject.next(detail);
+        this.filterMetadataSubject.next(detail.filters);
+        this.selectedBreakSubject.next(detail.breaks[0] ?? null);
+      },
+      error: () => this.notifications.push('Failed to load reconciliation run.', 'error')
     });
   }
 
@@ -169,8 +219,15 @@ export class ReconciliationStateService {
   }
 
   private refreshActivity(): void {
-    this.api.getSystemActivity().subscribe((entries: SystemActivityEntry[]) => {
-      this.activitySubject.next(entries);
+    this.api.getSystemActivity().subscribe({
+      next: (entries: SystemActivityEntry[]) => {
+        this.activitySubject.next(entries);
+      },
+      error: () => this.notifications.push('Unable to refresh system activity.', 'error')
     });
+  }
+
+  private generateCorrelationId(prefix: string): string {
+    return `${prefix}-${Date.now()}`;
   }
 }

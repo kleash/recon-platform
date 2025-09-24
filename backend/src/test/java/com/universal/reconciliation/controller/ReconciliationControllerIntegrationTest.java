@@ -14,6 +14,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.universal.reconciliation.domain.dto.BreakCommentDto;
+import com.universal.reconciliation.domain.dto.BreakHistoryEntryDto;
 import com.universal.reconciliation.domain.dto.BreakItemDto;
 import com.universal.reconciliation.domain.dto.FilterMetadataDto;
 import com.universal.reconciliation.domain.dto.ReconciliationListItemDto;
@@ -174,10 +176,14 @@ class ReconciliationControllerIntegrationTest {
                 List.of(BreakStatus.CLOSED),
                 Instant.parse("2024-01-15T10:20:30Z"),
                 Map.of(
-                        "CASH", Map.of("amount", 100),
-                        "GL", Map.of("amount", 90)),
-                List.of(),
-                List.of());
+                        "CASH", Map.<String, Object>of("amount", 100),
+                        "GL", Map.<String, Object>of("amount", 90)),
+                List.<String>of(),
+                List.<BreakCommentDto>of(),
+                List.<BreakHistoryEntryDto>of(),
+                null,
+                null,
+                null);
         FilterMetadataDto metadata = new FilterMetadataDto(
                 List.of("Payments"),
                 List.of("Wire"),

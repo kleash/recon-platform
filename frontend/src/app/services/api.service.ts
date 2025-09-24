@@ -3,12 +3,13 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import {
   BreakItem,
+  BulkBreakUpdatePayload,
+  BulkBreakUpdateResponse,
   LoginResponse,
   ReconciliationListItem,
   RunDetail,
   SystemActivityEntry,
-  TriggerRunPayload,
-  BulkBreakUpdatePayload
+  TriggerRunPayload
 } from '../models/api-models';
 import { BreakStatus } from '../models/break-status';
 import { environment } from '../../environments/environment';
@@ -48,12 +49,15 @@ export class ApiService {
     return this.http.post<BreakItem>(`${BASE_URL}/breaks/${breakId}/comments`, { comment, action });
   }
 
-  updateStatus(breakId: number, status: BreakStatus): Observable<BreakItem> {
-    return this.http.patch<BreakItem>(`${BASE_URL}/breaks/${breakId}/status`, { status });
+  updateStatus(
+    breakId: number,
+    payload: { status: BreakStatus; comment?: string; correlationId?: string | null }
+  ): Observable<BreakItem> {
+    return this.http.patch<BreakItem>(`${BASE_URL}/breaks/${breakId}/status`, payload);
   }
 
-  bulkUpdateBreaks(payload: BulkBreakUpdatePayload): Observable<BreakItem[]> {
-    return this.http.post<BreakItem[]>(`${BASE_URL}/breaks/bulk`, payload);
+  bulkUpdateBreaks(payload: BulkBreakUpdatePayload): Observable<BulkBreakUpdateResponse> {
+    return this.http.post<BulkBreakUpdateResponse>(`${BASE_URL}/breaks/bulk`, payload);
   }
 
   exportRun(runId: number): Observable<Blob> {

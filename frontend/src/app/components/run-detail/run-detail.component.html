@@ -131,7 +131,7 @@
   <div class="bulk-selection">
     <span>{{ selectedIds.size }} break{{ selectedIds.size === 1 ? '' : 's' }} selected</span>
     <div class="actions">
-      <button type="button" (click)="selectAll()" [disabled]="!detail.breaks.length">Select all</button>
+      <button type="button" (click)="selectAll()" [disabled]="!filteredBreaks.length">Select all</button>
       <button type="button" (click)="clearSelection()" [disabled]="selectedIds.size === 0">Clear</button>
     </div>
   </div>
@@ -152,10 +152,22 @@
       Comment
       <textarea rows="2" [(ngModel)]="bulkComment" name="bulkComment"></textarea>
     </label>
+    <p class="bulk-error" *ngIf="bulkError">{{ bulkError }}</p>
     <button type="submit" [disabled]="!bulkStatus && !bulkComment.trim()">Apply bulk update</button>
   </form>
 
   <h3>Break inventory</h3>
+  <div class="table-controls">
+    <label>
+      Quick filter
+      <input
+        type="search"
+        [(ngModel)]="tableFilter"
+        name="tableFilter"
+        placeholder="Filter by ID, status, product or entity"
+      />
+    </label>
+  </div>
   <div class="table-container">
     <table class="break-table">
       <thead>
@@ -170,7 +182,7 @@
       </thead>
       <tbody>
         <tr
-          *ngFor="let item of detail.breaks"
+          *ngFor="let item of filteredBreaks"
           (click)="onSelectBreak(item)"
           [class.active]="selectedBreak?.id === item.id"
         >

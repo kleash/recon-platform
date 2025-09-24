@@ -51,4 +51,28 @@ export class SessionService {
   isAuthenticated(): boolean {
     return !!this.token;
   }
+
+  hasGroup(name: string): boolean {
+    if (!name) {
+      return false;
+    }
+    const target = name.toLowerCase();
+    return this.groups.some((group) => group.toLowerCase() === target);
+  }
+
+  hasGroupContaining(fragment: string): boolean {
+    if (!fragment) {
+      return false;
+    }
+    const target = fragment.toLowerCase();
+    return this.groups.some((group) => group.toLowerCase().includes(target));
+  }
+
+  hasCheckerRole(): boolean {
+    return this.hasGroupContaining('checker');
+  }
+
+  hasMakerRole(): boolean {
+    return this.hasGroupContaining('maker');
+  }
 }

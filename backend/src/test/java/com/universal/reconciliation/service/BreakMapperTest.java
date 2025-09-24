@@ -7,6 +7,8 @@ import com.universal.reconciliation.domain.dto.BreakCommentDto;
 import com.universal.reconciliation.domain.dto.BreakItemDto;
 import com.universal.reconciliation.domain.entity.BreakComment;
 import com.universal.reconciliation.domain.entity.BreakItem;
+import com.universal.reconciliation.domain.entity.BreakWorkflowAudit;
+import com.universal.reconciliation.domain.enums.AccessRole;
 import com.universal.reconciliation.domain.enums.BreakStatus;
 import com.universal.reconciliation.domain.enums.BreakType;
 import java.time.Instant;
@@ -37,6 +39,19 @@ class BreakMapperTest {
         item.getComments().add(later);
         item.getComments().add(earlier);
 
+        BreakWorkflowAudit audit = new BreakWorkflowAudit();
+        audit.setBreakItem(item);
+        audit.setActorDn("uid=checker1");
+        audit.setActorRole(AccessRole.CHECKER);
+        audit.setPreviousStatus(BreakStatus.PENDING_APPROVAL);
+        audit.setNewStatus(BreakStatus.CLOSED);
+        audit.setComment("Approved in test");
+        audit.setCreatedAt(Instant.parse("2024-05-01T12:30:00Z"));
+        item.getWorkflowAudits().add(audit);
+        item.setSubmittedByDn("uid=ops1");
+        item.setSubmittedByGroup("cn=makers");
+        item.setSubmittedAt(Instant.parse("2024-05-01T10:45:00Z"));
+
         List<BreakStatus> allowedStatusTransitions = new ArrayList<>(List.of(BreakStatus.OPEN, BreakStatus.CLOSED));
 
         BreakItemDto dto = mapper.toDto(item, allowedStatusTransitions);
@@ -50,6 +65,11 @@ class BreakMapperTest {
         assertThat(dto.sources()).containsKeys("CASH", "GL");
         assertThat(dto.sources().get("CASH")).containsEntry("amount", 100);
         assertThat(dto.missingSources()).containsExactly("GL");
+        assertThat(dto.history()).hasSize(3);
+        assertThat(dto.history().get(dto.history().size() - 1).actorDn()).isEqualTo("uid=checker1");
+        assertThat(dto.submittedByDn()).isEqualTo("uid=ops1");
+        assertThat(dto.submittedByGroup()).isEqualTo("cn=makers");
+        assertThat(dto.submittedAt()).isEqualTo(Instant.parse("2024-05-01T10:45:00Z"));
     }
 
     private BreakComment comment(Long id, String actor, String action, String text, Instant createdAt) {

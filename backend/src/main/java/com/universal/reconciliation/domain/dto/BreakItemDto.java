@@ -18,5 +18,9 @@ public record BreakItemDto(
         Instant detectedAt,
         Map<String, Map<String, Object>> sources,
         List<String> missingSources,
-        List<BreakCommentDto> comments) {
+        List<BreakCommentDto> comments,
+        List<BreakHistoryEntryDto> history,
+        String submittedByDn,
+        String submittedByGroup,
+        Instant submittedAt) {
 }

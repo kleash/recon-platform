@@ -11,6 +11,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
  */
 public interface BreakItemRepository extends JpaRepository<BreakItem, Long> {
 
-    @EntityGraph(attributePaths = "comments")
+    @EntityGraph(attributePaths = {"comments", "workflowAudits"})
     List<BreakItem> findByRunOrderByDetectedAtAsc(ReconciliationRun run);
 }

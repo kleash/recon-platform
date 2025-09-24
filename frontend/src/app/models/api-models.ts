@@ -34,6 +34,18 @@ export interface BreakComment {
   createdAt: string;
 }
 
+export interface BreakHistoryEntry {
+  entryType: 'COMMENT' | 'WORKFLOW';
+  actorDn: string;
+  actorRole?: string | null;
+  action: string;
+  comment?: string | null;
+  previousStatus?: BreakStatus | null;
+  newStatus?: BreakStatus | null;
+  occurredAt: string;
+  correlationId?: string | null;
+}
+
 export interface BreakItem {
   id: number;
   breakType: string;
@@ -44,6 +56,10 @@ export interface BreakItem {
   sources: Record<string, Record<string, unknown>>;
   missingSources: string[];
   comments: BreakComment[];
+  history: BreakHistoryEntry[];
+  submittedByDn?: string | null;
+  submittedByGroup?: string | null;
+  submittedAt?: string | null;
 }
 
 export interface FilterMetadata {
@@ -83,6 +99,17 @@ export interface BulkBreakUpdatePayload {
   status?: BreakStatus;
   comment?: string;
   action?: string;
+  correlationId?: string;
+}
+
+export interface BulkBreakFailure {
+  breakId: number;
+  reason: string;
+}
+
+export interface BulkBreakUpdateResponse {
+  successes: BreakItem[];
+  failures: BulkBreakFailure[];
 }
 
 export interface SystemActivityEntry {

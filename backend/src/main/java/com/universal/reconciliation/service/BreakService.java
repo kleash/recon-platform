@@ -2,22 +2,29 @@ package com.universal.reconciliation.service;
 
 import com.universal.reconciliation.domain.dto.AddBreakCommentRequest;
 import com.universal.reconciliation.domain.dto.BreakItemDto;
+import com.universal.reconciliation.domain.dto.BulkBreakFailureDto;
 import com.universal.reconciliation.domain.dto.BulkBreakUpdateRequest;
+import com.universal.reconciliation.domain.dto.BulkBreakUpdateResponse;
 import com.universal.reconciliation.domain.dto.UpdateBreakStatusRequest;
 import com.universal.reconciliation.domain.entity.AccessControlEntry;
 import com.universal.reconciliation.domain.entity.BreakComment;
 import com.universal.reconciliation.domain.entity.BreakItem;
+import com.universal.reconciliation.domain.entity.BreakWorkflowAudit;
 import com.universal.reconciliation.domain.entity.ReconciliationDefinition;
+import com.universal.reconciliation.domain.enums.AccessRole;
 import com.universal.reconciliation.domain.enums.BreakStatus;
 import com.universal.reconciliation.domain.enums.SystemEventType;
 import com.universal.reconciliation.repository.BreakCommentRepository;
 import com.universal.reconciliation.repository.BreakItemRepository;
+import com.universal.reconciliation.repository.BreakWorkflowAuditRepository;
 import com.universal.reconciliation.security.UserContext;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +41,7 @@ public class BreakService {
     private final BreakMapper breakMapper;
     private final BreakAccessService breakAccessService;
     private final SystemActivityService systemActivityService;
+    private final BreakWorkflowAuditRepository breakWorkflowAuditRepository;
 
     public BreakService(
             BreakItemRepository breakItemRepository,
@@ -42,7 +50,8 @@ public class BreakService {
             UserDirectoryService userDirectoryService,
             BreakMapper breakMapper,
             BreakAccessService breakAccessService,
-            SystemActivityService systemActivityService) {
+            SystemActivityService systemActivityService,
+            BreakWorkflowAuditRepository breakWorkflowAuditRepository) {
         this.breakItemRepository = breakItemRepository;
         this.breakCommentRepository = breakCommentRepository;
         this.userContext = userContext;
@@ -50,6 +59,7 @@ public class BreakService {
         this.breakMapper = breakMapper;
         this.breakAccessService = breakAccessService;
         this.systemActivityService = systemActivityService;
+        this.breakWorkflowAuditRepository = breakWorkflowAuditRepository;
     }
 
     @Transactional
@@ -63,6 +73,7 @@ public class BreakService {
         comment.setComment(request.comment());
         comment.setCreatedAt(Instant.now());
         comment.setActorDn(userDirectoryService.personDn(userContext.getUsername()));
+        context.breakItem().getComments().add(comment);
         breakCommentRepository.save(comment);
 
         systemActivityService.recordEvent(
@@ -84,26 +95,41 @@ public class BreakService {
         breakAccessService.assertTransitionAllowed(
                 breakItem, context.definition(), context.entries(), request.status());
 
+        String username = userContext.getUsername();
+        String actorDn = userDirectoryService.personDn(username);
+        Instant now = Instant.now();
+        BreakStatus targetStatus = request.status();
+        String normalizedComment = normalizeComment(targetStatus, request.comment());
+        AccessRole actorRole = resolveActorRole(targetStatus, context);
+
+        enforceSelfApprovalGuard(breakItem, targetStatus, actorRole, actorDn);
+
         BreakStatus previousStatus = breakItem.getStatus();
-        breakItem.setStatus(request.status());
+        breakItem.setStatus(targetStatus);
+        updateSubmissionMetadata(breakItem, targetStatus, actorDn, context.entries(), now);
         breakItemRepository.save(breakItem);
 
-        BreakComment auditTrail = new BreakComment();
-        auditTrail.setBreakItem(breakItem);
-        auditTrail.setAction("STATUS_CHANGE");
-        auditTrail.setComment("Status updated to " + request.status().name());
-        auditTrail.setCreatedAt(Instant.now());
-        auditTrail.setActorDn(userDirectoryService.personDn(userContext.getUsername()));
-        breakCommentRepository.save(auditTrail);
+        BreakWorkflowAudit audit = new BreakWorkflowAudit();
+        audit.setBreakItem(breakItem);
+        audit.setPreviousStatus(previousStatus);
+        audit.setNewStatus(targetStatus);
+        audit.setActorDn(actorDn);
+        audit.setActorRole(actorRole);
+        audit.setComment(normalizedComment);
+        audit.setCorrelationId(request.correlationId());
+        audit.setCreatedAt(now);
+        breakItem.getWorkflowAudits().add(audit);
+        breakWorkflowAuditRepository.save(audit);
 
         systemActivityService.recordEvent(
                 SystemEventType.BREAK_STATUS_CHANGE,
                 String.format(
-                        "Break %d transitioned from %s to %s by %s",
+                        "Break %d transitioned from %s to %s by %s (%s)",
                         breakItem.getId(),
                         previousStatus.name(),
-                        request.status().name(),
-                        userContext.getUsername()));
+                        targetStatus.name(),
+                        username,
+                        actorRole.name()));
 
         return breakMapper.toDto(
                 breakItem,
@@ -111,58 +137,83 @@ public class BreakService {
     }
 
     @Transactional
-    public List<BreakItemDto> bulkUpdate(BulkBreakUpdateRequest request) {
+    public BulkBreakUpdateResponse bulkUpdate(BulkBreakUpdateRequest request) {
         String username = userContext.getUsername();
         String actorDn = userDirectoryService.personDn(username);
-        Map<Long, BreakContext> contexts = loadBulkContexts(request.breakIds());
-        List<BreakItemDto> responses = new ArrayList<>();
+        BulkContext bulkContext = loadBulkContexts(request.breakIds());
+        Map<Long, BreakContext> contexts = bulkContext.contexts();
+        List<BreakItemDto> successes = new ArrayList<>();
+        List<BulkBreakFailureDto> failures = new ArrayList<>();
         List<BreakItem> itemsToSave = new ArrayList<>();
         List<BreakComment> commentsToSave = new ArrayList<>();
+        List<BreakWorkflowAudit> auditsToSave = new ArrayList<>();
         int statusChanges = 0;
         int commentsAdded = 0;
-        String trimmedComment = request.hasComment() ? request.comment().trim() : null;
+
+        bulkContext.missingIds().forEach(id -> failures.add(new BulkBreakFailureDto(id, "Break not found")));
 
         for (Long breakId : request.breakIds()) {
             BreakContext context = contexts.get(breakId);
             if (context == null) {
-                throw new IllegalArgumentException("Break not found: " + breakId);
+                continue;
             }
+
             BreakItem breakItem = context.breakItem();
 
-            if (request.hasStatusChange()) {
-                breakAccessService.assertTransitionAllowed(
-                        breakItem, context.definition(), context.entries(), request.status());
-                BreakStatus previousStatus = breakItem.getStatus();
-                if (previousStatus != request.status()) {
-                    breakItem.setStatus(request.status());
-                    itemsToSave.add(breakItem);
-                    statusChanges++;
-
-                    BreakComment auditTrail = new BreakComment();
-                    auditTrail.setBreakItem(breakItem);
-                    auditTrail.setAction("BULK_STATUS_CHANGE");
-                    auditTrail.setComment("Status updated to " + request.status().name());
-                    auditTrail.setCreatedAt(Instant.now());
-                    auditTrail.setActorDn(actorDn);
-                    commentsToSave.add(auditTrail);
+            try {
+                if (request.hasComment()) {
+                    breakAccessService.assertCanComment(breakItem, context.entries());
                 }
-            }
 
-            if (request.hasComment()) {
-                breakAccessService.assertCanComment(breakItem, context.entries());
-                BreakComment comment = new BreakComment();
-                comment.setBreakItem(breakItem);
-                comment.setAction(request.resolvedAction());
-                comment.setComment(trimmedComment);
-                comment.setCreatedAt(Instant.now());
-                comment.setActorDn(actorDn);
-                commentsToSave.add(comment);
-                commentsAdded++;
-            }
+                AccessRole actorRole = null;
+                String statusComment = null;
+                if (request.hasStatusChange()) {
+                    breakAccessService.assertTransitionAllowed(
+                            breakItem, context.definition(), context.entries(), request.status());
+                    actorRole = resolveActorRole(request.status(), context);
+                    statusComment = normalizeComment(request.status(), request.comment());
+                    enforceSelfApprovalGuard(breakItem, request.status(), actorRole, actorDn);
 
-            responses.add(breakMapper.toDto(
-                    breakItem,
-                    breakAccessService.allowedStatuses(breakItem, context.definition(), context.entries())));
+                    BreakStatus previousStatus = breakItem.getStatus();
+                    if (previousStatus != request.status()) {
+                        Instant now = Instant.now();
+                        breakItem.setStatus(request.status());
+                        updateSubmissionMetadata(breakItem, request.status(), actorDn, context.entries(), now);
+                        itemsToSave.add(breakItem);
+                        statusChanges++;
+
+                        BreakWorkflowAudit audit = new BreakWorkflowAudit();
+                        audit.setBreakItem(breakItem);
+                        audit.setPreviousStatus(previousStatus);
+                        audit.setNewStatus(request.status());
+                        audit.setActorDn(actorDn);
+                        audit.setActorRole(actorRole);
+                        audit.setComment(statusComment);
+                        audit.setCorrelationId(request.correlationId());
+                        audit.setCreatedAt(now);
+                        breakItem.getWorkflowAudits().add(audit);
+                        auditsToSave.add(audit);
+                    }
+                }
+
+                if (request.hasComment()) {
+                    BreakComment comment = new BreakComment();
+                    comment.setBreakItem(breakItem);
+                    comment.setAction(request.resolvedAction());
+                    comment.setComment(request.trimmedComment());
+                    comment.setCreatedAt(Instant.now());
+                    comment.setActorDn(actorDn);
+                    breakItem.getComments().add(comment);
+                    commentsToSave.add(comment);
+                    commentsAdded++;
+                }
+
+                successes.add(breakMapper.toDto(
+                        breakItem,
+                        breakAccessService.allowedStatuses(breakItem, context.definition(), context.entries())));
+            } catch (AccessDeniedException | IllegalArgumentException e) {
+                failures.add(new BulkBreakFailureDto(breakId, e.getMessage()));
+            }
         }
 
         if (!itemsToSave.isEmpty()) {
@@ -171,20 +222,24 @@ public class BreakService {
         if (!commentsToSave.isEmpty()) {
             breakCommentRepository.saveAll(commentsToSave);
         }
+        if (!auditsToSave.isEmpty()) {
+            breakWorkflowAuditRepository.saveAll(auditsToSave);
+        }
 
         systemActivityService.recordEvent(
                 SystemEventType.BREAK_BULK_ACTION,
                 String.format(
-                        "%s applied bulk update to %d breaks (%d status changes, %d comments)",
+                        "%s applied bulk update to %d breaks (%d status changes, %d comments, %d failures)",
                         username,
                         request.breakIds().size(),
                         statusChanges,
-                        commentsAdded));
+                        commentsAdded,
+                        failures.size()));
 
-        return responses;
+        return new BulkBreakUpdateResponse(successes, failures);
     }
 
-    private Map<Long, BreakContext> loadBulkContexts(List<Long> breakIds) {
+    private BulkContext loadBulkContexts(List<Long> breakIds) {
         List<BreakItem> items = breakItemRepository.findAllById(breakIds);
         Map<Long, BreakItem> itemsById = new HashMap<>();
         for (BreakItem item : items) {
@@ -196,9 +251,6 @@ public class BreakService {
             if (!itemsById.containsKey(breakId)) {
                 missing.add(breakId);
             }
-        }
-        if (!missing.isEmpty()) {
-            throw new IllegalArgumentException("Break not found: " + missing);
         }
 
         Map<Long, BreakContext> contexts = new HashMap<>();
@@ -215,7 +267,7 @@ public class BreakService {
             contexts.put(item.getId(), new BreakContext(item, definition, entries));
         }
 
-        return contexts;
+        return new BulkContext(contexts, missing);
     }
 
     private BreakContext loadBreakContext(Long id) {
@@ -227,7 +279,88 @@ public class BreakService {
         return new BreakContext(item, definition, entries);
     }
 
+    private String normalizeComment(BreakStatus status, String comment) {
+        String trimmed = comment == null ? null : comment.trim();
+        if (requiresComment(status) && (trimmed == null || trimmed.isEmpty())) {
+            throw new IllegalArgumentException("Comment is required for status " + status);
+        }
+        return (trimmed == null || trimmed.isEmpty()) ? null : trimmed;
+    }
+
+    private boolean requiresComment(BreakStatus status) {
+        return status == BreakStatus.CLOSED || status == BreakStatus.REJECTED;
+    }
+
+    private AccessRole resolveActorRole(BreakStatus targetStatus, BreakContext context) {
+        List<AccessControlEntry> entries =
+                breakAccessService.scopedEntries(context.breakItem(), context.entries());
+        boolean maker = hasRole(entries, AccessRole.MAKER);
+        boolean checker = hasRole(entries, AccessRole.CHECKER) && !maker;
+
+        if (context.definition().isMakerCheckerEnabled()) {
+            if (targetStatus == BreakStatus.CLOSED || targetStatus == BreakStatus.REJECTED) {
+                if (!checker) {
+                    throw new AccessDeniedException("Checker role required for this action");
+                }
+                return AccessRole.CHECKER;
+            }
+            if (!maker) {
+                throw new AccessDeniedException("Maker role required for this action");
+            }
+            return AccessRole.MAKER;
+        }
+
+        if (checker) {
+            return AccessRole.CHECKER;
+        }
+        if (maker) {
+            return AccessRole.MAKER;
+        }
+        throw new AccessDeniedException("No maker/checker role available for this action");
+    }
+
+    private void enforceSelfApprovalGuard(
+            BreakItem breakItem, BreakStatus targetStatus, AccessRole actorRole, String actorDn) {
+        if (actorRole == AccessRole.CHECKER
+                && requiresComment(targetStatus)
+                && breakItem.getSubmittedByDn() != null
+                && breakItem.getSubmittedByDn().equals(actorDn)) {
+            throw new AccessDeniedException("Makers cannot approve or reject their own submissions");
+        }
+    }
+
+    private void updateSubmissionMetadata(
+            BreakItem breakItem,
+            BreakStatus targetStatus,
+            String actorDn,
+            List<AccessControlEntry> entries,
+            Instant now) {
+        List<AccessControlEntry> scopedEntries = breakAccessService.scopedEntries(breakItem, entries);
+        if (targetStatus == BreakStatus.PENDING_APPROVAL) {
+            breakItem.setSubmittedByDn(actorDn);
+            breakItem.setSubmittedByGroup(resolveGroupForRole(scopedEntries, AccessRole.MAKER).orElse(null));
+            breakItem.setSubmittedAt(now);
+        } else if (targetStatus == BreakStatus.OPEN) {
+            breakItem.setSubmittedByDn(null);
+            breakItem.setSubmittedByGroup(null);
+            breakItem.setSubmittedAt(null);
+        }
+    }
+
+    private boolean hasRole(List<AccessControlEntry> entries, AccessRole role) {
+        return entries.stream().anyMatch(entry -> role.equals(entry.getRole()));
+    }
+
+    private Optional<String> resolveGroupForRole(List<AccessControlEntry> entries, AccessRole role) {
+        return entries.stream()
+                .filter(entry -> role.equals(entry.getRole()))
+                .map(AccessControlEntry::getLdapGroupDn)
+                .findFirst();
+    }
+
     private record BreakContext(
             BreakItem breakItem, ReconciliationDefinition definition, List<AccessControlEntry> entries) {}
+
+    private record BulkContext(Map<Long, BreakContext> contexts, List<Long> missingIds) {}
 }
 

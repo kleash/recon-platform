@@ -5,6 +5,7 @@ import { takeUntil } from 'rxjs/operators';
 import { ApiService } from './services/api.service';
 import { SessionService } from './services/session.service';
 import { ReconciliationStateService } from './services/reconciliation-state.service';
+import { NotificationService } from './services/notification.service';
 import {
   BreakItem,
   BulkBreakUpdatePayload,
@@ -19,6 +20,7 @@ import { ReconciliationListComponent } from './components/reconciliation-list/re
 import { RunDetailComponent } from './components/run-detail/run-detail.component';
 import { BreakDetailComponent } from './components/break-detail/break-detail.component';
 import { SystemActivityComponent } from './components/system-activity/system-activity.component';
+import { CheckerQueueComponent } from './components/checker-queue/checker-queue.component';
 
 @Component({
   selector: 'app-root',
@@ -30,7 +32,8 @@ import { SystemActivityComponent } from './components/system-activity/system-act
     ReconciliationListComponent,
     RunDetailComponent,
     BreakDetailComponent,
-    SystemActivityComponent
+    SystemActivityComponent,
+    CheckerQueueComponent
   ],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css']
@@ -50,11 +53,13 @@ export class AppComponent implements OnInit, OnDestroy {
   isLoading = false;
 
   private readonly destroy$ = new Subject<void>();
+  readonly BreakStatus = BreakStatus;
 
   constructor(
     private readonly api: ApiService,
     public readonly session: SessionService,
-    private readonly state: ReconciliationStateService
+    private readonly state: ReconciliationStateService,
+    public readonly notifications: NotificationService
   ) {}
 
   ngOnInit(): void {
@@ -91,6 +96,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.session.clear();
     this.state.reset();
     this.loginError = null;
+    this.notifications.clear();
   }
 
   handleSelectReconciliation(reconciliation: ReconciliationListItem): void {
@@ -109,8 +115,12 @@ export class AppComponent implements OnInit, OnDestroy {
     this.state.addComment(event.breakId, event.comment, event.action);
   }
 
-  handleStatusChange(event: { breakId: number; status: BreakStatus }): void {
-    this.state.updateStatus(event.breakId, event.status);
+  handleStatusChange(event: { breakId: number; status: BreakStatus; comment?: string; correlationId?: string }): void {
+    this.state.updateStatus(event.breakId, {
+      status: event.status,
+      comment: event.comment,
+      correlationId: event.correlationId
+    });
   }
 
   handleFilterChange(filter: BreakFilter): void {
@@ -119,6 +129,28 @@ export class AppComponent implements OnInit, OnDestroy {
 
   handleBulkAction(payload: BulkBreakUpdatePayload): void {
     this.state.bulkUpdateBreaks(payload);
+  }
+
+  dismissNotification(id: number): void {
+    this.notifications.dismiss(id);
+  }
+
+  handleQueueApprove(event: { breakIds: number[]; comment: string }): void {
+    this.state.bulkUpdateBreaks({
+      breakIds: event.breakIds,
+      status: BreakStatus.Closed,
+      comment: event.comment,
+      action: 'QUEUE_APPROVE'
+    });
+  }
+
+  handleQueueReject(event: { breakIds: number[]; comment: string }): void {
+    this.state.bulkUpdateBreaks({
+      breakIds: event.breakIds,
+      status: BreakStatus.Rejected,
+      comment: event.comment,
+      action: 'QUEUE_REJECT'
+    });
   }
 
   handleExportRun(): void {

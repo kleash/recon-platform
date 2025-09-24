@@ -10,6 +10,11 @@
     <span class="meta-chip"><strong>Break type:</strong> {{ active.breakType }}</span>
     <span class="meta-chip"><strong>Status:</strong> {{ active.status }}</span>
     <span class="meta-chip"><strong>Detected:</strong> {{ active.detectedAt | date: 'short' }}</span>
+    <span class="meta-chip" *ngIf="active.submittedByDn">
+      <strong>Submitted by:</strong> {{ active.submittedByDn }}
+      <ng-container *ngIf="active.submittedAt"> on {{ active.submittedAt | date: 'short' }}</ng-container>
+      <ng-container *ngIf="active.submittedByGroup"> via {{ active.submittedByGroup }}</ng-container>
+    </span>
   </div>
 
   <p class="missing-sources" *ngIf="active.missingSources?.length">
@@ -39,7 +44,22 @@
     <p class="empty-source">No field level detail available for the selected break.</p>
   </ng-template>
 
-  <div class="commentary">
+  <section class="workflow-history">
+    <h4>Workflow history</h4>
+    <ul>
+      <li *ngFor="let entry of active.history">
+        <span class="timestamp">{{ entry.occurredAt | date: 'short' }}</span>
+        <strong>{{ entry.actorDn }}</strong>
+        <span class="role" *ngIf="entry.actorRole">{{ entry.actorRole }}</span>
+        <em *ngIf="entry.entryType === 'WORKFLOW'">{{ entry.newStatus }}</em>
+        <em *ngIf="entry.entryType === 'COMMENT'">{{ entry.action }}</em>
+        <p *ngIf="entry.comment">{{ entry.comment }}</p>
+      </li>
+      <li *ngIf="active.history.length === 0" class="empty-state">No history captured yet.</li>
+    </ul>
+  </section>
+
+  <section class="commentary">
     <h4>Commentary</h4>
     <ul>
       <li *ngFor="let comment of active.comments">
@@ -48,8 +68,9 @@
         <em>{{ comment.action }}</em>
         <p>{{ comment.comment }}</p>
       </li>
+      <li *ngIf="active.comments.length === 0" class="empty-state">No manual comments recorded.</li>
     </ul>
-    <form (ngSubmit)="submitComment()" class="comment-form">
+    <form (ngSubmit)="submitComment()" class="comment-form" *ngIf="canComment">
       <label>
         Action code
         <input type="text" [(ngModel)]="commentAction" name="action" required />
@@ -60,17 +81,35 @@
       </label>
       <button type="submit">Add comment</button>
     </form>
+    <p class="no-actions" *ngIf="!canComment">You do not have permission to add comments on this break.</p>
+  </section>
+
+  <section class="workflow-actions" *ngIf="statusOptions.length > 0">
+    <h4>Maker-checker actions</h4>
+    <p class="hint">Provide context for your action. Approvals and rejections require a comment.</p>
+    <textarea
+      rows="2"
+      placeholder="Add justification for your action"
+      [(ngModel)]="workflowComment"
+      name="workflowComment"
+    ></textarea>
+    <p class="error" *ngIf="workflowError">{{ workflowError }}</p>
     <div class="status-buttons">
-      <ng-container *ngIf="statusOptions.length > 0; else noActions">
-        <button type="button" *ngFor="let status of statusOptions" (click)="changeStatus(status)">
-          {{ getStatusText(status) }}
-        </button>
-      </ng-container>
+      <button type="button" *ngIf="canSubmit" (click)="triggerWorkflow(BreakStatus.PendingApproval)">
+        {{ getStatusText(BreakStatus.PendingApproval) }}
+      </button>
+      <button type="button" *ngIf="canApprove" (click)="triggerWorkflow(BreakStatus.Closed)">
+        {{ getStatusText(BreakStatus.Closed) }}
+      </button>
+      <button type="button" *ngIf="canReject" (click)="triggerWorkflow(BreakStatus.Rejected)">
+        {{ getStatusText(BreakStatus.Rejected) }}
+      </button>
+      <button type="button" *ngIf="canReopen" (click)="triggerWorkflow(BreakStatus.Open)">
+        {{ getStatusText(BreakStatus.Open) }}
+      </button>
     </div>
-    <ng-template #noActions>
-      <p class="no-actions">No workflow actions available for your role.</p>
-    </ng-template>
-  </div>
+  </section>
+  <p class="no-actions" *ngIf="statusOptions.length === 0">No workflow actions available for your role.</p>
 </section>
 <ng-template #noBreak>
   <p class="empty-state">Select a break to review details.</p>

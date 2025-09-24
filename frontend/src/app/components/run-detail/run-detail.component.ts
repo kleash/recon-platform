@@ -34,6 +34,8 @@ export class RunDetailComponent implements OnChanges {
   bulkActionCode = 'BULK_NOTE';
   bulkStatus: BreakStatus | null = null;
   classificationKeys: string[] = [];
+  tableFilter = '';
+  bulkError: string | null = null;
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['filter']) {
@@ -45,6 +47,8 @@ export class RunDetailComponent implements OnChanges {
       this.bulkComment = '';
       this.bulkStatus = null;
       this.bulkActionCode = 'BULK_NOTE';
+      this.tableFilter = '';
+      this.bulkError = null;
       this.recomputeClassificationKeys();
     }
   }
@@ -111,7 +115,7 @@ export class RunDetailComponent implements OnChanges {
   }
 
   selectAll(): void {
-    this.runDetail?.breaks.forEach((item) => this.selectedIds.add(item.id));
+    this.filteredBreaks.forEach((item) => this.selectedIds.add(item.id));
   }
 
   clearSelection(): void {
@@ -122,6 +126,7 @@ export class RunDetailComponent implements OnChanges {
     if (this.selectedIds.size === 0) {
       return;
     }
+    this.bulkError = null;
     const payload: BulkBreakUpdatePayload = {
       breakIds: Array.from(this.selectedIds),
       comment: this.bulkComment.trim() || undefined,
@@ -129,11 +134,17 @@ export class RunDetailComponent implements OnChanges {
       status: this.bulkStatus ?? undefined
     };
     if (!payload.comment && !payload.status) {
+      this.bulkError = 'Select a status or provide a comment before applying the bulk action.';
+      return;
+    }
+    if (payload.status && this.requiresComment(payload.status) && !payload.comment) {
+      this.bulkError = 'Approvals and rejections require a justification comment.';
       return;
     }
     this.bulkAction.emit(payload);
     this.bulkComment = '';
     this.bulkStatus = null;
+    this.bulkError = null;
   }
 
   get bulkStatusOptions(): BreakStatus[] {
@@ -150,6 +161,17 @@ export class RunDetailComponent implements OnChanges {
         return new Set([...acc].filter((status) => current.has(status)));
       });
     return Array.from(intersection);
+  }
+
+  get filteredBreaks(): BreakItem[] {
+    if (!this.runDetail) {
+      return [];
+    }
+    const term = this.tableFilter.trim().toLowerCase();
+    if (!term) {
+      return this.runDetail.breaks;
+    }
+    return this.runDetail.breaks.filter((item) => this.matchesFilter(item, term));
   }
 
   get analytics(): RunAnalytics | null {
@@ -217,5 +239,21 @@ export class RunDetailComponent implements OnChanges {
         }
         return a.localeCompare(b);
       });
+  }
+
+  private matchesFilter(item: BreakItem, term: string): boolean {
+    const classificationValues = Object.values(item.classifications ?? {})
+      .map((value) => (value ? value.toString().toLowerCase() : ''))
+      .join(' ');
+    return (
+      item.id.toString().includes(term) ||
+      item.breakType.toLowerCase().includes(term) ||
+      item.status.toLowerCase().includes(term) ||
+      classificationValues.includes(term)
+    );
+  }
+
+  private requiresComment(status: BreakStatus): boolean {
+    return status === BreakStatus.Closed || status === BreakStatus.Rejected;
   }
 }

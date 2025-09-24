@@ -55,27 +55,18 @@ jobs:
           branches_missed, branches_covered = counters.get('BRANCH', (0, 0))
           instr_missed, instr_covered = counters.get('INSTRUCTION', (0, 0))
 
-          summary = """# Backend test coverage
-
-| Metric | Covered | Missed | Coverage |
-| --- | ---: | ---: | ---: |
-| Lines | {lines_covered} | {lines_missed} | {line_pct} |
-| Branches | {branches_covered} | {branches_missed} | {branch_pct} |
-| Instructions | {instr_covered} | {instr_missed} | {instr_pct} |
-""".format(
-              lines_covered=lines_covered,
-              lines_missed=lines_missed,
-              line_pct=coverage_line(lines_missed, lines_covered),
-              branches_covered=branches_covered,
-              branches_missed=branches_missed,
-              branch_pct=coverage_line(branches_missed, branches_covered),
-              instr_covered=instr_covered,
-              instr_missed=instr_missed,
-              instr_pct=coverage_line(instr_missed, instr_covered),
-          )
+          summary_lines = [
+              '# Backend test coverage',
+              '',
+              '| Metric | Covered | Missed | Coverage |',
+              '| --- | ---: | ---: | ---: |',
+              f"| Lines | {lines_covered} | {lines_missed} | {coverage_line(lines_missed, lines_covered)} |",
+              f"| Branches | {branches_covered} | {branches_missed} | {coverage_line(branches_missed, branches_covered)} |",
+              f"| Instructions | {instr_covered} | {instr_missed} | {coverage_line(instr_missed, instr_covered)} |",
+          ]
 
           summary_path = Path('backend/target/site/jacoco/coverage-summary.md')
-          summary_path.write_text(summary)
+          summary_path.write_text('\n'.join(summary_lines))
           PY
 
       - name: Append backend summary to job summary
@@ -139,18 +130,19 @@ jobs:
           branches_cov, branches_total, branches_pct = extract('branches')
           funcs_cov, funcs_total, funcs_pct = extract('functions')
 
-          summary = f"""# Frontend test coverage
-
-| Metric | Covered | Total | Coverage |
-| --- | ---: | ---: | ---: |
-| Lines | {lines_cov} | {lines_total} | {lines_pct:.2f}% |
-| Statements | {statements_cov} | {statements_total} | {statements_pct:.2f}% |
-| Branches | {branches_cov} | {branches_total} | {branches_pct:.2f}% |
-| Functions | {funcs_cov} | {funcs_total} | {funcs_pct:.2f}% |
-"""
+          summary_lines = [
+              '# Frontend test coverage',
+              '',
+              '| Metric | Covered | Total | Coverage |',
+              '| --- | ---: | ---: | ---: |',
+              f"| Lines | {lines_cov} | {lines_total} | {lines_pct:.2f}% |",
+              f"| Statements | {statements_cov} | {statements_total} | {statements_pct:.2f}% |",
+              f"| Branches | {branches_cov} | {branches_total} | {branches_pct:.2f}% |",
+              f"| Functions | {funcs_cov} | {funcs_total} | {funcs_pct:.2f}% |",
+          ]
 
           summary_path = Path('frontend/coverage/coverage-summary.md')
-          summary_path.write_text(summary)
+          summary_path.write_text('\n'.join(summary_lines))
           PY
 
       - name: Append frontend summary to job summary

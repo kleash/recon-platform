@@ -126,8 +126,7 @@ public class CustodianTradeEtlPipeline extends AbstractExampleEtlPipeline implem
                 null,
                 1,
                 true);
-        mapping(transactionId, custodianSource, "trade_id", true);
-        mapping(transactionId, platformSource, "trade_id", true);
+        mapToBothSources(transactionId, custodianSource, platformSource, "trade_id", true);
 
         CanonicalField sourceField = canonicalField(
                 definition,
@@ -140,8 +139,7 @@ public class CustodianTradeEtlPipeline extends AbstractExampleEtlPipeline implem
                 2,
                 true);
         sourceField.setClassifierTag("subProduct");
-        mapping(sourceField, custodianSource, "source", true);
-        mapping(sourceField, platformSource, "source", true);
+        mapToBothSources(sourceField, custodianSource, platformSource, "source", true);
 
         CanonicalField amount = canonicalField(
                 definition,
@@ -153,8 +151,7 @@ public class CustodianTradeEtlPipeline extends AbstractExampleEtlPipeline implem
                 null,
                 3,
                 true);
-        mapping(amount, custodianSource, "gross_amount", true);
-        mapping(amount, platformSource, "gross_amount", true);
+        mapToBothSources(amount, custodianSource, platformSource, "gross_amount", true);
 
         CanonicalField quantity = canonicalField(
                 definition,
@@ -166,8 +163,7 @@ public class CustodianTradeEtlPipeline extends AbstractExampleEtlPipeline implem
                 null,
                 4,
                 true);
-        mapping(quantity, custodianSource, "quantity", true);
-        mapping(quantity, platformSource, "quantity", true);
+        mapToBothSources(quantity, custodianSource, platformSource, "quantity", true);
 
         CanonicalField currency = canonicalField(
                 definition,
@@ -179,8 +175,7 @@ public class CustodianTradeEtlPipeline extends AbstractExampleEtlPipeline implem
                 null,
                 5,
                 true);
-        mapping(currency, custodianSource, "currency", true);
-        mapping(currency, platformSource, "currency", true);
+        mapToBothSources(currency, custodianSource, platformSource, "currency", true);
 
         CanonicalField tradeDate = canonicalField(
                 definition,
@@ -192,8 +187,7 @@ public class CustodianTradeEtlPipeline extends AbstractExampleEtlPipeline implem
                 null,
                 6,
                 true);
-        mapping(tradeDate, custodianSource, "trade_date", true);
-        mapping(tradeDate, platformSource, "trade_date", true);
+        mapToBothSources(tradeDate, custodianSource, platformSource, "trade_date", true);
 
         CanonicalField product = canonicalField(
                 definition,
@@ -235,8 +229,17 @@ public class CustodianTradeEtlPipeline extends AbstractExampleEtlPipeline implem
                 null,
                 9,
                 true);
-        mapping(custodian, custodianSource, "source", true);
-        mapping(custodian, platformSource, "source", true);
+        mapToBothSources(custodian, custodianSource, platformSource, "source", true);
+    }
+
+    private void mapToBothSources(
+            CanonicalField field,
+            ReconciliationSource custodianSource,
+            ReconciliationSource platformSource,
+            String sourceColumn,
+            boolean required) {
+        mapping(field, custodianSource, sourceColumn, required);
+        mapping(field, platformSource, sourceColumn, required);
     }
 
     private void configureReportTemplate(ReconciliationDefinition definition) {

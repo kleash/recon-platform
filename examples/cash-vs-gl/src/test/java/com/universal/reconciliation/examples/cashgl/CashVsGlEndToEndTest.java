@@ -50,15 +50,14 @@ class CashVsGlEndToEndTest {
                 .findByDefinitionAndCode(definition, "GL")
                 .orElseThrow();
 
-        var cashBatch = batchRepository
-                .findFirstBySourceOrderByIngestedAtDesc(cashSource)
-                .orElseThrow();
-        var glBatch = batchRepository
-                .findFirstBySourceOrderByIngestedAtDesc(glSource)
-                .orElseThrow();
+        var cashBatches = batchRepository.findBySourceOrderByIngestedAtDesc(cashSource);
+        assertThat(cashBatches).hasSize(1);
+        var cashBatch = cashBatches.get(0);
 
-        assertThat(batchRepository.findBySourceOrderByIngestedAtDesc(cashSource)).hasSize(1);
-        assertThat(batchRepository.findBySourceOrderByIngestedAtDesc(glSource)).hasSize(1);
+        var glBatches = batchRepository.findBySourceOrderByIngestedAtDesc(glSource);
+        assertThat(glBatches).hasSize(1);
+        var glBatch = glBatches.get(0);
+
         assertThat(cashBatch.getRecordCount()).isEqualTo(4);
         assertThat(glBatch.getRecordCount()).isEqualTo(4);
         assertThat(recordRepository.findByBatch(cashBatch)).hasSize(4);

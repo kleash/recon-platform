@@ -82,164 +82,7 @@ public class SecuritiesPositionEtlPipeline extends AbstractExampleEtlPipeline im
                 false,
                 IngestionAdapterType.CSV_FILE);
 
-        CanonicalField transactionId = canonicalField(
-                definition,
-                "transactionId",
-                "Position ID",
-                FieldRole.KEY,
-                FieldDataType.STRING,
-                ComparisonLogic.EXACT_MATCH,
-                null,
-                1,
-                true);
-        mapping(transactionId, custodianSource, "transactionId", true);
-        mapping(transactionId, portfolioSource, "transactionId", true);
-
-        CanonicalField accountId = canonicalField(
-                definition,
-                "accountId",
-                "Account",
-                FieldRole.KEY,
-                FieldDataType.STRING,
-                ComparisonLogic.EXACT_MATCH,
-                null,
-                2,
-                true);
-        mapping(accountId, custodianSource, "accountId", true);
-        mapping(accountId, portfolioSource, "accountId", true);
-
-        CanonicalField isin = canonicalField(
-                definition,
-                "isin",
-                "ISIN",
-                FieldRole.KEY,
-                FieldDataType.STRING,
-                ComparisonLogic.EXACT_MATCH,
-                null,
-                3,
-                true);
-        mapping(isin, custodianSource, "isin", true);
-        mapping(isin, portfolioSource, "isin", true);
-
-        CanonicalField quantity = canonicalField(
-                definition,
-                "quantity",
-                "Quantity",
-                FieldRole.COMPARE,
-                FieldDataType.DECIMAL,
-                ComparisonLogic.NUMERIC_THRESHOLD,
-                BigDecimal.valueOf(0.5),
-                4,
-                true);
-        mapping(quantity, custodianSource, "quantity", true);
-        mapping(quantity, portfolioSource, "quantity", true);
-
-        CanonicalField marketValue = canonicalField(
-                definition,
-                "marketValue",
-                "Market Value",
-                FieldRole.COMPARE,
-                FieldDataType.DECIMAL,
-                ComparisonLogic.NUMERIC_THRESHOLD,
-                BigDecimal.valueOf(1.5),
-                5,
-                true);
-        mapping(marketValue, custodianSource, "marketValue", true);
-        mapping(marketValue, portfolioSource, "marketValue", true);
-
-        CanonicalField valuationCurrency = canonicalField(
-                definition,
-                "valuationCurrency",
-                "Valuation CCY",
-                FieldRole.COMPARE,
-                FieldDataType.STRING,
-                ComparisonLogic.CASE_INSENSITIVE,
-                null,
-                6,
-                true);
-        mapping(valuationCurrency, custodianSource, "valuationCurrency", true);
-        mapping(valuationCurrency, portfolioSource, "valuationCurrency", true);
-
-        CanonicalField valuationDate = canonicalField(
-                definition,
-                "valuationDate",
-                "Valuation Date",
-                FieldRole.COMPARE,
-                FieldDataType.DATE,
-                ComparisonLogic.DATE_ONLY,
-                null,
-                7,
-                true);
-        mapping(valuationDate, custodianSource, "valuationDate", true);
-        mapping(valuationDate, portfolioSource, "valuationDate", true);
-
-        CanonicalField product = canonicalField(
-                definition,
-                "product",
-                "Product",
-                FieldRole.PRODUCT,
-                FieldDataType.STRING,
-                ComparisonLogic.EXACT_MATCH,
-                null,
-                8,
-                true);
-        product.setClassifierTag("product");
-        mapping(product, custodianSource, "product", true);
-        mapping(product, portfolioSource, "product", true);
-
-        CanonicalField subProduct = canonicalField(
-                definition,
-                "subProduct",
-                "Desk",
-                FieldRole.SUB_PRODUCT,
-                FieldDataType.STRING,
-                ComparisonLogic.EXACT_MATCH,
-                null,
-                9,
-                true);
-        subProduct.setClassifierTag("subProduct");
-        mapping(subProduct, custodianSource, "subProduct", true);
-        mapping(subProduct, portfolioSource, "subProduct", true);
-
-        CanonicalField entity = canonicalField(
-                definition,
-                "entityName",
-                "Entity",
-                FieldRole.ENTITY,
-                FieldDataType.STRING,
-                ComparisonLogic.EXACT_MATCH,
-                null,
-                10,
-                true);
-        entity.setClassifierTag("entity");
-        mapping(entity, custodianSource, "entityName", true);
-        mapping(entity, portfolioSource, "entityName", true);
-
-        CanonicalField custodian = canonicalField(
-                definition,
-                "custodian",
-                "Custodian",
-                FieldRole.DISPLAY,
-                FieldDataType.STRING,
-                ComparisonLogic.EXACT_MATCH,
-                null,
-                11,
-                false);
-        mapping(custodian, custodianSource, "custodian", false);
-        mapping(custodian, portfolioSource, "custodian", false);
-
-        CanonicalField portfolioManager = canonicalField(
-                definition,
-                "portfolioManager",
-                "Portfolio Manager",
-                FieldRole.DISPLAY,
-                FieldDataType.STRING,
-                ComparisonLogic.EXACT_MATCH,
-                null,
-                12,
-                false);
-        mapping(portfolioManager, custodianSource, "portfolioManager", false);
-        mapping(portfolioManager, portfolioSource, "portfolioManager", false);
+        configureFields(definition, custodianSource, portfolioSource);
 
         ReportTemplate template = template(
                 definition,
@@ -274,4 +117,167 @@ public class SecuritiesPositionEtlPipeline extends AbstractExampleEtlPipeline im
 
         log.info("Seeded {} via dynamic metadata-driven pipeline", DEFINITION_CODE);
     }
+
+    private void configureFields(
+            ReconciliationDefinition definition,
+            ReconciliationSource custodianSource,
+            ReconciliationSource portfolioSource) {
+        CanonicalField transactionId = canonicalField(
+                definition,
+                "transactionId",
+                "Position ID",
+                FieldRole.KEY,
+                FieldDataType.STRING,
+                ComparisonLogic.EXACT_MATCH,
+                null,
+                1,
+                true);
+        mapToBothSources(transactionId, custodianSource, portfolioSource, "transactionId", true);
+
+        CanonicalField accountId = canonicalField(
+                definition,
+                "accountId",
+                "Account",
+                FieldRole.KEY,
+                FieldDataType.STRING,
+                ComparisonLogic.EXACT_MATCH,
+                null,
+                2,
+                true);
+        mapToBothSources(accountId, custodianSource, portfolioSource, "accountId", true);
+
+        CanonicalField isin = canonicalField(
+                definition,
+                "isin",
+                "ISIN",
+                FieldRole.KEY,
+                FieldDataType.STRING,
+                ComparisonLogic.EXACT_MATCH,
+                null,
+                3,
+                true);
+        mapToBothSources(isin, custodianSource, portfolioSource, "isin", true);
+
+        CanonicalField quantity = canonicalField(
+                definition,
+                "quantity",
+                "Quantity",
+                FieldRole.COMPARE,
+                FieldDataType.DECIMAL,
+                ComparisonLogic.NUMERIC_THRESHOLD,
+                BigDecimal.valueOf(0.5),
+                4,
+                true);
+        mapToBothSources(quantity, custodianSource, portfolioSource, "quantity", true);
+
+        CanonicalField marketValue = canonicalField(
+                definition,
+                "marketValue",
+                "Market Value",
+                FieldRole.COMPARE,
+                FieldDataType.DECIMAL,
+                ComparisonLogic.NUMERIC_THRESHOLD,
+                BigDecimal.valueOf(1.5),
+                5,
+                true);
+        mapToBothSources(marketValue, custodianSource, portfolioSource, "marketValue", true);
+
+        CanonicalField valuationCurrency = canonicalField(
+                definition,
+                "valuationCurrency",
+                "Valuation CCY",
+                FieldRole.COMPARE,
+                FieldDataType.STRING,
+                ComparisonLogic.CASE_INSENSITIVE,
+                null,
+                6,
+                true);
+        mapToBothSources(valuationCurrency, custodianSource, portfolioSource, "valuationCurrency", true);
+
+        CanonicalField valuationDate = canonicalField(
+                definition,
+                "valuationDate",
+                "Valuation Date",
+                FieldRole.COMPARE,
+                FieldDataType.DATE,
+                ComparisonLogic.DATE_ONLY,
+                null,
+                7,
+                true);
+        mapToBothSources(valuationDate, custodianSource, portfolioSource, "valuationDate", true);
+
+        CanonicalField product = canonicalField(
+                definition,
+                "product",
+                "Product",
+                FieldRole.PRODUCT,
+                FieldDataType.STRING,
+                ComparisonLogic.EXACT_MATCH,
+                null,
+                8,
+                true);
+        product.setClassifierTag("product");
+        mapToBothSources(product, custodianSource, portfolioSource, "product", true);
+
+        CanonicalField subProduct = canonicalField(
+                definition,
+                "subProduct",
+                "Desk",
+                FieldRole.SUB_PRODUCT,
+                FieldDataType.STRING,
+                ComparisonLogic.EXACT_MATCH,
+                null,
+                9,
+                true);
+        subProduct.setClassifierTag("subProduct");
+        mapToBothSources(subProduct, custodianSource, portfolioSource, "subProduct", true);
+
+        CanonicalField entity = canonicalField(
+                definition,
+                "entityName",
+                "Entity",
+                FieldRole.ENTITY,
+                FieldDataType.STRING,
+                ComparisonLogic.EXACT_MATCH,
+                null,
+                10,
+                true);
+        entity.setClassifierTag("entity");
+        mapToBothSources(entity, custodianSource, portfolioSource, "entityName", true);
+
+        CanonicalField custodian = canonicalField(
+                definition,
+                "custodian",
+                "Custodian",
+                FieldRole.DISPLAY,
+                FieldDataType.STRING,
+                ComparisonLogic.EXACT_MATCH,
+                null,
+                11,
+                false);
+        mapToBothSources(custodian, custodianSource, portfolioSource, "custodian", false);
+
+        CanonicalField portfolioManager = canonicalField(
+                definition,
+                "portfolioManager",
+                "Portfolio Manager",
+                FieldRole.DISPLAY,
+                FieldDataType.STRING,
+                ComparisonLogic.EXACT_MATCH,
+                null,
+                12,
+                false);
+        mapToBothSources(portfolioManager, custodianSource, portfolioSource, "portfolioManager", false);
+    }
+
+    private void mapToBothSources(
+            CanonicalField field,
+            ReconciliationSource custodianSource,
+            ReconciliationSource portfolioSource,
+            String sourceColumn,
+            boolean required) {
+        mapping(field, custodianSource, sourceColumn, required);
+        mapping(field, portfolioSource, sourceColumn, required);
+    }
+
 }

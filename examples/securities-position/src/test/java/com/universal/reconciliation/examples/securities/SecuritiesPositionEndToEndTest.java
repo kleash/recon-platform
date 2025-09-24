@@ -52,15 +52,13 @@ class SecuritiesPositionEndToEndTest {
                 .findByDefinitionAndCode(definition, "PORTFOLIO")
                 .orElseThrow();
 
-        var custodianBatch = batchRepository
-                .findFirstBySourceOrderByIngestedAtDesc(custodianSource)
-                .orElseThrow();
-        var portfolioBatch = batchRepository
-                .findFirstBySourceOrderByIngestedAtDesc(portfolioSource)
-                .orElseThrow();
+        var custodianBatches = batchRepository.findBySourceOrderByIngestedAtDesc(custodianSource);
+        assertThat(custodianBatches).hasSize(1);
+        var custodianBatch = custodianBatches.get(0);
 
-        assertThat(batchRepository.findBySourceOrderByIngestedAtDesc(custodianSource)).hasSize(1);
-        assertThat(batchRepository.findBySourceOrderByIngestedAtDesc(portfolioSource)).hasSize(1);
+        var portfolioBatches = batchRepository.findBySourceOrderByIngestedAtDesc(portfolioSource);
+        assertThat(portfolioBatches).hasSize(1);
+        var portfolioBatch = portfolioBatches.get(0);
         assertThat(custodianBatch.getRecordCount()).isEqualTo(4);
         assertThat(portfolioBatch.getRecordCount()).isEqualTo(4);
         assertThat(recordRepository.findByBatch(custodianBatch)).hasSize(4);

@@ -9,23 +9,23 @@ The platform is a metadata-driven reconciliation engine with a Spring Boot backe
 - **Backend (`backend/`):** Spring Boot services using a hexagonal architecture. Controllers in `.../http` adapt requests, services in `.../service` contain domain logic, and repositories in `.../repository` handle persistence.
 - **Frontend (`frontend/`):** An Angular single-page application with standalone components. State is managed in services, particularly `ReconciliationStateService.ts`.
 - **Data Model:** The database schema is critical. Key tables include `reconciliation_definitions`, `reconciliation_fields`, `reconciliation_runs`, and `break_items`. Refer to `docs/wiki/Architecture.md` for diagrams.
-- **ETL Pipelines:** In development, data is seeded via ETL pipelines that extend `AbstractSampleEtlPipeline`. These classes are the primary mechanism for defining and onboarding new reconciliations.
+- **ETL Pipelines:** In development, data is seeded via ETL pipelines that extend `AbstractExampleEtlPipeline`. These classes are the primary mechanism for defining and onboarding new reconciliations.
 
 ## Primary Workflow: Creating a New Reconciliation
 
 Your most common task will be to create a new reconciliation pipeline. Follow the pattern in `docs/wiki/Tutorial-Creating-a-New-Reconciliation.md`.
 
-1.  **Create a Pipeline Class:** Create a new Java class in `backend/src/main/java/com/universal/reconciliation/etl/` that extends `AbstractSampleEtlPipeline`.
-2.  **Define Metadata:** In the `run()` method, use the provided helper methods to:
-    -   Create the `ReconciliationDefinition`.
-    -   Register fields (`addField`) with roles (`KEY`, `COMPARE`, `DISPLAY`, etc.). This is the most important step.
-    -   Configure Excel report layouts (`configureReportTemplate`).
-    -   Set up access control for user groups (`accessControlEntryRepository`).
+1.  **Create a Pipeline Class:** Add a Java class under `examples/<scenario>/src/main/java/` that implements `EtlPipeline` and extends `AbstractExampleEtlPipeline`.
+2.  **Define Metadata:** In the `run()` method, call the helper methods to:
+    -   Create the `ReconciliationDefinition` and one or more `ReconciliationSource` records.
+    -   Register canonical fields with their roles (`KEY`, `COMPARE`, `DISPLAY`, etc.) and comparison logic.
+    -   Map physical source columns to canonical fields using `CanonicalFieldMapping` helpers.
+    -   Configure report templates and access control entries as needed.
 3.  **Load Data:**
-    -   Add sample CSV data files to `backend/src/main/resources/etl/`.
-    -   Implement the data loading logic in your pipeline's `run()` method, using the `readCsv` and mapping helpers to populate `SourceRecordA` and `SourceRecordB`.
+    -   Place sample CSV files under `examples/<scenario>/src/main/resources/etl/`.
+    -   Use the provided `ingestCsv` helper (backed by `SourceIngestionService`) to load each configured `ReconciliationSource`. This ensures raw data is transformed into canonical payloads using the metadata you defined.
 
-**Example:** See `TradingFeeEtlPipeline.java` (from the tutorial) or other classes in the `etl` package for a complete implementation.
+**Example:** See `CashVsGlEtlPipeline.java` or the other classes in `examples/` for a complete implementation of the dynamic ingestion workflow.
 
 ## Development & Testing
 

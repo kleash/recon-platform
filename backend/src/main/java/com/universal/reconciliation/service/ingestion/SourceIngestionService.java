@@ -188,6 +188,15 @@ public class SourceIngestionService {
                 .collect(Collectors.joining("|"));
     }
 
+    /**
+     * Resolve the external reference identifier for a raw record.
+     *
+     * <p>The service first prefers the value of the first configured {@link FieldRole#KEY}
+     * field after canonical transformation. If that field is null or blank, the
+     * method falls back to a raw column literally named {@code externalReference}.
+     * Documenting the implicit fallback helps future maintainers understand why
+     * the raw payload is consulted when canonical data is unavailable.</p>
+     */
     private String resolveExternalReference(
             List<CanonicalField> keyFields,
             Map<String, Object> payload,

@@ -1,24 +1,27 @@
 package com.universal.reconciliation.service.ingestion;
 
 import com.universal.reconciliation.domain.enums.IngestionAdapterType;
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.Reader;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 /**
  * Simple CSV ingestion adapter used for the bootstrapped examples. The
- * adapter keeps parsing logic lightweight so alternative implementations
- * (e.g. leveraging Apache Commons CSV) can be swapped in later without
- * touching the ingestion orchestration layer.
+ * implementation relies on Apache Commons CSV so quoted values and
+ * embedded delimiters are handled correctly while keeping the
+ * orchestration layer agnostic of the underlying parser.
  */
 @Component
 public class CsvIngestionAdapter implements IngestionAdapter {
@@ -33,26 +36,34 @@ public class CsvIngestionAdapter implements IngestionAdapter {
 
     @Override
     public List<Map<String, Object>> readRecords(IngestionAdapterRequest request) {
+        char delimiter = resolveDelimiter(request.options());
+        CSVFormat csvFormat = CSVFormat.DEFAULT
+                .builder()
+                .setHeader()
+                .setSkipHeaderRecord(true)
+                .setTrim(true)
+                .setIgnoreEmptyLines(true)
+                .setDelimiter(delimiter)
+                .build();
         try (InputStream inputStream = request.inputStreamSupplier().get();
-                BufferedReader reader = new BufferedReader(new InputStreamReader(
-                        inputStream, resolveCharset(request.options())))) {
-            String headerLine = reader.readLine();
-            if (!StringUtils.hasText(headerLine)) {
+                Reader reader = new InputStreamReader(inputStream, resolveCharset(request.options()));
+                CSVParser parser = new CSVParser(reader, csvFormat)) {
+            List<String> headers = parser.getHeaderNames();
+            if (headers == null || headers.isEmpty()) {
                 return List.of();
             }
-            String[] headers = headerLine.split(resolveDelimiter(request.options()));
             List<Map<String, Object>> rows = new ArrayList<>();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (!StringUtils.hasText(line)) {
-                    continue;
-                }
-                String[] values = line.split(resolveDelimiter(request.options()), -1);
+            for (CSVRecord record : parser) {
                 Map<String, Object> row = new LinkedHashMap<>();
-                for (int i = 0; i < headers.length && i < values.length; i++) {
-                    row.put(headers[i], values[i].trim());
+                for (String header : headers) {
+                    if (!record.isMapped(header) || !record.isSet(header)) {
+                        continue;
+                    }
+                    row.put(header, record.get(header));
                 }
-                rows.add(row);
+                if (!row.isEmpty()) {
+                    rows.add(row);
+                }
             }
             return rows;
         } catch (IOException e) {
@@ -74,17 +85,17 @@ public class CsvIngestionAdapter implements IngestionAdapter {
         return StandardCharsets.UTF_8;
     }
 
-    private String resolveDelimiter(Map<String, Object> options) {
+    private char resolveDelimiter(Map<String, Object> options) {
         if (options == null) {
-            return ",";
+            return ',';
         }
         Object value = options.get(OPTION_DELIMITER);
         if (value instanceof Character character) {
-            return character.toString();
+            return character;
         }
         if (value instanceof String delimiter && StringUtils.hasLength(delimiter)) {
-            return delimiter;
+            return delimiter.charAt(0);
         }
-        return ",";
+        return ',';
     }
 }

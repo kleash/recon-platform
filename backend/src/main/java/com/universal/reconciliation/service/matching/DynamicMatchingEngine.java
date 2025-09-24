@@ -191,6 +191,17 @@ public class DynamicMatchingEngine implements MatchingEngine {
         };
     }
 
+    /**
+     * Compare numeric values using the anchor record's value to derive the tolerance.
+     *
+     * <p>The tolerance is calculated from the {@code left} value because the anchor
+     * dataset defines the point of reference. As a result the comparison is not
+     * symmetric: {@code compareNumericWithThreshold(A, B)} may yield a different
+     * outcome from {@code compareNumericWithThreshold(B, A)} if the anchor switches.
+     * This matches the business expectation that tolerances are configured relative
+     * to the anchor source but should be revisited if bidirectional comparisons are
+     * ever required.</p>
+     */
     private boolean compareNumericWithThreshold(Object left, Object right, BigDecimal configuredThreshold) {
         BigDecimal leftValue = toBigDecimal(left);
         BigDecimal rightValue = toBigDecimal(right);

@@ -1,5 +1,6 @@
 package com.universal.reconciliation.examples.support;
 
+import com.universal.reconciliation.domain.entity.AccessControlEntry;
 import com.universal.reconciliation.domain.entity.CanonicalField;
 import com.universal.reconciliation.domain.entity.CanonicalFieldMapping;
 import com.universal.reconciliation.domain.entity.ReconciliationDefinition;
@@ -11,6 +12,7 @@ import com.universal.reconciliation.domain.enums.ComparisonLogic;
 import com.universal.reconciliation.domain.enums.FieldDataType;
 import com.universal.reconciliation.domain.enums.FieldRole;
 import com.universal.reconciliation.domain.enums.IngestionAdapterType;
+import com.universal.reconciliation.domain.enums.ReportColumnSource;
 import com.universal.reconciliation.repository.AccessControlEntryRepository;
 import com.universal.reconciliation.repository.CanonicalFieldRepository;
 import com.universal.reconciliation.repository.ReconciliationDefinitionRepository;
@@ -166,7 +168,7 @@ public abstract class AbstractExampleEtlPipeline {
     protected ReportColumn column(
             ReportTemplate template,
             String header,
-            com.universal.reconciliation.domain.enums.ReportColumnSource source,
+            ReportColumnSource source,
             String sourceField,
             int order,
             boolean highlight) {
@@ -181,15 +183,14 @@ public abstract class AbstractExampleEtlPipeline {
         return column;
     }
 
-    protected com.universal.reconciliation.domain.entity.AccessControlEntry entry(
+    protected AccessControlEntry entry(
             ReconciliationDefinition definition,
             String ldapGroup,
             AccessRole role,
             String product,
             String subProduct,
             String entity) {
-        com.universal.reconciliation.domain.entity.AccessControlEntry entry =
-                new com.universal.reconciliation.domain.entity.AccessControlEntry();
+        AccessControlEntry entry = new AccessControlEntry();
         entry.setDefinition(definition);
         entry.setLdapGroupDn(ldapGroup);
         entry.setRole(role);
@@ -199,7 +200,7 @@ public abstract class AbstractExampleEtlPipeline {
         return entry;
     }
 
-    protected void saveAccessControlEntries(List<com.universal.reconciliation.domain.entity.AccessControlEntry> entries) {
+    protected void saveAccessControlEntries(List<AccessControlEntry> entries) {
         accessControlEntryRepository.saveAll(entries);
     }
 

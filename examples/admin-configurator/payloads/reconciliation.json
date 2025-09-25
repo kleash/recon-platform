@@ -1,0 +1,185 @@
+{
+  "code": "CUSTODY_GL",
+  "name": "Custody vs GL",
+  "description": "Matches custody positions against the general ledger",
+  "owner": "Custody Operations",
+  "makerCheckerEnabled": true,
+  "notes": "Authored via admin configurator example",
+  "status": "DRAFT",
+  "autoTriggerEnabled": true,
+  "autoTriggerCron": "0 2 * * *",
+  "autoTriggerTimezone": "UTC",
+  "autoTriggerGraceMinutes": 45,
+  "version": null,
+  "sources": [
+    {
+      "id": null,
+      "code": "CUSTODY_FEED",
+      "displayName": "Custody CSV",
+      "adapterType": "CSV_FILE",
+      "anchor": true,
+      "description": "Daily custody export",
+      "connectionConfig": "s3://bucket/custody",
+      "arrivalExpectation": "Weekdays by 18:00",
+      "arrivalTimezone": "America/New_York",
+      "arrivalSlaMinutes": 60,
+      "adapterOptions": "{\"delimiter\":\",\"}"
+    },
+    {
+      "id": null,
+      "code": "GL_LEDGER",
+      "displayName": "General Ledger",
+      "adapterType": "CSV_FILE",
+      "anchor": false,
+      "description": "Ledger staging extract",
+      "connectionConfig": null,
+      "arrivalExpectation": null,
+      "arrivalTimezone": null,
+      "arrivalSlaMinutes": null,
+      "adapterOptions": null
+    }
+  ],
+  "canonicalFields": [
+    {
+      "id": null,
+      "canonicalName": "tradeId",
+      "displayName": "Trade ID",
+      "role": "KEY",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 0,
+      "required": true,
+      "mappings": [
+        {
+          "id": null,
+          "sourceCode": "CUSTODY_FEED",
+          "sourceColumn": "trade_id",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "GL_LEDGER",
+          "sourceColumn": "trade_id",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "netAmount",
+      "displayName": "Net Amount",
+      "role": "COMPARE",
+      "dataType": "DECIMAL",
+      "comparisonLogic": "NUMERIC_THRESHOLD",
+      "thresholdPercentage": 0.5,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 1,
+      "required": true,
+      "mappings": [
+        {
+          "id": null,
+          "sourceCode": "CUSTODY_FEED",
+          "sourceColumn": "net_amount",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "GL_LEDGER",
+          "sourceColumn": "net_amount",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "currency",
+      "displayName": "Currency",
+      "role": "CLASSIFIER",
+      "dataType": "STRING",
+      "comparisonLogic": "CASE_INSENSITIVE",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 2,
+      "required": true,
+      "mappings": [
+        {
+          "id": null,
+          "sourceCode": "CUSTODY_FEED",
+          "sourceColumn": "currency",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "GL_LEDGER",
+          "sourceColumn": "currency",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
+      ]
+    }
+  ],
+  "reportTemplates": [
+    {
+      "id": null,
+      "name": "Break Investigation",
+      "description": "Highlights mismatches for custody vs ledger",
+      "includeMatched": false,
+      "includeMismatched": true,
+      "includeMissing": true,
+      "highlightDifferences": true,
+      "columns": [
+        {
+          "id": null,
+          "header": "Trade ID",
+          "source": "SOURCE_A",
+          "sourceField": "tradeId",
+          "displayOrder": 0,
+          "highlightDifferences": false
+        },
+        {
+          "id": null,
+          "header": "Net Amount (Custody)",
+          "source": "SOURCE_A",
+          "sourceField": "netAmount",
+          "displayOrder": 1,
+          "highlightDifferences": true
+        }
+      ]
+    }
+  ],
+  "accessControlEntries": [
+    {
+      "id": null,
+      "ldapGroupDn": "cn=ROLE_RECON_ADMIN,ou=groups,dc=universal,dc=local",
+      "role": "MAKER",
+      "product": "Custody",
+      "subProduct": "Settlements",
+      "entityName": "Global",
+      "notifyOnPublish": true,
+      "notifyOnIngestionFailure": true,
+      "notificationChannel": "custody-ops@example.com"
+    }
+  ]
+}

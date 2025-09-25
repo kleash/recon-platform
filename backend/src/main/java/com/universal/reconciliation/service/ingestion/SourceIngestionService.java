@@ -118,7 +118,9 @@ public class SourceIngestionService {
         batch.setStatus(DataBatchStatus.COMPLETE);
         batch.setRecordCount((long) records.size());
         batch.setChecksum(UUID.randomUUID().toString());
-        return batchRepository.save(batch);
+        batch = batchRepository.save(batch);
+        source.getBatches().add(batch);
+        return batch;
     }
 
     private String resolveBatchLabel(IngestionAdapterRequest request) {

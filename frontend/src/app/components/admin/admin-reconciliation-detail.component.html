@@ -1,0 +1,219 @@
+<ng-container *ngIf="detail$ | async as detail; else loading">
+  <section class="detail-header">
+    <div>
+      <h2>{{ detail.name }}</h2>
+      <p class="identifier">{{ detail.code }} · Status: <span class="status {{ detail.status.toLowerCase() }}">{{ detail.status }}</span></p>
+      <p class="description">{{ detail.description }}</p>
+      <p class="owner" *ngIf="detail.owner">Owned by {{ detail.owner }}</p>
+      <p class="notes" *ngIf="detail.notes">Notes: {{ detail.notes }}</p>
+    </div>
+    <div class="actions">
+      <button type="button" class="secondary" (click)="downloadSchema(detail)">Export schema</button>
+      <button type="button" class="secondary" (click)="navigateToEdit(detail)">Edit</button>
+      <button type="button" class="danger" (click)="retire(detail)">Retire</button>
+    </div>
+  </section>
+
+  <section class="metadata-grid">
+    <div>
+      <h3>Lifecycle</h3>
+      <ul>
+        <li><strong>Created:</strong> {{ detail.createdAt | date: 'medium' }}</li>
+        <li><strong>Created by:</strong> {{ detail.createdBy || 'Unknown' }}</li>
+        <li><strong>Updated:</strong> {{ detail.updatedAt | date: 'medium' }}</li>
+        <li><strong>Updated by:</strong> {{ detail.updatedBy || 'Unknown' }}</li>
+        <li *ngIf="detail.publishedAt"><strong>Published:</strong> {{ detail.publishedAt | date: 'medium' }} by {{ detail.publishedBy }}</li>
+        <li *ngIf="detail.retiredAt"><strong>Retired:</strong> {{ detail.retiredAt | date: 'medium' }} by {{ detail.retiredBy }}</li>
+        <li><strong>Maker/Checker:</strong> {{ detail.makerCheckerEnabled ? 'Enabled' : 'Disabled' }}</li>
+        <li><strong>Version:</strong> {{ detail.version }}</li>
+        <li>
+          <strong>Auto-trigger:</strong>
+          {{ detail.autoTriggerEnabled ? 'Enabled' : 'Disabled' }}
+          <span *ngIf="detail.autoTriggerEnabled">
+            (cron {{ detail.autoTriggerCron || 'n/a' }}, timezone {{ detail.autoTriggerTimezone || 'n/a' }}, grace
+            {{ detail.autoTriggerGraceMinutes ?? 0 }}m)
+          </span>
+        </li>
+        <li *ngIf="detail.ingestionBatches?.length">
+          <strong>Last ingestion:</strong>
+          {{ detail.ingestionBatches[0].ingestedAt | date: 'medium' }} ({{ detail.ingestionBatches[0].status }})
+        </li>
+      </ul>
+    </div>
+    <div>
+      <h3>Access control</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Group</th>
+            <th>Role</th>
+            <th>Scope</th>
+            <th>Notifications</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let entry of detail.accessControlEntries">
+            <td>{{ entry.ldapGroupDn }}</td>
+            <td>{{ entry.role }}</td>
+            <td>
+              <div>{{ entry.product || 'All products' }}</div>
+              <div *ngIf="entry.subProduct">Sub-product: {{ entry.subProduct }}</div>
+              <div *ngIf="entry.entityName">Entity: {{ entry.entityName }}</div>
+            </td>
+            <td>
+              <div>{{ entry.notifyOnPublish ? 'Publish' : 'No publish alerts' }}</div>
+              <div>{{ entry.notifyOnIngestionFailure ? 'Ingestion failures' : 'No ingestion alerts' }}</div>
+              <div *ngIf="entry.notificationChannel">Channel: {{ entry.notificationChannel }}</div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="sources">
+    <h3>Sources & ingestion</h3>
+    <article *ngFor="let source of detail.sources" class="source-card">
+      <header>
+        <h4>{{ source.displayName }} ({{ source.code }})</h4>
+        <span class="badge" [class.anchor]="source.anchor">{{ source.anchor ? 'Anchor' : 'Secondary' }}</span>
+      </header>
+      <ul>
+        <li><strong>Adapter:</strong> {{ source.adapterType }}</li>
+        <li *ngIf="source.description"><strong>Description:</strong> {{ source.description }}</li>
+        <li *ngIf="source.connectionConfig"><strong>Connection:</strong> {{ source.connectionConfig }}</li>
+        <li *ngIf="source.arrivalExpectation"><strong>Arrival expectation:</strong> {{ source.arrivalExpectation }}</li>
+        <li *ngIf="source.arrivalTimezone"><strong>Timezone:</strong> {{ source.arrivalTimezone }}</li>
+        <li *ngIf="source.arrivalSlaMinutes !== null && source.arrivalSlaMinutes !== undefined">
+          <strong>SLA minutes:</strong> {{ source.arrivalSlaMinutes }}
+        </li>
+        <li *ngIf="source.adapterOptions"><strong>Adapter options:</strong> {{ source.adapterOptions }}</li>
+      </ul>
+      <form class="ingestion-form" (submit)="submitBatch(detail, source); $event.preventDefault()">
+        <label>
+          Batch label
+          <input type="text" [(ngModel)]="uploadLabels[source.code]" name="label-{{ source.code }}" />
+        </label>
+        <label>
+          Data file
+          <input type="file" (change)="handleFileChange($event, source.code)" />
+        </label>
+        <button type="submit">Upload batch</button>
+      </form>
+    </article>
+  </section>
+
+  <section class="schema">
+    <h3>Canonical schema</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Role</th>
+          <th>Data Type</th>
+          <th>Comparison</th>
+          <th>Formatting</th>
+          <th>Required</th>
+          <th>Mappings</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let field of detail.canonicalFields">
+          <td>{{ field.displayName }} <span class="muted">({{ field.canonicalName }})</span></td>
+          <td>{{ field.role }}</td>
+          <td>{{ field.dataType }}</td>
+          <td>
+            {{ field.comparisonLogic }}
+            <span *ngIf="field.thresholdPercentage">(±{{ field.thresholdPercentage }}%)</span>
+          </td>
+          <td>{{ field.formattingHint || '-' }}</td>
+          <td>{{ field.required ? 'Yes' : 'No' }}</td>
+          <td>
+            <ul>
+              <li *ngFor="let mapping of field.mappings">
+                <strong>{{ mapping.sourceCode }}</strong>: {{ mapping.sourceColumn }}
+                <span *ngIf="mapping.transformationExpression"> · {{ mapping.transformationExpression }}</span>
+              </li>
+            </ul>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="reports" *ngIf="detail.reportTemplates.length > 0">
+    <h3>Report templates</h3>
+    <article *ngFor="let report of detail.reportTemplates" class="report-card">
+      <h4>{{ report.name }}</h4>
+      <p>{{ report.description }}</p>
+      <p>
+        Includes:
+        <span *ngIf="report.includeMatched">Matched · </span>
+        <span *ngIf="report.includeMismatched">Mismatched · </span>
+        <span *ngIf="report.includeMissing">Missing</span>
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Header</th>
+            <th>Source</th>
+            <th>Field</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let column of report.columns">
+            <td>{{ column.header }}</td>
+            <td>{{ column.source }}</td>
+            <td>{{ column.sourceField || '-' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </article>
+  </section>
+
+  <section class="ingestion-tools">
+    <h3>Schema export & snippets</h3>
+      <pre>{{ ingestionSnippet(detail) }}</pre>
+      <p class="hint">Replace <code>&#123;sourceCode&#125;</code> with the source identifier and attach adapter metadata to match your feed.</p>
+  </section>
+
+  <section class="batches" *ngIf="detail.ingestionBatches?.length">
+    <h3>Recent ingestion batches</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Label</th>
+          <th>Status</th>
+          <th>Records</th>
+          <th>Checksum</th>
+          <th>Ingested at</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let batch of detail.ingestionBatches">
+          <td>{{ batch.label || '-' }}</td>
+          <td>{{ batch.status }}</td>
+          <td>{{ batch.recordCount || '-' }}</td>
+          <td>{{ batch.checksum || '-' }}</td>
+          <td>{{ batch.ingestedAt | date: 'medium' }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="activity" *ngIf="activity$ | async as activity">
+    <h3>Recent activity</h3>
+    <ul>
+      <li *ngFor="let entry of activity">
+        <span class="timestamp">{{ entry.recordedAt | date: 'medium' }}</span>
+        <span class="event">{{ entry.eventType }}</span>
+        <span class="details">{{ entry.details }}</span>
+      </li>
+      <li *ngIf="activity.length === 0" class="muted">No activity recorded yet.</li>
+    </ul>
+  </section>
+</ng-container>
+
+<ng-template #loading>
+  <div class="loading-state">Loading reconciliation details…</div>
+</ng-template>

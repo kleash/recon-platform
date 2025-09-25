@@ -1,0 +1,88 @@
+.admin-container {
+  background: #f8fafc;
+  padding: 1.5rem 2rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2rem;
+}
+
+.admin-header h2 {
+  margin: 0;
+  color: #0f172a;
+}
+
+.admin-header p {
+  margin: 0.25rem 0 0;
+  color: #475569;
+}
+
+.primary-action {
+  background: #2563eb;
+  color: #fff;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.status-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.status-filter button {
+  border: none;
+  background: #e2e8f0;
+  color: #1e293b;
+  padding: 0.5rem 0.9rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.status-filter button.active {
+  background: #1d4ed8;
+  color: #fff;
+}
+
+.loading {
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.admin-nav {
+  display: flex;
+  gap: 1rem;
+}
+
+.admin-nav a {
+  text-decoration: none;
+  color: #1f2937;
+  padding-bottom: 0.25rem;
+  border-bottom: 2px solid transparent;
+  font-weight: 600;
+}
+
+.admin-nav a.active {
+  border-bottom-color: #1d4ed8;
+}
+
+.admin-body {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px -18px rgba(15, 23, 42, 0.4);
+  padding: 1.75rem;
+}

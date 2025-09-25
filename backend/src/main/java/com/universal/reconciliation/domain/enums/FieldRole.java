@@ -9,5 +9,7 @@ public enum FieldRole {
     DISPLAY,
     PRODUCT,
     SUB_PRODUCT,
-    ENTITY
+    ENTITY,
+    CLASSIFIER,
+    ATTRIBUTE
 }

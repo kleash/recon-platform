@@ -1,0 +1,78 @@
+<div class="catalog" *ngIf="reconciliations$ | async as reconciliations">
+  <form [formGroup]="filterForm" class="catalog-filters">
+    <label>
+      Search
+      <input type="text" formControlName="search" placeholder="Code or name" />
+    </label>
+    <label>
+      Owner
+      <input type="text" formControlName="owner" placeholder="Team or owner" />
+    </label>
+    <label>
+      Updated after
+      <input type="date" formControlName="updatedAfter" />
+    </label>
+    <label>
+      Updated before
+      <input type="date" formControlName="updatedBefore" />
+    </label>
+    <button type="button" class="link" (click)="clearFilters()">Clear filters</button>
+  </form>
+
+  <div class="loading-indicator" *ngIf="loading$ | async">Loading catalog…</div>
+
+  <div class="table-wrapper">
+    <table *ngIf="reconciliations.length > 0; else emptyTable">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Name</th>
+          <th>Status</th>
+          <th>Owner</th>
+          <th>Last updated</th>
+          <th>Updated by</th>
+          <th>Last ingestion</th>
+          <th>Maker/Checker</th>
+          <th class="actions">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let reconciliation of reconciliations">
+          <td><a [routerLink]="['/admin', reconciliation.id]">{{ reconciliation.code }}</a></td>
+          <td>{{ reconciliation.name }}</td>
+          <td><span class="status" [ngClass]="reconciliation.status.toLowerCase()">{{ reconciliation.status }}</span></td>
+          <td>{{ reconciliation.owner || '—' }}</td>
+          <td>{{ reconciliation.updatedAt | date: 'medium' }}</td>
+          <td>{{ reconciliation.updatedBy || '—' }}</td>
+          <td>{{ reconciliation.lastIngestionAt ? (reconciliation.lastIngestionAt | date: 'medium') : '—' }}</td>
+          <td>{{ reconciliation.makerCheckerEnabled ? 'Enabled' : 'Disabled' }}</td>
+          <td class="actions">
+            <a [routerLink]="['/admin', reconciliation.id, 'edit']">Edit</a>
+            <button type="button" (click)="duplicate(reconciliation.id)">Duplicate</button>
+            <button type="button" class="danger" (click)="retire(reconciliation.id, reconciliation.name)">Retire</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <ng-template #emptyTable>
+      <div class="empty-state">
+        <h3>No reconciliations match your filters</h3>
+        <p>Adjust the filters or <a routerLink="/admin/new">create a new reconciliation</a>.</p>
+      </div>
+    </ng-template>
+  </div>
+
+  <div class="catalog-footer" *ngIf="listMeta$ | async as meta">
+    <div class="summary">Page {{ meta.page + 1 }} of {{ meta.totalPages || 1 }} · {{ meta.totalElements }} total</div>
+    <div class="pagination">
+      <button type="button" (click)="changePage(meta.page - 1)" [disabled]="meta.page === 0">Previous</button>
+      <button
+        type="button"
+        (click)="changePage(meta.page + 1)"
+        [disabled]="meta.page + 1 >= meta.totalPages && meta.totalPages > 0"
+      >
+        Next
+      </button>
+    </div>
+  </div>
+</div>

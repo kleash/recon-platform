@@ -199,7 +199,260 @@ Authorization: Bearer <token>
 
 _Response `200 OK`_: returns an array of updated `BreakItemDto` objects mirroring the structure above.
 
-### 7.4 Reporting & Activity
+### 7.4 Administration
+| Endpoint | Method | Description |
+| --- | --- | --- |
+| `/api/admin/reconciliations` | GET | List reconciliation definitions with filters (`status`, `owner`, `search`, `updatedAfter`, `updatedBefore`) and pagination (`page`, `size`). |
+| `/api/admin/reconciliations` | POST | Create a reconciliation definition (sources, canonical fields, reports, access entries). Requires `ROLE_RECON_ADMIN`. |
+| `/api/admin/reconciliations/{id}` | GET | Retrieve the full configuration graph for authoring workflows. |
+| `/api/admin/reconciliations/{id}` | PUT | Replace a configuration graph. Include the latest `version` to satisfy optimistic locking. |
+| `/api/admin/reconciliations/{id}` | PATCH | Toggle maker-checker, notes, or lifecycle status without resubmitting nested metadata. |
+| `/api/admin/reconciliations/{id}` | DELETE | Soft-retire a reconciliation definition and hide it from analyst views. |
+| `/api/admin/reconciliations/{id}/schema` | GET | Export canonical schema metadata for ETL teams and automation scripts. |
+| `/api/admin/reconciliations/{id}/sources/{code}/batches` | POST | Upload a source data batch via multipart form-data. Accepts file payload plus adapter metadata. |
+
+**Sample: List reconciliation definitions**
+
+_Request_
+```http
+GET /api/admin/reconciliations?status=PUBLISHED&owner=operations&page=0&size=10 HTTP/1.1
+Authorization: Bearer <token>
+```
+
+_Response `200 OK`_
+```json
+{
+  "items": [
+    {
+      "id": 101,
+      "code": "CUSTODY_GL",
+      "name": "Custody vs GL",
+      "status": "PUBLISHED",
+      "makerCheckerEnabled": true,
+      "updatedAt": "2024-05-13T08:25:00Z",
+      "owner": "Custody Ops",
+      "updatedBy": "admin.user",
+      "lastIngestionAt": "2024-05-13T08:00:00Z"
+    }
+  ],
+  "totalElements": 12,
+  "totalPages": 2,
+  "page": 0,
+  "size": 10
+}
+```
+
+**Sample: Create a reconciliation definition**
+
+_Request_
+```http
+POST /api/admin/reconciliations HTTP/1.1
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "code": "CUSTODY_GL",
+  "name": "Custody vs GL",
+  "description": "Matches daily custody positions with the general ledger",
+  "owner": "Custody Ops",
+  "makerCheckerEnabled": true,
+  "notes": "Pilot with the custody operations team",
+  "status": "DRAFT",
+  "autoTriggerEnabled": true,
+  "autoTriggerCron": "0 2 * * *",
+  "autoTriggerTimezone": "UTC",
+  "autoTriggerGraceMinutes": 30,
+  "sources": [
+    {
+      "code": "CUSTODY_FEED",
+      "displayName": "Custody CSV",
+      "adapterType": "CSV_FILE",
+      "anchor": true,
+      "description": "Daily custodial export",
+      "arrivalExpectation": "Weekdays by 18:00",
+      "arrivalTimezone": "America/New_York",
+      "arrivalSlaMinutes": 60
+    },
+    {
+      "code": "GL_LEDGER",
+      "displayName": "General Ledger",
+      "adapterType": "DATABASE",
+      "anchor": false,
+      "description": "Ledger staging table"
+    }
+  ],
+  "canonicalFields": [
+    {
+      "canonicalName": "tradeId",
+      "displayName": "Trade ID",
+      "role": "KEY",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "formattingHint": null,
+      "required": true,
+      "mappings": [
+        {"sourceCode": "CUSTODY_FEED", "sourceColumn": "trade_id", "required": true},
+        {"sourceCode": "GL_LEDGER", "sourceColumn": "trade_id", "required": true}
+      ]
+    }
+  ],
+  "reportTemplates": [],
+  "accessControlEntries": [
+    {
+      "ldapGroupDn": "CN=RECON_ADMIN,OU=Groups,DC=corp,DC=example",
+      "role": "MAKER",
+      "notifyOnPublish": true,
+      "notifyOnIngestionFailure": true,
+      "notificationChannel": "recon-admins@example.com"
+    }
+  ]
+}
+```
+
+_Response `201 Created`_
+```json
+{
+  "id": 101,
+  "code": "CUSTODY_GL",
+  "name": "Custody vs GL",
+  "description": "Matches daily custody positions with the general ledger",
+  "status": "DRAFT",
+  "makerCheckerEnabled": true,
+  "owner": "Custody Ops",
+  "autoTriggerEnabled": true,
+  "autoTriggerCron": "0 2 * * *",
+  "autoTriggerTimezone": "UTC",
+  "version": 0,
+  "sources": [
+    {
+      "id": 201,
+      "code": "CUSTODY_FEED",
+      "adapterType": "CSV_FILE",
+      "anchor": true,
+      "arrivalExpectation": "Weekdays by 18:00",
+      "arrivalTimezone": "America/New_York",
+      "arrivalSlaMinutes": 60
+    }
+  ],
+  "canonicalFields": [
+    {
+      "canonicalName": "tradeId",
+      "displayName": "Trade ID",
+      "role": "KEY",
+      "formattingHint": null,
+      "mappings": [
+        {"sourceCode": "CUSTODY_FEED", "sourceColumn": "trade_id"},
+        {"sourceCode": "GL_LEDGER", "sourceColumn": "trade_id"}
+      ]
+    }
+  ]
+}
+```
+
+**Sample: Export schema**
+
+_Request_
+```http
+GET /api/admin/reconciliations/101/schema HTTP/1.1
+Authorization: Bearer <token>
+```
+
+_Response `200 OK`_
+```json
+{
+  "definitionId": 101,
+  "code": "CUSTODY_GL",
+  "name": "Custody vs GL",
+  "sources": [
+    {
+      "code": "CUSTODY_FEED",
+      "adapterType": "CSV_FILE",
+      "anchor": true,
+      "connectionConfig": null,
+      "arrivalExpectation": "Weekdays by 18:00",
+      "arrivalTimezone": "America/New_York",
+      "arrivalSlaMinutes": 60,
+      "adapterOptions": null,
+      "ingestionEndpoint": "/api/admin/reconciliations/101/sources/CUSTODY_FEED/batches"
+    },
+    {
+      "code": "GL_LEDGER",
+      "adapterType": "DATABASE",
+      "anchor": false,
+      "connectionConfig": null,
+      "arrivalExpectation": null,
+      "arrivalTimezone": null,
+      "arrivalSlaMinutes": null,
+      "adapterOptions": null,
+      "ingestionEndpoint": "/api/admin/reconciliations/101/sources/GL_LEDGER/batches"
+    }
+  ],
+  "fields": [
+    {
+      "displayName": "Trade ID",
+      "canonicalName": "tradeId",
+      "role": "KEY",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "formattingHint": null,
+      "required": true,
+      "mappings": [
+        {"sourceCode": "CUSTODY_FEED", "sourceColumn": "trade_id"},
+        {"sourceCode": "GL_LEDGER", "sourceColumn": "trade_id"}
+      ]
+    }
+  ]
+}
+```
+
+**Validation rules**
+
+- Source codes must be unique and exactly one source must be flagged as the anchor.
+- Canonical field names must be unique, each field requires at least one mapping, and at least one field must use the `KEY` role.
+- Numeric threshold comparisons demand a non-negative `thresholdPercentage`; other comparison types must omit the value.
+- Report template names are deduplicated per reconciliation; access-control entries remain optional.
+- Optimistic locking is enforced through the `version` attribute on `PUT` operations. Conflicts return `409 Conflict`.
+
+**Sample: Upload a batch using the CSV adapter**
+
+_Request_
+```http
+POST /api/admin/reconciliations/101/sources/CUSTODY_FEED/batches HTTP/1.1
+Authorization: Bearer <token>
+Content-Type: multipart/form-data; boundary=----BOUNDARY
+
+------BOUNDARY
+Content-Disposition: form-data; name="metadata"
+Content-Type: application/json
+
+{
+  "adapterType": "CSV_FILE",
+  "label": "custody-2024-04-01",
+  "options": {"delimiter": ","}
+}
+------BOUNDARY
+Content-Disposition: form-data; name="file"; filename="custody.csv"
+Content-Type: text/csv
+
+trade_id,net_amount,currency
+T-1001,125000.00,USD
+T-1002,88000.50,USD
+------BOUNDARY--
+```
+
+_Response `200 OK`_
+```json
+{
+  "id": 301,
+  "label": "custody-2024-04-01",
+  "status": "COMPLETE",
+  "recordCount": 2,
+  "checksum": "2e9bf0cb-7f41-4d7a-97bd-7d99179c1e8a",
+  "ingestedAt": "2024-04-01T08:15:00Z"
+}
+```
+
+### 7.5 Reporting & Activity
 | Endpoint | Method | Description |
 | --- | --- | --- |
 | `/api/exports/runs/{runId}` | GET | Stream an Excel workbook for the specified run using the active report template. |
@@ -227,7 +480,7 @@ _Response `200 OK`_
 
 > 📄 **Excel exports:** The `/api/exports/runs/{runId}` endpoint streams binary content (`application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`). Angular triggers it via `window.open` or `HttpClient` with `responseType: 'blob'` and prompts the user to download `reconciliation-run-<id>.xlsx`.
 
-### 7.5 Error Handling & Status Codes
+### 7.6 Error Handling & Status Codes
 - **401 Unauthorized:** Returned when the JWT is missing, expired, or invalid.
 - **403 Forbidden:** Raised when the authenticated user lacks the required LDAP group for the requested reconciliation or activity feed.
 - **404 Not Found:** Emitted when a reconciliation, run, or break ID does not exist or is not visible to the caller.

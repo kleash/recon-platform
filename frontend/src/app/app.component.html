@@ -7,7 +7,7 @@
     </div>
   </header>
 
-  <section class="notification-center" *ngIf="(notifications.notifications$ | async) as notices">
+  <section class="notification-center" *ngIf="(notifications$ | async) as notices">
     <div *ngFor="let notice of notices" class="notification" [ngClass]="notice.type">
       <span>{{ notice.message }}</span>
       <button type="button" (click)="dismissNotification(notice.id)" aria-label="Dismiss notification">×</button>
@@ -21,44 +21,11 @@
     (login)="handleLogin($event)"
   ></urp-login>
 
-  <section *ngIf="session.isAuthenticated()" class="content-grid">
-    <urp-reconciliation-list
-      [reconciliations]="(reconciliations$ | async) || []"
-      [selectedReconciliation]="selectedReconciliation$ | async"
-      [canExport]="!!((runDetail$ | async)?.summary.runId)"
-      (selectReconciliation)="handleSelectReconciliation($event)"
-      (triggerRun)="handleTriggerRun($event)"
-      (exportRun)="handleExportRun()"
-    ></urp-reconciliation-list>
-
-    <section class="card">
-      <ng-container *ngIf="runDetail$ | async as detail">
-        <urp-run-detail
-          [runDetail]="detail"
-          [selectedBreak]="selectedBreak$ | async"
-          [filterMetadata]="filterMetadata$ | async"
-          [filter]="filter$ | async"
-          (selectBreak)="handleSelectBreak($event)"
-          (filterChange)="handleFilterChange($event)"
-          (bulkAction)="handleBulkAction($event)"
-        ></urp-run-detail>
-        <urp-break-detail
-          [breakItem]="selectedBreak$ | async"
-          (addComment)="handleAddComment($event)"
-          (updateStatus)="handleStatusChange($event)"
-        ></urp-break-detail>
-        <urp-checker-queue
-          *ngIf="session.hasCheckerRole(detail.breaks)"
-          [pendingBreaks]="getPendingApprovalBreaks(detail)"
-          [filterMetadata]="filterMetadata$ | async"
-          (approve)="handleQueueApprove($event)"
-          (reject)="handleQueueReject($event)"
-        ></urp-checker-queue>
-      </ng-container>
-    </section>
-
-    <section class="card activity-card">
-      <urp-system-activity [activity]="(activity$ | async) || []"></urp-system-activity>
-    </section>
-  </section>
+  <ng-container *ngIf="session.isAuthenticated()">
+    <nav class="workspace-nav">
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Operations</a>
+      <a *ngIf="session.hasAdminRole()" routerLink="/admin" routerLinkActive="active">Administration</a>
+    </nav>
+    <router-outlet></router-outlet>
+  </ng-container>
 </div>

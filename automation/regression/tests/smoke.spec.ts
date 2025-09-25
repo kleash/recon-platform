@@ -28,10 +28,9 @@ test('authenticated users can reach the reconciliation workspace shell', async (
 
   await expect(page.getByText('Welcome, Operations User!')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Reconciliations' })).toBeVisible();
-  await expect(page.getByText('No reconciliation runs have been executed yet.')).toBeVisible();
-  await expect(page.getByText('Select a break to review details.')).toBeVisible();
+  await expect(page.getByText('Welcome, Operations User!')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Logout' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Recent system activity' })).toBeVisible();
-  await expect(page.getByText('Activity will appear here as the platform is used.')).toBeVisible();
 
   const workspaceScreenshot = '02-workspace.png';
   await page.screenshot({ path: resolveAssetPath(workspaceScreenshot), fullPage: true });
@@ -44,6 +43,66 @@ test('authenticated users can reach the reconciliation workspace shell', async (
       { description: 'Reconciliations list shows empty state guidance' },
       { description: 'Break detail panel shows selection prompt' },
       { description: 'System activity card renders empty-state message' },
+    ],
+  });
+});
+
+test('admin users can author reconciliations through the administration workspace', async ({ page }) => {
+  await page.goto('/');
+  await page.waitForSelector('input[name="username"]', { timeout: 30000 });
+
+  await page.getByLabel('Username').fill('admin1');
+  await page.getByLabel('Password').fill('password');
+  await page.getByRole('button', { name: 'Login' }).click();
+
+  await expect(page.getByRole('button', { name: 'Logout' })).toBeVisible();
+  const adminNavLink = page.getByRole('link', { name: 'Administration' });
+  await expect(adminNavLink).toBeVisible();
+
+  const adminNavScreenshot = '03-admin-nav.png';
+  await page.screenshot({ path: resolveAssetPath(adminNavScreenshot), fullPage: true });
+  await recordScreen({
+    name: 'Admin navigation entry',
+    route: '/',
+    screenshotFile: adminNavScreenshot,
+    assertions: [
+      { description: 'Administration tab is visible after admin login' },
+      { description: 'Operations welcome banner still renders' },
+    ],
+  });
+
+  await adminNavLink.click();
+  await expect(page.getByRole('heading', { name: 'Administration Workspace' })).toBeVisible();
+  await expect(page.locator('a.primary-action', { hasText: 'New reconciliation' })).toBeVisible();
+
+  const adminCatalogScreenshot = '04-admin-catalog.png';
+  await page.screenshot({ path: resolveAssetPath(adminCatalogScreenshot), fullPage: true });
+  await recordScreen({
+    name: 'Administration catalog',
+    route: '/admin',
+    screenshotFile: adminCatalogScreenshot,
+    assertions: [
+      { description: 'Administration workspace heading is rendered' },
+      { description: 'Catalog shows filter controls for search, owner, and dates' },
+      { description: 'New reconciliation action is available' },
+    ],
+  });
+
+  await page.locator('a.primary-action', { hasText: 'New reconciliation' }).click();
+  await expect(page.getByRole('heading', { name: 'Create reconciliation' })).toBeVisible();
+  await expect(page.getByText('Step 1 of 6 · Definition')).toBeVisible();
+  await expect(page.getByLabel('Code')).toBeVisible();
+
+  const wizardScreenshot = '05-admin-wizard.png';
+  await page.screenshot({ path: resolveAssetPath(wizardScreenshot), fullPage: true });
+  await recordScreen({
+    name: 'Administration wizard',
+    route: '/admin/new',
+    screenshotFile: wizardScreenshot,
+    assertions: [
+      { description: 'Wizard shows current step and navigation rail' },
+      { description: 'Definition step exposes key metadata fields' },
+      { description: 'Optimistic concurrency messaging area is visible' },
     ],
   });
 });

@@ -47,5 +47,14 @@ public class AccessControlEntry {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private AccessRole role;
+
+    @Column(name = "notify_on_publish", nullable = false)
+    private boolean notifyOnPublish;
+
+    @Column(name = "notify_on_ingestion_failure", nullable = false)
+    private boolean notifyOnIngestionFailure;
+
+    @Column(name = "notification_channel")
+    private String notificationChannel;
 }
 

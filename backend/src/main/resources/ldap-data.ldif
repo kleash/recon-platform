@@ -23,6 +23,16 @@ sn: Operations
 cn: Operations User
 userPassword: {bcrypt}$2a$10$7EqJtq98hPqEX7fNZaFWo.6so2IGe1ZR3eZKjuJIddZrTrsg8vLXK
 
+dn: uid=admin1,ou=people,dc=universal,dc=local
+objectClass: top
+objectClass: person
+objectClass: organizationalPerson
+objectClass: inetOrgPerson
+uid: admin1
+sn: Administrator
+cn: Admin User
+userPassword: {bcrypt}$2a$10$7EqJtq98hPqEX7fNZaFWo.6so2IGe1ZR3eZKjuJIddZrTrsg8vLXK
+
 dn: cn=recon-makers,ou=groups,dc=universal,dc=local
 objectClass: top
 objectClass: groupOfUniqueNames
@@ -34,3 +44,9 @@ objectClass: top
 objectClass: groupOfUniqueNames
 cn: recon-checkers
 uniqueMember: uid=ops1,ou=people,dc=universal,dc=local
+
+dn: cn=ROLE_RECON_ADMIN,ou=groups,dc=universal,dc=local
+objectClass: top
+objectClass: groupOfUniqueNames
+cn: ROLE_RECON_ADMIN
+uniqueMember: uid=admin1,ou=people,dc=universal,dc=local

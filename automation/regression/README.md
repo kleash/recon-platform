@@ -20,8 +20,9 @@ npm test
 
 The `pretest` hook builds the backend jar, installs/builds the Angular
 application, downloads the required Playwright browser binaries and then launches
-both services. The Playwright test logs into the application as the seeded `ops1`
-user and verifies that the reconciliation workspace renders correctly.
+both services. The Playwright suite logs into the application as the seeded `ops1`
+operations user and the `admin1` administrator, exercising both the analyst
+workspace and the administration catalog/wizard flows.
 
 Use `npm run test:headed` to execute the same flow in a headed browser while
 surfacing Playwright's debug console.

@@ -1,0 +1,32 @@
+<section class="admin-container">
+  <header class="admin-header">
+    <div>
+      <h2>Administration Workspace</h2>
+      <p>Configure reconciliations, publish schemas, and track ingestion activity.</p>
+    </div>
+    <a routerLink="/admin/new" class="primary-action">New reconciliation</a>
+  </header>
+
+  <div class="toolbar" *ngIf="filters$ | async as filters">
+    <div class="status-filter">
+      <span>Lifecycle:</span>
+      <button
+        type="button"
+        *ngFor="let option of statuses"
+        [class.active]="filters.status === option.value || (!option.value && !filters.status)"
+        (click)="applyStatusFilter(option.value)"
+      >
+        {{ option.label }}
+      </button>
+    </div>
+    <div class="loading" *ngIf="loading$ | async">Loading…</div>
+  </div>
+
+  <nav class="admin-nav">
+    <a routerLink="/admin" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Catalog</a>
+  </nav>
+
+  <section class="admin-body">
+    <router-outlet></router-outlet>
+  </section>
+</section>

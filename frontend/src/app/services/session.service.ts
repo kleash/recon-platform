@@ -11,6 +11,7 @@ export class SessionService {
   private token: string | null = null;
   private displayName: string | null = null;
   private groups: string[] = [];
+  private readonly adminRoleTokens = ['ROLE_RECON_ADMIN', 'RECON_ADMIN'];
 
   constructor() {
     this.token = localStorage.getItem(TOKEN_KEY);
@@ -71,6 +72,12 @@ export class SessionService {
 
   hasMakerRole(): boolean {
     return this.hasGroupContaining('maker');
+  }
+
+  hasAdminRole(): boolean {
+    return this.groups.some((group) =>
+      this.adminRoleTokens.some((token) => group.toUpperCase() === token.toUpperCase())
+    );
   }
 
   hasCheckerRole(breaks?: BreakItem[] | null): boolean {

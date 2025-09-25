@@ -58,6 +58,18 @@ public class ReconciliationSource {
     @Column(name = "connection_config", columnDefinition = "TEXT")
     private String connectionConfig;
 
+    @Column(name = "arrival_expectation", length = 256)
+    private String arrivalExpectation;
+
+    @Column(name = "arrival_timezone")
+    private String arrivalTimezone;
+
+    @Column(name = "arrival_sla_minutes")
+    private Integer arrivalSlaMinutes;
+
+    @Column(name = "adapter_options", columnDefinition = "TEXT")
+    private String adapterOptions;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 

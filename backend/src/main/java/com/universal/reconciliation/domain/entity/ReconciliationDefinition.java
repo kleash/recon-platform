@@ -1,13 +1,18 @@
 package com.universal.reconciliation.domain.entity;
 
+import com.universal.reconciliation.domain.enums.ReconciliationLifecycleStatus;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
+import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import lombok.Getter;
@@ -38,6 +43,55 @@ public class ReconciliationDefinition {
     @Column(nullable = false)
     private boolean makerCheckerEnabled;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private ReconciliationLifecycleStatus status = ReconciliationLifecycleStatus.DRAFT;
+
+    @Column(columnDefinition = "TEXT")
+    private String notes;
+
+    @Column(name = "owned_by")
+    private String ownedBy;
+
+    @Column(name = "created_by")
+    private String createdBy;
+
+    @Column(name = "updated_by")
+    private String updatedBy;
+
+    @Column(name = "auto_trigger_enabled", nullable = false)
+    private boolean autoTriggerEnabled;
+
+    @Column(name = "auto_trigger_cron")
+    private String autoTriggerCron;
+
+    @Column(name = "auto_trigger_timezone")
+    private String autoTriggerTimezone;
+
+    @Column(name = "auto_trigger_grace_minutes")
+    private Integer autoTriggerGraceMinutes;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt = Instant.now();
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt = Instant.now();
+
+    @Column(name = "published_at")
+    private Instant publishedAt;
+
+    @Column(name = "published_by")
+    private String publishedBy;
+
+    @Column(name = "retired_at")
+    private Instant retiredAt;
+
+    @Column(name = "retired_by")
+    private String retiredBy;
+
+    @Version
+    private Long version;
+
     @OneToMany(mappedBy = "definition", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<ReportTemplate> reportTemplates = new LinkedHashSet<>();
 
@@ -56,4 +110,11 @@ public class ReconciliationDefinition {
     @OneToMany(mappedBy = "definition", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<CanonicalField> canonicalFields = new LinkedHashSet<>();
 
+    @OneToMany(mappedBy = "definition", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<AccessControlEntry> accessControlEntries = new LinkedHashSet<>();
+
+    public void touch() {
+        this.updatedAt = Instant.now();
+    }
 }
+

@@ -1,0 +1,297 @@
+<form class="wizard" [formGroup]="form" (ngSubmit)="save()">
+  <header class="wizard-header">
+    <h2>{{ mode === 'edit' ? 'Edit reconciliation' : 'Create reconciliation' }}</h2>
+    <p>Step {{ currentStep + 1 }} of {{ steps.length }} · {{ steps[currentStep]?.label }}</p>
+  </header>
+
+  <ol class="wizard-steps">
+    <li
+      *ngFor="let step of steps; let i = index"
+      [class.active]="i === currentStep"
+      [class.complete]="i < currentStep"
+      (click)="goToStep(i)"
+    >
+      <span class="index">{{ i + 1 }}</span>
+      <span class="label">{{ step.label }}</span>
+    </li>
+  </ol>
+
+  <section class="wizard-body" [ngSwitch]="steps[currentStep]?.key">
+    <section *ngSwitchCase="'definition'" [formGroup]="definitionGroup" class="definition-step">
+      <label>
+        Code
+        <input type="text" formControlName="code" placeholder="Unique identifier" />
+      </label>
+      <label>
+        Name
+        <input type="text" formControlName="name" placeholder="Human friendly name" />
+      </label>
+      <label>
+        Description
+        <textarea formControlName="description" rows="3"></textarea>
+      </label>
+      <label>
+        Owner
+        <input type="text" formControlName="owner" placeholder="Primary operations owner" />
+      </label>
+      <label>
+        Notes
+        <textarea formControlName="notes" rows="2" placeholder="Optional guidance for admins"></textarea>
+      </label>
+      <div class="definition-flags">
+        <label>
+          <input type="checkbox" formControlName="makerCheckerEnabled" /> Enable maker-checker approvals
+        </label>
+        <label>
+          Lifecycle status
+          <select formControlName="status">
+            <option *ngFor="let status of statuses" [value]="status">{{ status }}</option>
+          </select>
+        </label>
+      </div>
+      <div class="auto-trigger">
+        <label class="checkbox">
+          <input type="checkbox" formControlName="autoTriggerEnabled" /> Auto-trigger reconciliation when all sources are present
+        </label>
+        <div class="auto-trigger-grid" *ngIf="definitionGroup.get('autoTriggerEnabled')?.value">
+          <label>
+            Cron schedule
+            <input type="text" formControlName="autoTriggerCron" placeholder="0 2 * * *" />
+          </label>
+          <label>
+            Timezone
+            <input type="text" formControlName="autoTriggerTimezone" placeholder="UTC" />
+          </label>
+          <label>
+            Grace minutes
+            <input type="number" formControlName="autoTriggerGraceMinutes" />
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <section *ngSwitchCase="'sources'" formArrayName="sources" class="sources-step">
+      <article *ngFor="let group of sources.controls; let i = index" [formGroupName]="i" class="source-form">
+        <header>
+          <h3>Source {{ i + 1 }}</h3>
+          <button type="button" class="link" (click)="removeSource(i)" *ngIf="sources.length > 1">Remove</button>
+        </header>
+        <div class="grid">
+          <label>Code<input type="text" formControlName="code" /></label>
+          <label>Name<input type="text" formControlName="displayName" /></label>
+          <label>
+            Adapter
+            <select formControlName="adapterType">
+              <option *ngFor="let type of adapterTypes" [value]="type">{{ type }}</option>
+            </select>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" formControlName="anchor" /> Anchor source
+          </label>
+        </div>
+        <label>Description<textarea formControlName="description" rows="2"></textarea></label>
+        <label>Connection config<textarea formControlName="connectionConfig" rows="2" placeholder="JSON or connection string"></textarea></label>
+        <label>Arrival expectation<input type="text" formControlName="arrivalExpectation" placeholder="e.g. Weekdays by 18:00" /></label>
+        <div class="grid">
+          <label>Timezone<input type="text" formControlName="arrivalTimezone" placeholder="UTC" /></label>
+          <label>SLA minutes<input type="number" formControlName="arrivalSlaMinutes" /></label>
+        </div>
+        <label>Adapter options<textarea formControlName="adapterOptions" rows="2" placeholder="Adapter-specific options (JSON)"></textarea></label>
+      </article>
+      <button type="button" class="secondary" (click)="addSource()">Add source</button>
+    </section>
+
+    <section *ngSwitchCase="'schema'" formArrayName="canonicalFields" class="schema-step">
+      <article *ngFor="let fieldGroup of canonicalFields.controls; let i = index" [formGroupName]="i" class="field-card">
+        <header>
+          <h3>Field {{ i + 1 }}</h3>
+          <button type="button" class="link" (click)="removeCanonicalField(i)" *ngIf="canonicalFields.length > 1">Remove</button>
+        </header>
+        <div class="grid">
+          <label>Canonical name<input type="text" formControlName="canonicalName" /></label>
+          <label>Display name<input type="text" formControlName="displayName" /></label>
+          <label>
+            Role
+            <select formControlName="role">
+              <option *ngFor="let role of fieldRoles" [value]="role">{{ role }}</option>
+            </select>
+          </label>
+          <label>
+            Data type
+            <select formControlName="dataType">
+              <option *ngFor="let type of dataTypes" [value]="type">{{ type }}</option>
+            </select>
+          </label>
+          <label>
+            Comparison
+            <select formControlName="comparisonLogic">
+              <option *ngFor="let logic of comparisonLogics" [value]="logic">{{ logic }}</option>
+            </select>
+          </label>
+          <label>Threshold %<input type="number" formControlName="thresholdPercentage" /></label>
+          <label>Display order<input type="number" formControlName="displayOrder" /></label>
+          <label>Formatting hint<input type="text" formControlName="formattingHint" placeholder="e.g. YYYY-MM-DD" /></label>
+          <label class="checkbox"><input type="checkbox" formControlName="required" /> Required</label>
+        </div>
+        <div formArrayName="mappings" class="mappings">
+          <h4>Mappings</h4>
+          <div *ngFor="let mappingGroup of sourceMappings(i).controls; let m = index" [formGroupName]="m" class="mapping-row">
+            <label>Source<input type="text" formControlName="sourceCode" /></label>
+            <label>Column<input type="text" formControlName="sourceColumn" /></label>
+            <label>Transform<input type="text" formControlName="transformationExpression" placeholder="Optional expression" /></label>
+            <label>Default<input type="text" formControlName="defaultValue" /></label>
+            <label>Ordinal<input type="number" formControlName="ordinalPosition" /></label>
+            <label class="checkbox"><input type="checkbox" formControlName="required" /> Required</label>
+            <button type="button" class="link" (click)="removeMapping(i, m)">Remove</button>
+          </div>
+          <button type="button" class="secondary" (click)="addMapping(i)">Add mapping</button>
+        </div>
+      </article>
+      <button type="button" class="secondary" (click)="addCanonicalField()">Add canonical field</button>
+    </section>
+
+    <section *ngSwitchCase="'reports'" formArrayName="reportTemplates" class="reports-step">
+      <article *ngFor="let reportGroup of reportTemplates.controls; let i = index" [formGroupName]="i" class="report-form">
+        <header>
+          <h3>Report {{ i + 1 }}</h3>
+          <button type="button" class="link" (click)="removeReportTemplate(i)">Remove</button>
+        </header>
+        <label>Name<input type="text" formControlName="name" /></label>
+        <label>Description<textarea formControlName="description" rows="2"></textarea></label>
+        <div class="report-flags">
+          <label><input type="checkbox" formControlName="includeMatched" /> Include matched</label>
+          <label><input type="checkbox" formControlName="includeMismatched" /> Include mismatched</label>
+          <label><input type="checkbox" formControlName="includeMissing" /> Include missing</label>
+          <label><input type="checkbox" formControlName="highlightDifferences" /> Highlight differences</label>
+        </div>
+        <div formArrayName="columns" class="columns">
+          <h4>Columns</h4>
+          <div *ngFor="let columnGroup of reportColumns(i).controls; let c = index" [formGroupName]="c" class="column-row">
+            <label>Header<input type="text" formControlName="header" /></label>
+            <label>
+              Source
+              <select formControlName="source">
+                <option *ngFor="let source of reportSources" [value]="source">{{ source }}</option>
+              </select>
+            </label>
+            <label>Field<input type="text" formControlName="sourceField" /></label>
+            <label>Display order<input type="number" formControlName="displayOrder" /></label>
+            <label class="checkbox"><input type="checkbox" formControlName="highlightDifferences" /> Highlight</label>
+            <button type="button" class="link" (click)="removeReportColumn(i, c)">Remove</button>
+          </div>
+          <button type="button" class="secondary" (click)="addReportColumn(i)">Add column</button>
+        </div>
+      </article>
+      <button type="button" class="secondary" (click)="addReportTemplate()">Add report template</button>
+    </section>
+
+    <section *ngSwitchCase="'access'" formArrayName="accessControlEntries" class="access-step">
+      <article *ngFor="let entryGroup of accessControlEntries.controls; let i = index" [formGroupName]="i" class="access-form">
+        <header>
+          <h3>Entry {{ i + 1 }}</h3>
+          <button type="button" class="link" (click)="removeAccessEntry(i)">Remove</button>
+        </header>
+        <label>LDAP Group<input type="text" formControlName="ldapGroupDn" /></label>
+        <label>
+          Role
+          <select formControlName="role">
+            <option *ngFor="let role of accessRoles" [value]="role">{{ role }}</option>
+          </select>
+        </label>
+        <label>Product<input type="text" formControlName="product" placeholder="Optional" /></label>
+        <label>Sub-product<input type="text" formControlName="subProduct" placeholder="Optional" /></label>
+        <label>Entity<input type="text" formControlName="entityName" placeholder="Optional" /></label>
+        <div class="notifications">
+          <label class="checkbox"><input type="checkbox" formControlName="notifyOnPublish" /> Notify on publication</label>
+          <label class="checkbox"
+            ><input type="checkbox" formControlName="notifyOnIngestionFailure" /> Notify on ingestion failure</label
+          >
+          <label>Notification channel<input type="text" formControlName="notificationChannel" placeholder="Email or webhook" /></label>
+        </div>
+      </article>
+      <button type="button" class="secondary" (click)="addAccessEntry()">Add access entry</button>
+    </section>
+
+    <section *ngSwitchCase="'review'" class="review-step">
+      <h3>Review summary</h3>
+      <div class="review-grid">
+        <div>
+          <h4>Definition</h4>
+          <ul>
+            <li><strong>Code:</strong> {{ definitionGroup.get('code')?.value }}</li>
+            <li><strong>Name:</strong> {{ definitionGroup.get('name')?.value }}</li>
+            <li><strong>Owner:</strong> {{ definitionGroup.get('owner')?.value || 'Not set' }}</li>
+            <li><strong>Status:</strong> {{ definitionGroup.get('status')?.value }}</li>
+            <li><strong>Maker-checker:</strong> {{ definitionGroup.get('makerCheckerEnabled')?.value ? 'Enabled' : 'Disabled' }}</li>
+            <li>
+              <strong>Auto-trigger:</strong>
+              {{ definitionGroup.get('autoTriggerEnabled')?.value ? 'Enabled' : 'Disabled' }}
+              <ng-container *ngIf="definitionGroup.get('autoTriggerEnabled')?.value">
+                (cron {{ definitionGroup.get('autoTriggerCron')?.value || 'n/a' }},
+                timezone {{ definitionGroup.get('autoTriggerTimezone')?.value || 'n/a' }})
+              </ng-container>
+            </li>
+          </ul>
+        </div>
+        <div>
+          <h4>Sources ({{ sources.length }})</h4>
+          <ul>
+            <li *ngFor="let group of sources.controls">
+              {{ group.get('code')?.value }} · {{ group.get('displayName')?.value }} ({{ group.get('adapterType')?.value }})
+              <span *ngIf="group.get('arrivalExpectation')?.value">
+                — {{ group.get('arrivalExpectation')?.value }}
+              </span>
+            </li>
+          </ul>
+        </div>
+        <div>
+          <h4>Canonical fields ({{ canonicalFields.length }})</h4>
+          <ul>
+            <li *ngFor="let group of canonicalFields.controls">
+              {{ group.get('canonicalName')?.value }} · {{ group.get('role')?.value }}
+            </li>
+          </ul>
+        </div>
+        <div>
+          <h4>Reports</h4>
+          <ul>
+            <li *ngFor="let group of reportTemplates.controls">{{ group.get('name')?.value }}</li>
+            <li *ngIf="reportTemplates.length === 0" class="muted">None configured</li>
+          </ul>
+        </div>
+        <div>
+          <h4>Access control</h4>
+          <ul>
+            <li *ngFor="let group of accessControlEntries.controls">
+              {{ group.get('ldapGroupDn')?.value }} · {{ group.get('role')?.value }}
+            </li>
+            <li *ngIf="accessControlEntries.length === 0" class="muted">No access overrides</li>
+          </ul>
+        </div>
+      </div>
+      <p class="reminder">Save to publish the latest version for administrators and ETL teams.</p>
+    </section>
+  </section>
+
+  <div class="wizard-footer">
+    <button type="button" class="secondary" (click)="previousStep()" [disabled]="currentStep === 0">Back</button>
+    <button
+      type="button"
+      class="secondary"
+      *ngIf="currentStep < steps.length - 1"
+      (click)="nextStep()"
+    >
+      Next
+    </button>
+    <button
+      type="submit"
+      class="primary"
+      *ngIf="currentStep === steps.length - 1"
+      [disabled]="isSaving"
+    >
+      {{ mode === 'edit' ? 'Update reconciliation' : 'Create reconciliation' }}
+    </button>
+  </div>
+
+  <p class="error" *ngIf="optimisticLockError">{{ optimisticLockError }}</p>
+</form>

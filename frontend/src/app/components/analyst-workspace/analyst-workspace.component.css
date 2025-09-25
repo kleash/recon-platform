@@ -1,0 +1,17 @@
+.content-grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 1.5rem;
+  padding: 1.5rem;
+}
+
+.card {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px -15px rgba(15, 23, 42, 0.35);
+  padding: 1.5rem;
+}
+
+.activity-card {
+  grid-column: span 2;
+}

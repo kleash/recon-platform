@@ -31,11 +31,13 @@ graph TD
 ## 8. Common Tasks
 
 ### 8.1 Onboarding a New Reconciliation Definition
-1. Insert a row into `reconciliation_definitions` with a unique `code`, descriptive `name`, and `maker_checker_enabled` flag.
-2. Populate `reconciliation_fields` for the definition, marking at least one `KEY` and the desired `COMPARE` fields (specify `comparison_logic` and `threshold_percentage` where required).
-3. Load or stream source data into `source_a_records` and `source_b_records` with matching `definition_id` values. Use the existing ETL pipeline classes as templates for ingestion.
-4. Configure `access_control_entries` to map LDAP groups to the definition and optional product/entity slices.
-5. Trigger the run via the UI or `POST /api/reconciliations/{id}/run`, then review analytics and breaks to confirm alignment.
+1. Sign in with an account that carries `ROLE_RECON_ADMIN` (the embedded `admin1/password` demo user is pre-provisioned) and navigate to the **Administration** workspace.
+2. Use the **Create reconciliation** wizard to capture definition metadata (code, description, maker/checker flag) and add at least one anchor source.
+3. Define canonical fields for the reconciliation, mapping each to source columns within the wizard. Ensure key fields are flagged with the `KEY` role and tolerance values are provided where needed.
+4. Assign optional report templates and LDAP access control entries before reviewing and publishing the configuration. The backend enforces optimistic locking via the `version` field.
+5. Download the schema export from the detail view (or `GET /api/admin/reconciliations/{id}/schema`) and share it with the ETL team so ingestion jobs align with the published contract.
+6. Once source data lands—either through direct MariaDB inserts or the `/api/admin/reconciliations/{id}/sources/{code}/batches` ingestion endpoint—trigger the reconciliation run and confirm analytics/breaks behave as expected.
+7. The `examples/admin-configurator` bootstrap script provisions the same reconciliation via REST and uploads a sample CSV batch; use it to validate API contracts or hand off to ETL teams.
 
 ### 8.2 Generating and Sharing an Excel Export
 1. Trigger or locate a run using `GET /api/reconciliations/{id}/runs/latest`.

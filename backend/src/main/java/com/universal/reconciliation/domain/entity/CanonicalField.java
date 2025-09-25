@@ -66,6 +66,9 @@ public class CanonicalField {
     @Column(name = "classifier_tag")
     private String classifierTag;
 
+    @Column(name = "formatting_hint")
+    private String formattingHint;
+
     @Column(name = "display_order")
     private Integer displayOrder;
 

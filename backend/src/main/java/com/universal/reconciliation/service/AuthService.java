@@ -4,6 +4,7 @@ import com.universal.reconciliation.domain.dto.LoginRequest;
 import com.universal.reconciliation.domain.dto.LoginResponse;
 import com.universal.reconciliation.security.JwtService;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -37,11 +38,12 @@ public class AuthService {
     public LoginResponse login(LoginRequest request) {
         Authentication authentication;
         boolean harnessAuthenticated = false;
+        Optional<HarnessUser> harnessUser = resolveHarnessUser(request.username(), request.password());
         try {
             authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.username(), request.password()));
         } catch (AuthenticationException ex) {
-            if (harnessMode && validHarnessCredentials(request.username(), request.password())) {
+            if (harnessMode && harnessUser.isPresent()) {
                 authentication = new UsernamePasswordAuthenticationToken(request.username(), request.password());
                 harnessAuthenticated = true;
             } else {
@@ -52,9 +54,9 @@ public class AuthService {
         String username = authentication.getName();
         List<String> groups;
         String displayName;
-        if (harnessAuthenticated) {
-            groups = List.of("recon-makers", "recon-checkers");
-            displayName = "Operations User";
+        if (harnessAuthenticated && harnessUser.isPresent()) {
+            groups = harnessUser.get().groups();
+            displayName = harnessUser.get().displayName();
         } else {
             groups = userDirectoryService.findGroups(username);
             displayName = userDirectoryService.lookupDisplayName(username);
@@ -64,7 +66,16 @@ public class AuthService {
         return new LoginResponse(token, displayName, groups);
     }
 
-    private boolean validHarnessCredentials(String username, String password) {
-        return "ops1".equals(username) && "password".equals(password);
+    private Optional<HarnessUser> resolveHarnessUser(String username, String password) {
+        if (!"password".equals(password)) {
+            return Optional.empty();
+        }
+        return switch (username) {
+            case "ops1" -> Optional.of(new HarnessUser(List.of("recon-makers", "recon-checkers"), "Operations User"));
+            case "admin1" -> Optional.of(new HarnessUser(List.of("ROLE_RECON_ADMIN", "recon-makers"), "Admin User"));
+            default -> Optional.empty();
+        };
     }
+
+    private record HarnessUser(List<String> groups, String displayName) {}
 }

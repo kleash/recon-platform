@@ -14,6 +14,15 @@ import {
 import { BreakStatus } from '../models/break-status';
 import { environment } from '../../environments/environment';
 import { BreakFilter } from '../models/break-filter';
+import {
+  AdminIngestionRequestMetadata,
+  AdminIngestionBatch,
+  AdminReconciliationDetail,
+  AdminReconciliationRequest,
+  AdminReconciliationSchema,
+  AdminReconciliationSummaryPage,
+  ReconciliationLifecycleStatus
+} from '../models/admin-api-models';
 
 const BASE_URL = environment.apiUrl;
 
@@ -66,6 +75,87 @@ export class ApiService {
 
   getSystemActivity(): Observable<SystemActivityEntry[]> {
     return this.http.get<SystemActivityEntry[]>(`${BASE_URL}/activity`);
+  }
+
+  getAdminReconciliations(filters?: {
+    status?: ReconciliationLifecycleStatus;
+    owner?: string;
+    updatedAfter?: string;
+    updatedBefore?: string;
+    search?: string;
+    page?: number;
+    size?: number;
+  }): Observable<AdminReconciliationSummaryPage> {
+    let params = new HttpParams();
+    if (filters?.status) {
+      params = params.set('status', filters.status);
+    }
+    if (filters?.owner) {
+      params = params.set('owner', filters.owner);
+    }
+    if (filters?.updatedAfter) {
+      params = params.set('updatedAfter', filters.updatedAfter);
+    }
+    if (filters?.updatedBefore) {
+      params = params.set('updatedBefore', filters.updatedBefore);
+    }
+    if (filters?.search) {
+      params = params.set('search', filters.search);
+    }
+    if (typeof filters?.page === 'number') {
+      params = params.set('page', String(filters.page));
+    }
+    if (typeof filters?.size === 'number') {
+      params = params.set('size', String(filters.size));
+    }
+    return this.http.get<AdminReconciliationSummaryPage>(`${BASE_URL}/admin/reconciliations`, { params });
+  }
+
+  getAdminReconciliation(id: number): Observable<AdminReconciliationDetail> {
+    return this.http.get<AdminReconciliationDetail>(`${BASE_URL}/admin/reconciliations/${id}`);
+  }
+
+  createAdminReconciliation(request: AdminReconciliationRequest): Observable<AdminReconciliationDetail> {
+    return this.http.post<AdminReconciliationDetail>(`${BASE_URL}/admin/reconciliations`, request);
+  }
+
+  updateAdminReconciliation(
+    id: number,
+    request: AdminReconciliationRequest
+  ): Observable<AdminReconciliationDetail> {
+    return this.http.put<AdminReconciliationDetail>(`${BASE_URL}/admin/reconciliations/${id}`, request);
+  }
+
+  patchAdminReconciliation(
+    id: number,
+    payload: Partial<Pick<AdminReconciliationRequest, 'notes' | 'makerCheckerEnabled' | 'status'>> & {
+      version?: number | null;
+    }
+  ): Observable<AdminReconciliationDetail> {
+    return this.http.patch<AdminReconciliationDetail>(`${BASE_URL}/admin/reconciliations/${id}`, payload);
+  }
+
+  deleteAdminReconciliation(id: number): Observable<void> {
+    return this.http.delete<void>(`${BASE_URL}/admin/reconciliations/${id}`);
+  }
+
+  exportAdminReconciliationSchema(id: number): Observable<AdminReconciliationSchema> {
+    return this.http.get<AdminReconciliationSchema>(`${BASE_URL}/admin/reconciliations/${id}/schema`);
+  }
+
+  uploadAdminIngestionBatch(
+    definitionId: number,
+    sourceCode: string,
+    file: File,
+    metadata: AdminIngestionRequestMetadata
+  ): Observable<AdminIngestionBatch> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+    return this.http.post<AdminIngestionBatch>(
+      `${BASE_URL}/admin/reconciliations/${definitionId}/sources/${encodeURIComponent(sourceCode)}/batches`,
+      formData
+    );
   }
 
   private buildFilterParams(filter?: BreakFilter): HttpParams {

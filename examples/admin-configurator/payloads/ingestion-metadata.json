@@ -1,0 +1,7 @@
+{
+  "adapterType": "CSV_FILE",
+  "options": {
+    "delimiter": ","
+  },
+  "label": "Custody batch"
+}

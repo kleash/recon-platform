@@ -92,7 +92,11 @@ export class ReconciliationStateService {
         this.refreshActivity();
         this.notifications.push('Comment added to break.', 'success');
       },
-      error: () => this.notifications.push('Failed to add comment. You may not have permission.', 'error')
+      error: (err) => {
+        const message = err?.error?.details ?? err?.error?.message ??
+          'Failed to add comment. You may not have permission.';
+        this.notifications.push(message, 'error');
+      }
     });
   }
 
@@ -105,7 +109,7 @@ export class ReconciliationStateService {
         this.notifications.push(`Break ${breakId} ${statusText}.`, 'success');
       },
       error: (err) => {
-        const message = err?.error?.error ?? 'Status update failed.';
+        const message = err?.error?.details ?? err?.error?.message ?? 'Status update failed.';
         this.notifications.push(message, 'error');
       }
     });
@@ -138,7 +142,7 @@ export class ReconciliationStateService {
         this.refreshActivity();
       },
       error: (err) => {
-        const message = err?.error?.error ?? 'Bulk update failed.';
+        const message = err?.error?.details ?? err?.error?.message ?? 'Bulk update failed.';
         this.notifications.push(message, 'error');
       }
     });

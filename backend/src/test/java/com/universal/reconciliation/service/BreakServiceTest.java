@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -141,8 +142,7 @@ class BreakServiceTest {
         verify(systemActivityService).recordEvent(any(), any());
         verify(breakItemRepository)
                 .saveAll(argThat(items -> items instanceof Collection<?> collection && collection.size() == 2));
-        verify(breakCommentRepository)
-                .saveAll(argThat(comments -> comments instanceof Collection<?> collection && collection.size() == 2));
+        verify(breakCommentRepository, never()).saveAll(any());
         verify(breakWorkflowAuditRepository)
                 .saveAll(argThat(audits -> audits instanceof Collection<?> collection && collection.size() == 2));
     }

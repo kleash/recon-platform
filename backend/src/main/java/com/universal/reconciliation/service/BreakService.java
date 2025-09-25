@@ -168,7 +168,7 @@ public class BreakService {
                     }
                 }
 
-                if (request.hasComment()) {
+                if (request.hasComment() && !request.hasStatusChange()) {
                     BreakComment comment = new BreakComment();
                     comment.setBreakItem(breakItem);
                     comment.setAction(request.resolvedAction());

@@ -11,6 +11,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 /**
@@ -27,53 +28,56 @@ public class BreakAccessService {
 
     public List<AccessControlEntry> findEntries(ReconciliationDefinition definition, List<String> groups) {
         if (groups.isEmpty()) {
-            throw new SecurityException("User is not associated with any security group");
+            throw new AccessDeniedException("User is not associated with any security group");
         }
         return accessControlEntryRepository.findByDefinitionAndLdapGroupDnIn(definition, groups);
     }
 
     public void assertCanView(BreakItem breakItem, List<AccessControlEntry> entries) {
         if (!canView(breakItem, entries)) {
-            throw new SecurityException("User lacks permissions for this break");
+            throw new AccessDeniedException("User lacks permissions for this break");
         }
     }
 
     public boolean canView(BreakItem breakItem, List<AccessControlEntry> entries) {
-        return !matchingEntries(breakItem, entries).isEmpty();
+        return !scopedEntries(breakItem, entries).isEmpty();
     }
 
     public void assertCanComment(BreakItem breakItem, List<AccessControlEntry> entries) {
         if (!canComment(breakItem, entries)) {
-            throw new SecurityException("User is not authorised to comment on this break");
+            throw new AccessDeniedException("User is not authorised to comment on this break");
         }
     }
 
     public boolean canComment(BreakItem breakItem, List<AccessControlEntry> entries) {
-        List<AccessControlEntry> scopedEntries = matchingEntries(breakItem, entries);
+        List<AccessControlEntry> scopedEntries = scopedEntries(breakItem, entries);
         return hasRole(scopedEntries, AccessRole.MAKER) || hasRole(scopedEntries, AccessRole.CHECKER);
     }
 
     public List<BreakStatus> allowedStatuses(
             BreakItem breakItem, ReconciliationDefinition definition, List<AccessControlEntry> entries) {
-        List<AccessControlEntry> scopedEntries = matchingEntries(breakItem, entries);
+        List<AccessControlEntry> scopedEntries = scopedEntries(breakItem, entries);
         boolean maker = hasRole(scopedEntries, AccessRole.MAKER);
-        boolean checker = hasRole(scopedEntries, AccessRole.CHECKER);
+        boolean checker = hasRole(scopedEntries, AccessRole.CHECKER) && !maker;
 
         Set<BreakStatus> statuses = new LinkedHashSet<>();
         BreakStatus current = breakItem.getStatus();
 
         if (definition.isMakerCheckerEnabled()) {
             if (maker) {
-                if (current != BreakStatus.PENDING_APPROVAL) {
+                if (current == BreakStatus.OPEN || current == BreakStatus.REJECTED) {
                     statuses.add(BreakStatus.PENDING_APPROVAL);
                 }
                 if (current == BreakStatus.PENDING_APPROVAL) {
                     statuses.add(BreakStatus.OPEN);
                 }
+                if (current == BreakStatus.REJECTED) {
+                    statuses.add(BreakStatus.OPEN);
+                }
             }
             if (checker && current == BreakStatus.PENDING_APPROVAL) {
                 statuses.add(BreakStatus.CLOSED);
-                statuses.add(BreakStatus.OPEN);
+                statuses.add(BreakStatus.REJECTED);
             }
         } else if (maker || checker) {
             if (current != BreakStatus.OPEN) {
@@ -94,8 +98,43 @@ public class BreakAccessService {
             BreakStatus targetStatus) {
         List<BreakStatus> allowed = allowedStatuses(breakItem, definition, entries);
         if (!allowed.contains(targetStatus)) {
-            throw new SecurityException("User cannot transition break to " + targetStatus);
+            throw new AccessDeniedException("User cannot transition break to " + targetStatus);
         }
+    }
+
+    public AccessRole resolveActorRole(
+            BreakItem breakItem,
+            ReconciliationDefinition definition,
+            List<AccessControlEntry> entries,
+            BreakStatus targetStatus) {
+        List<AccessControlEntry> scopedEntries = scopedEntries(breakItem, entries);
+        boolean maker = hasRole(scopedEntries, AccessRole.MAKER);
+        boolean checker = hasRole(scopedEntries, AccessRole.CHECKER) && !maker;
+
+        if (definition.isMakerCheckerEnabled()) {
+            if (targetStatus == BreakStatus.CLOSED || targetStatus == BreakStatus.REJECTED) {
+                if (!checker) {
+                    throw new AccessDeniedException("Checker role required for this action");
+                }
+                return AccessRole.CHECKER;
+            }
+            if (!maker) {
+                throw new AccessDeniedException("Maker role required for this action");
+            }
+            return AccessRole.MAKER;
+        }
+
+        if (checker) {
+            return AccessRole.CHECKER;
+        }
+        if (maker) {
+            return AccessRole.MAKER;
+        }
+        throw new AccessDeniedException("No maker/checker role available for this action");
+    }
+
+    public List<AccessControlEntry> scopedEntries(BreakItem breakItem, List<AccessControlEntry> entries) {
+        return matchingEntries(breakItem, entries);
     }
 
     private List<AccessControlEntry> matchingEntries(BreakItem breakItem, List<AccessControlEntry> entries) {

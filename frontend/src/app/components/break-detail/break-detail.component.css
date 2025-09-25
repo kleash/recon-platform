@@ -96,6 +96,32 @@
   resize: vertical;
 }
 
+.workflow-history {
+  margin: 1.5rem 0;
+}
+
+.workflow-history ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.workflow-history li {
+  border-left: 3px solid #0f172a;
+  padding-left: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.workflow-history .role {
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: #0f172a;
+  background: #e0f2fe;
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+}
+
 .status-buttons {
   display: flex;
   flex-wrap: wrap;
@@ -114,6 +140,25 @@
 
 .status-buttons button:hover {
   background: #1d4ed8;
+}
+
+.workflow-actions textarea {
+  width: 100%;
+  resize: vertical;
+  margin-top: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #cbd5f5;
+  padding: 0.6rem;
+}
+
+.workflow-actions .hint {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.workflow-actions .error {
+  color: #dc2626;
+  margin-top: 0.5rem;
 }
 
 .no-actions {

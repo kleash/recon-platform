@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
-import { LoginResponse } from '../models/api-models';
+import { BreakItem, LoginResponse } from '../models/api-models';
+import { BreakStatus } from '../models/break-status';
 
 const TOKEN_KEY = 'urp.jwt';
 const DISPLAY_NAME_KEY = 'urp.displayName';
@@ -50,5 +51,37 @@ export class SessionService {
 
   isAuthenticated(): boolean {
     return !!this.token;
+  }
+
+  hasGroup(name: string): boolean {
+    if (!name) {
+      return false;
+    }
+    const target = name.toLowerCase();
+    return this.groups.some((group) => group.toLowerCase() === target);
+  }
+
+  hasGroupContaining(fragment: string): boolean {
+    if (!fragment) {
+      return false;
+    }
+    const target = fragment.toLowerCase();
+    return this.groups.some((group) => group.toLowerCase().includes(target));
+  }
+
+  hasMakerRole(): boolean {
+    return this.hasGroupContaining('maker');
+  }
+
+  hasCheckerRole(breaks?: BreakItem[] | null): boolean {
+    if (!breaks || breaks.length === 0) {
+      return false;
+    }
+
+    return breaks.some((item) =>
+      (item.allowedStatusTransitions || []).some((status) =>
+        status === BreakStatus.Closed || status === BreakStatus.Rejected
+      )
+    );
   }
 }

@@ -12,7 +12,8 @@ public record BulkBreakUpdateRequest(
         @NotEmpty List<Long> breakIds,
         BreakStatus status,
         String comment,
-        String action) {
+        String action,
+        String correlationId) {
 
     public boolean hasStatusChange() {
         return status != null;
@@ -20,6 +21,10 @@ public record BulkBreakUpdateRequest(
 
     public boolean hasComment() {
         return comment != null && !comment.isBlank();
+    }
+
+    public String trimmedComment() {
+        return hasComment() ? comment.trim() : null;
     }
 
     public String resolvedAction() {

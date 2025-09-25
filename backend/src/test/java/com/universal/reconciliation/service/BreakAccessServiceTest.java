@@ -13,6 +13,7 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.springframework.security.access.AccessDeniedException;
 
 class BreakAccessServiceTest {
 
@@ -40,7 +41,17 @@ class BreakAccessServiceTest {
         List<AccessControlEntry> entries = List.of(entry(AccessRole.CHECKER));
 
         assertThat(accessService.allowedStatuses(breakItem, definition, entries))
-                .containsExactlyInAnyOrder(BreakStatus.CLOSED, BreakStatus.OPEN);
+                .containsExactlyInAnyOrder(BreakStatus.CLOSED, BreakStatus.REJECTED);
+    }
+
+    @Test
+    void allowedStatuses_treatsDualRoleAsMakerOnly() {
+        BreakItem breakItem = breakItem(BreakStatus.PENDING_APPROVAL);
+        ReconciliationDefinition definition = definition(true);
+        List<AccessControlEntry> entries = List.of(entry(AccessRole.MAKER), entry(AccessRole.CHECKER));
+
+        assertThat(accessService.allowedStatuses(breakItem, definition, entries))
+                .containsExactly(BreakStatus.OPEN);
     }
 
     @Test
@@ -49,7 +60,7 @@ class BreakAccessServiceTest {
         ReconciliationDefinition definition = definition(true);
 
         assertThatThrownBy(() -> accessService.assertTransitionAllowed(breakItem, definition, List.of(), BreakStatus.CLOSED))
-                .isInstanceOf(SecurityException.class);
+                .isInstanceOf(AccessDeniedException.class);
     }
 
     @Test

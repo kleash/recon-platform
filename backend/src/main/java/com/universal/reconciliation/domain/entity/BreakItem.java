@@ -48,6 +48,15 @@ public class BreakItem {
     @Column(nullable = false)
     private Instant detectedAt;
 
+    @Column(name = "submitted_by_dn")
+    private String submittedByDn;
+
+    @Column(name = "submitted_by_group")
+    private String submittedByGroup;
+
+    @Column(name = "submitted_at")
+    private Instant submittedAt;
+
     @Column
     private String product;
 
@@ -85,5 +94,8 @@ public class BreakItem {
 
     @OneToMany(mappedBy = "breakItem")
     private Set<BreakComment> comments = new LinkedHashSet<>();
+
+    @OneToMany(mappedBy = "breakItem")
+    private Set<BreakWorkflowAudit> workflowAudits = new LinkedHashSet<>();
 
 }

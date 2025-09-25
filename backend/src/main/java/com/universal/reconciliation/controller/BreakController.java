@@ -3,6 +3,7 @@ package com.universal.reconciliation.controller;
 import com.universal.reconciliation.domain.dto.AddBreakCommentRequest;
 import com.universal.reconciliation.domain.dto.BreakItemDto;
 import com.universal.reconciliation.domain.dto.BulkBreakUpdateRequest;
+import com.universal.reconciliation.domain.dto.BulkBreakUpdateResponse;
 import com.universal.reconciliation.domain.dto.UpdateBreakStatusRequest;
 import com.universal.reconciliation.service.BreakService;
 import jakarta.validation.Valid;
@@ -41,7 +42,7 @@ public class BreakController {
     }
 
     @PostMapping("/bulk")
-    public ResponseEntity<List<BreakItemDto>> bulkUpdate(
+    public ResponseEntity<BulkBreakUpdateResponse> bulkUpdate(
             @Valid @RequestBody BulkBreakUpdateRequest request) {
         return ResponseEntity.ok(breakService.bulkUpdate(request));
     }

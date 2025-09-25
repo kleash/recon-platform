@@ -274,7 +274,11 @@ class ExportServiceTest {
                 Instant.parse("2024-03-18T09:15:00Z"),
                 sources,
                 List.of(),
-                List.of(new BreakCommentDto(10L, "uid=ops1", "NOTE", "Needs review", Instant.parse("2024-03-18T10:00:00Z"))));
+                List.of(new BreakCommentDto(10L, "uid=ops1", "NOTE", "Needs review", Instant.parse("2024-03-18T10:00:00Z"))),
+                List.of(),
+                null,
+                null,
+                null);
     }
 
     private BreakItemDto missingBreak() {
@@ -287,6 +291,10 @@ class ExportServiceTest {
                 Instant.parse("2024-03-18T08:30:00Z"),
                 Map.of("CASH", Map.of("amount", new BigDecimal("50.00"), "tradeId", "TR-2")),
                 List.of("GL"),
-                List.of());
+                List.of(),
+                List.of(),
+                null,
+                null,
+                null);
     }
 }

@@ -1,0 +1,81 @@
+<section class="checker-queue">
+  <header>
+    <h3>Pending approvals</h3>
+    <span class="count">{{ queue.length }} awaiting review</span>
+  </header>
+
+  <div class="filters">
+    <label>
+      Product
+      <select [(ngModel)]="filterProduct">
+        <option [ngValue]="null">All</option>
+        <option *ngFor="let product of filterMetadata?.products ?? []" [ngValue]="product">{{ product }}</option>
+      </select>
+    </label>
+    <label>
+      Sub-product
+      <select [(ngModel)]="filterSubProduct">
+        <option [ngValue]="null">All</option>
+        <option *ngFor="let sub of filterMetadata?.subProducts ?? []" [ngValue]="sub">{{ sub }}</option>
+      </select>
+    </label>
+    <label>
+      Entity
+      <select [(ngModel)]="filterEntity">
+        <option [ngValue]="null">All</option>
+        <option *ngFor="let entity of filterMetadata?.entities ?? []" [ngValue]="entity">{{ entity }}</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="queue-table" *ngIf="queue.length > 0; else emptyState">
+    <table>
+      <thead>
+        <tr>
+          <th></th>
+          <th>ID</th>
+          <th>Product</th>
+          <th>Sub-product</th>
+          <th>Entity</th>
+          <th>Detected</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let item of queue">
+          <td>
+            <input
+              type="checkbox"
+              [checked]="selectedIds.has(item.id)"
+              (change)="toggleSelection(item.id, $event.target.checked)"
+            />
+          </td>
+          <td>{{ item.id }}</td>
+          <td>{{ item.classifications?.['product'] ?? '—' }}</td>
+          <td>{{ item.classifications?.['subProduct'] ?? '—' }}</td>
+          <td>{{ item.classifications?.['entity'] ?? '—' }}</td>
+          <td>{{ item.detectedAt | date: 'short' }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <ng-template #emptyState>
+    <p class="empty">No pending approvals for the selected filters.</p>
+  </ng-template>
+
+  <div class="actions" *ngIf="queue.length > 0">
+    <textarea
+      rows="2"
+      placeholder="Provide a shared justification for the selected breaks"
+      [(ngModel)]="comment"
+      name="queueComment"
+    ></textarea>
+    <p class="error" *ngIf="error">{{ error }}</p>
+    <div class="buttons">
+      <button type="button" (click)="selectAll()" [disabled]="queue.length === 0">Select all</button>
+      <button type="button" (click)="clear()" [disabled]="selectedIds.size === 0">Clear</button>
+      <button type="button" class="approve" (click)="submitApproval()">Approve</button>
+      <button type="button" class="reject" (click)="submitRejection()">Reject</button>
+    </div>
+  </div>
+</section>

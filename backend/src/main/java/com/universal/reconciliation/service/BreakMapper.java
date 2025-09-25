@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.universal.reconciliation.domain.dto.BreakCommentDto;
+import com.universal.reconciliation.domain.dto.BreakHistoryEntryDto;
+import com.universal.reconciliation.domain.dto.BreakHistoryEntryDto.EntryType;
 import com.universal.reconciliation.domain.dto.BreakItemDto;
 import com.universal.reconciliation.domain.entity.BreakComment;
 import com.universal.reconciliation.domain.entity.BreakItem;
@@ -12,6 +14,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -35,6 +38,30 @@ public class BreakMapper {
                 .sorted(Comparator.comparing(BreakComment::getCreatedAt))
                 .map(comment -> new BreakCommentDto(
                         comment.getId(), comment.getActorDn(), comment.getAction(), comment.getComment(), comment.getCreatedAt()))
+                .toList();
+
+        List<BreakHistoryEntryDto> history = Stream.concat(
+                        item.getComments().stream().map(comment -> new BreakHistoryEntryDto(
+                                EntryType.COMMENT,
+                                comment.getActorDn(),
+                                null,
+                                comment.getAction(),
+                                comment.getComment(),
+                                null,
+                                null,
+                                comment.getCreatedAt(),
+                                null)),
+                        item.getWorkflowAudits().stream().map(audit -> new BreakHistoryEntryDto(
+                                EntryType.WORKFLOW,
+                                audit.getActorDn(),
+                                audit.getActorRole(),
+                                audit.getNewStatus().name(),
+                                audit.getComment(),
+                                audit.getPreviousStatus(),
+                                audit.getNewStatus(),
+                                audit.getCreatedAt(),
+                                audit.getCorrelationId())))
+                .sorted(Comparator.comparing(BreakHistoryEntryDto::occurredAt))
                 .toList();
 
         Map<String, String> classifications = readStringMap(item.getId(), "classification", item.getClassificationJson());
@@ -80,7 +107,11 @@ public class BreakMapper {
                 item.getDetectedAt(),
                 sources,
                 missingSources,
-                comments);
+                comments,
+                history,
+                item.getSubmittedByDn(),
+                item.getSubmittedByGroup(),
+                item.getSubmittedAt());
     }
 
     private Map<String, Object> readMap(Long breakId, String label, String json) {

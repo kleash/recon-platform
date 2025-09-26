@@ -50,6 +50,9 @@ The **New reconciliation** action launches a six-step wizard:
 - The ingestion endpoint accepts multipart requests with the batch file and a JSON metadata part
   (`adapterType`, `options`, `label`). The backend records audit events and shows the most recent 20
   batches in the detail view.
+- The integration harness (`examples/integration-harness`) includes a reusable ingestion CLI
+  (`integration-ingestion-cli.jar`) that demonstrates how to authenticate, discover reconciliation IDs,
+  and submit CSV payloads programmatically.
 
 ## Automation & Quality Gates
 
@@ -61,6 +64,10 @@ The **New reconciliation** action launches a six-step wizard:
 - **Example bootstrap**: `examples/admin-configurator/scripts/bootstrap.sh` provisions the same
   reconciliation via REST, exports the schema, and submits a CSV batch—ideal for ETL teams exploring
   the API contract.
+- **Integration harness**: `examples/integration-harness/scripts/run_multi_example_e2e.sh` launches the
+  platform, applies admin payloads for the cash vs GL, custodian trade, and securities position
+  examples, runs the bundled ingestion CLI, and asserts the resulting run summaries. This is now the
+  recommended regression loop for admin-authored reconciliations.
 
 ## Operational Tips
 

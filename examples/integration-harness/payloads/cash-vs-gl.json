@@ -1,0 +1,311 @@
+{
+  "code": "CASH_VS_GL_SIMPLE",
+  "name": "Cash vs General Ledger (Admin)",
+  "description": "Treasury validation of daily cash movements across bank and GL feeds authored via admin API.",
+  "owner": "Treasury Operations",
+  "makerCheckerEnabled": false,
+  "notes": "Provisioned through the integration harness admin configurator flow.",
+  "status": "PUBLISHED",
+  "autoTriggerEnabled": true,
+  "autoTriggerCron": "0 7 * * MON-FRI",
+  "autoTriggerTimezone": "America/New_York",
+  "autoTriggerGraceMinutes": 20,
+  "version": null,
+  "sources": [
+    {
+      "id": null,
+      "code": "CASH",
+      "displayName": "Cash Ledger",
+      "adapterType": "CSV_FILE",
+      "anchor": true,
+      "description": "Daily bank statement feed used as the anchor dataset.",
+      "connectionConfig": "s3://demo-data/cash-ledger",
+      "arrivalExpectation": "Weekdays by 06:30 Eastern",
+      "arrivalTimezone": "America/New_York",
+      "arrivalSlaMinutes": 30,
+      "adapterOptions": "{\"delimiter\":\",\"}"
+    },
+    {
+      "id": null,
+      "code": "GL",
+      "displayName": "General Ledger",
+      "adapterType": "CSV_FILE",
+      "anchor": false,
+      "description": "ERP general ledger extract aligned with the cash view.",
+      "connectionConfig": "jdbc:postgresql://ledger-sim/gl",
+      "arrivalExpectation": "Weekdays by 06:45 Eastern",
+      "arrivalTimezone": "America/New_York",
+      "arrivalSlaMinutes": 45,
+      "adapterOptions": "{\"delimiter\":\",\"}"
+    }
+  ],
+  "canonicalFields": [
+    {
+      "id": null,
+      "canonicalName": "transactionId",
+      "displayName": "Transaction ID",
+      "role": "KEY",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 1,
+      "required": true,
+      "mappings": [
+        {
+          "id": null,
+          "sourceCode": "CASH",
+          "sourceColumn": "transactionId",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "GL",
+          "sourceColumn": "transactionId",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "amount",
+      "displayName": "Amount",
+      "role": "COMPARE",
+      "dataType": "DECIMAL",
+      "comparisonLogic": "NUMERIC_THRESHOLD",
+      "thresholdPercentage": 0.5,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 2,
+      "required": true,
+      "mappings": [
+        {
+          "id": null,
+          "sourceCode": "CASH",
+          "sourceColumn": "amount",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "GL",
+          "sourceColumn": "amount",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "currency",
+      "displayName": "Currency",
+      "role": "COMPARE",
+      "dataType": "STRING",
+      "comparisonLogic": "CASE_INSENSITIVE",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 3,
+      "required": true,
+      "mappings": [
+        {
+          "id": null,
+          "sourceCode": "CASH",
+          "sourceColumn": "currency",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "GL",
+          "sourceColumn": "currency",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "tradeDate",
+      "displayName": "Trade Date",
+      "role": "COMPARE",
+      "dataType": "DATE",
+      "comparisonLogic": "DATE_ONLY",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 4,
+      "required": true,
+      "mappings": [
+        {
+          "id": null,
+          "sourceCode": "CASH",
+          "sourceColumn": "tradeDate",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "GL",
+          "sourceColumn": "tradeDate",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "product",
+      "displayName": "Product",
+      "role": "PRODUCT",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": "product",
+      "formattingHint": null,
+      "displayOrder": 5,
+      "required": true,
+      "mappings": [
+        {
+          "id": null,
+          "sourceCode": "CASH",
+          "sourceColumn": "product",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "GL",
+          "sourceColumn": "product",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "entity",
+      "displayName": "Entity",
+      "role": "ENTITY",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": "entity",
+      "formattingHint": null,
+      "displayOrder": 6,
+      "required": true,
+      "mappings": [
+        {
+          "id": null,
+          "sourceCode": "CASH",
+          "sourceColumn": "entityName",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "GL",
+          "sourceColumn": "entityName",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
+      ]
+    }
+  ],
+  "reportTemplates": [
+    {
+      "id": null,
+      "name": "Cash vs GL Exceptions",
+      "description": "Highlights variances between cash and ledger sources.",
+      "includeMatched": true,
+      "includeMismatched": true,
+      "includeMissing": true,
+      "highlightDifferences": true,
+      "columns": [
+        {
+          "id": null,
+          "header": "Transaction ID",
+          "source": "SOURCE_A",
+          "sourceField": "transactionId",
+          "displayOrder": 1,
+          "highlightDifferences": false
+        },
+        {
+          "id": null,
+          "header": "Amount (Cash)",
+          "source": "SOURCE_A",
+          "sourceField": "amount",
+          "displayOrder": 2,
+          "highlightDifferences": true
+        },
+        {
+          "id": null,
+          "header": "Amount (GL)",
+          "source": "SOURCE_B",
+          "sourceField": "amount",
+          "displayOrder": 3,
+          "highlightDifferences": true
+        },
+        {
+          "id": null,
+          "header": "Break Status",
+          "source": "BREAK_METADATA",
+          "sourceField": "status",
+          "displayOrder": 4,
+          "highlightDifferences": false
+        }
+      ]
+    }
+  ],
+  "accessControlEntries": [
+    {
+      "id": null,
+      "ldapGroupDn": "recon-makers",
+      "role": "MAKER",
+      "product": "Payments",
+      "subProduct": "Wire",
+      "entityName": "Global",
+      "notifyOnPublish": false,
+      "notifyOnIngestionFailure": true,
+      "notificationChannel": "treasury-makers@universal.example"
+    },
+    {
+      "id": null,
+      "ldapGroupDn": "recon-checkers",
+      "role": "CHECKER",
+      "product": "Payments",
+      "subProduct": "Wire",
+      "entityName": "Global",
+      "notifyOnPublish": true,
+      "notifyOnIngestionFailure": false,
+      "notificationChannel": "treasury-ops@universal.example"
+    }
+  ]
+}

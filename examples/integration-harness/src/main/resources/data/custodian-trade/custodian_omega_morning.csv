@@ -1,0 +1,3 @@
+trade_id,source_trade_id,symbol,quantity,price,gross_amount,net_amount,trade_date,settlement_date,custodian_code,desk,portfolio,trader,broker,currency,direction,source,status,fee_amount,exchange
+OMEGA-M-004,OC-EXT-004,7203,200,182.15,36430.00,36380.00,2024-03-18,2024-03-21,OMEGA,EQD,AsiaGrowth,Chris Lee,Nomura,JPY,BUY,OMEGA_CLEAR,BOOKED,50.00,TSE
+OMEGA-M-005,OC-EXT-005,0700,110,320.40,35244.00,35190.00,2024-03-18,2024-03-21,OMEGA,EQD,AsiaGrowth,Chris Lee,HSBC,HKD,SELL,OMEGA_CLEAR,BOOKED,54.00,HKEX

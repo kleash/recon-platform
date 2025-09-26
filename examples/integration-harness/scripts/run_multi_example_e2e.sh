@@ -4,16 +4,26 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 BACKEND_DIR="$PROJECT_ROOT/backend"
-COMMON_DIR="$PROJECT_ROOT/examples/common"
-CASH_DIR="$PROJECT_ROOT/examples/cash-vs-gl"
-CUSTODIAN_DIR="$PROJECT_ROOT/examples/custodian-trade"
 HARNESS_DIR="$PROJECT_ROOT/examples/integration-harness"
+COMMON_DIR="$PROJECT_ROOT/examples/common"
 APP_PORT="${APP_PORT:-8080}"
+BASE_URL="http://localhost:${APP_PORT}"
 JWT_SECRET_VALUE="MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE="
 LOG_DIR="$(mktemp -d)"
-APP_LOG="$LOG_DIR/harness.log"
+APP_LOG="$LOG_DIR/platform.log"
 APP_PID=""
-LAST_RESPONSE=""
+
+PAYLOAD_DIR="$HARNESS_DIR/payloads"
+PAYLOADS=(
+  "$PAYLOAD_DIR/cash-vs-gl.json"
+  "$PAYLOAD_DIR/custodian-trade.json"
+  "$PAYLOAD_DIR/securities-position.json"
+)
+
+ADMIN_USERNAME="admin1"
+ADMIN_PASSWORD="password"
+OPS_USERNAME="ops1"
+OPS_PASSWORD="password"
 
 cleanup() {
     if [[ -n "$APP_PID" ]]; then
@@ -26,315 +36,265 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+require_binary() {
+    if ! command -v "$1" >/dev/null 2>&1; then
+        echo "Required dependency '$1' is not installed" >&2
+        exit 1
+    fi
+}
+
+require_binary curl
+require_binary jq
+require_binary lsof
+
+ensure_port_available() {
+    if lsof -nPi :"$APP_PORT" >/dev/null 2>&1; then
+        echo "Port $APP_PORT is already in use. Stop the existing process or set APP_PORT to a free port." >&2
+        exit 1
+    fi
+}
+
 log() {
     printf '[%s] %s\n' "$(date +%H:%M:%S)" "$1"
 }
 
-log "Building backend platform artifact"
-"$BACKEND_DIR/mvnw" -f "$BACKEND_DIR/pom.xml" clean install -DskipTests -Dspring-boot.repackage.skip=true >/dev/null
+build_artifacts() {
+    log "Building backend platform artifact"
+    "$BACKEND_DIR/mvnw" -f "$BACKEND_DIR/pom.xml" clean install -DskipTests -Dspring-boot.repackage.skip=true >/dev/null
 
-log "Installing shared example support library"
-"$BACKEND_DIR/mvnw" -f "$COMMON_DIR/pom.xml" clean install -DskipTests >/dev/null
+    log "Installing shared example support library"
+    "$BACKEND_DIR/mvnw" -f "$COMMON_DIR/pom.xml" clean install -DskipTests >/dev/null
 
-log "Installing cash vs GL example module"
-"$BACKEND_DIR/mvnw" -f "$CASH_DIR/pom.xml" clean install -DskipTests >/dev/null
+    log "Packaging integration harness application and ingestion CLI"
+    "$BACKEND_DIR/mvnw" -f "$HARNESS_DIR/pom.xml" package -DskipTests >/dev/null
 
-log "Installing custodian trade example module"
-"$BACKEND_DIR/mvnw" -f "$CUSTODIAN_DIR/pom.xml" clean install -DskipTests >/dev/null
-
-log "Packaging multi-example harness application"
-"$BACKEND_DIR/mvnw" -f "$HARNESS_DIR/pom.xml" clean package -DskipTests >/dev/null
-
-HARNESS_JAR="$HARNESS_DIR/target/multi-example-harness-0.1.0.jar"
-if [[ ! -f "$HARNESS_JAR" ]]; then
-    echo "Harness jar not found at $HARNESS_JAR" >&2
-    exit 1
-fi
-
-log "Starting harness application (logs: $APP_LOG)"
-(
-    cd "$HARNESS_DIR"
-    JWT_SECRET="$JWT_SECRET_VALUE" \
-    SPRING_PROFILES_ACTIVE="example-harness" \
-    SERVER_PORT="$APP_PORT" \
-    java -jar "$HARNESS_JAR" >"$APP_LOG" 2>&1
-) &
-APP_PID=$!
-
-log "Waiting for application health endpoint"
-STARTED=false
-for _ in {1..60}; do
-    if curl -sf "http://localhost:$APP_PORT/actuator/health" >/dev/null; then
-        STATUS=$(curl -sf "http://localhost:$APP_PORT/actuator/health")
-        if python3 - "$STATUS" <<'PY'
-import json, sys
-payload=json.loads(sys.argv[1])
-if payload.get("status") == "UP":
-    sys.exit(0)
-sys.exit(1)
-PY
-        then
-            STARTED=true
-            break
-        fi
+    local assembly_jar="$HARNESS_DIR/target/multi-example-harness-0.1.0-jar-with-dependencies.jar"
+    if [[ -f "$assembly_jar" ]]; then
+        cp "$assembly_jar" "$HARNESS_DIR/target/integration-ingestion-cli.jar"
     fi
-    sleep 2
-    if ! kill -0 "$APP_PID" >/dev/null 2>&1; then
-        break
+}
+
+start_platform() {
+    local harness_jar="$HARNESS_DIR/target/multi-example-harness-0.1.0-exec.jar"
+    if [[ ! -f "$harness_jar" ]]; then
+        echo "Harness jar not found at $harness_jar" >&2
+        exit 1
     fi
-done
 
-if [[ "$STARTED" != true ]]; then
-    echo "Application failed to start. Tail of log:" >&2
-    tail -n 50 "$APP_LOG" >&2
-    exit 1
-fi
+    log "Starting platform (logs: $APP_LOG)"
+    (
+        cd "$HARNESS_DIR"
+        JWT_SECRET="$JWT_SECRET_VALUE" \
+        SPRING_PROFILES_ACTIVE="example-harness" \
+        SERVER_PORT="$APP_PORT" \
+        java -jar "$harness_jar" >"$APP_LOG" 2>&1
+    ) &
+    APP_PID=$!
+}
 
-log "Authenticating with platform"
-authenticate() {
+wait_for_health() {
+    log "Waiting for platform health endpoint"
     local attempts=0
-    local response
-    local token
-    while (( attempts < 30 )); do
-        if response=$(curl -sSf -X POST "http://localhost:$APP_PORT/api/auth/login" \
+    while (( attempts < 60 )); do
+        if curl -sSf "$BASE_URL/actuator/health" >/dev/null; then
+            local status
+            status=$(curl -sSf "$BASE_URL/actuator/health") || true
+            if [[ "$(echo "$status" | jq -r '.status')" == "UP" ]]; then
+                log "Platform reported healthy"
+                return 0
+            fi
+        fi
+        sleep 2
+        ((attempts++))
+        if [[ -n "$APP_PID" ]]; then
+            if ! kill -0 "$APP_PID" >/dev/null 2>&1; then
+                tail -n 50 "$APP_LOG" >&2 || true
+                echo "Platform process terminated while waiting for health" >&2
+                exit 1
+            fi
+        fi
+    done
+    echo "Platform did not become healthy within timeout" >&2
+    tail -n 50 "$APP_LOG" >&2 || true
+    exit 1
+}
+
+login() {
+    local username="$1"
+    local password="$2"
+    local attempts=0
+    while (( attempts < 20 )); do
+        local response
+        if response=$(curl -sS -X POST "$BASE_URL/api/auth/login" \
             -H 'Content-Type: application/json' \
-            -d '{"username":"ops1","password":"password"}') && [[ -n "$response" ]]; then
-            if token=$(python3 - "$response" <<'PY'
-import json,sys
-try:
-    payload=json.loads(sys.argv[1])
-except json.JSONDecodeError:
-    raise SystemExit(2)
-token=payload.get("token")
-if not token:
-    raise SystemExit(3)
-print(token)
-PY
-); then
+            -d "{\"username\":\"$username\",\"password\":\"$password\"}"); then
+            local token
+            token=$(echo "$response" | jq -r '.token // empty')
+            if [[ -n "$token" ]]; then
                 printf '%s' "$token"
                 return 0
             fi
         fi
-        attempts=$((attempts + 1))
-        sleep 2
+        sleep 1
+        ((attempts++))
     done
     return 1
 }
 
-if ! TOKEN=$(authenticate); then
-    log "Failed to authenticate with platform after multiple attempts"
-    tail -n 50 "$APP_LOG" >&2 || true
-    exit 1
-fi
+upsert_reconciliation() {
+    local payload_path="$1"
+    local token="$2"
+    local code
+    code=$(jq -r '.code' "$payload_path")
+    if [[ -z "$code" || "$code" == "null" ]]; then
+        echo "Payload $payload_path missing reconciliation code" >&2
+        exit 1
+    fi
 
-AUTH_HEADER=("Authorization: Bearer $TOKEN")
+    local existing
+    existing=$(curl -sS -H "Authorization: Bearer $token" \
+        "$BASE_URL/api/admin/reconciliations?search=$code&size=10")
+    local recon_id
+    recon_id=$(echo "$existing" | jq -r ".items[] | select(.code == \"$code\") | .id" | head -n 1)
 
-log "Discovering reconciliations seeded by ETL pipelines"
-discover_reconciliations() {
-    local attempts=0
-    local payload=""
-    local ids=""
-    while (( attempts < 30 )); do
-        if payload=$(curl -sSf -H "${AUTH_HEADER[@]}" "http://localhost:$APP_PORT/api/reconciliations" 2>/dev/null); then
-            LAST_RESPONSE="$payload"
-            if ids=$(python3 - "$payload" <<'PY'
-import json,sys
-text=sys.argv[1] or '[]'
-recons=json.loads(text)
-code_to_id={item['code']: item['id'] for item in recons}
-required=["CASH_VS_GL_SIMPLE","CUSTODIAN_TRADE_COMPLEX"]
-missing=[code for code in required if code not in code_to_id]
-if missing:
-    raise SystemExit(1)
-print(code_to_id["CASH_VS_GL_SIMPLE"])
-print(code_to_id["CUSTODIAN_TRADE_COMPLEX"])
-PY
-); then
-                printf '%s' "$ids"
-                return 0
-            fi
-        fi
-        attempts=$((attempts + 1))
-        sleep 2
-    done
-    LAST_RESPONSE="$payload"
-    return 1
+    local method url expected_status
+    if [[ -n "$recon_id" && "$recon_id" != "null" ]]; then
+        method="PUT"
+        url="$BASE_URL/api/admin/reconciliations/$recon_id"
+        expected_status=200
+    else
+        method="POST"
+        url="$BASE_URL/api/admin/reconciliations"
+        expected_status=201
+    fi
+
+    local response status
+    response=$(mktemp)
+    status=$(curl -sS -o "$response" -w '%{http_code}' -X "$method" "$url" \
+        -H "Authorization: Bearer $token" \
+        -H 'Content-Type: application/json' \
+        -d @"$payload_path")
+    if [[ "$status" -ne "$expected_status" ]]; then
+        echo "Failed to submit reconciliation payload for $code (status $status)" >&2
+        cat "$response" >&2 || true
+        rm -f "$response"
+        exit 1
+    fi
+
+    if [[ "$method" == "POST" ]]; then
+        recon_id=$(jq -r '.id' "$response")
+    fi
+    rm -f "$response"
+
+    if [[ -z "$recon_id" || "$recon_id" == "null" ]]; then
+        echo "Unable to determine reconciliation id for $code" >&2
+        exit 1
+    fi
+
+    printf '%s\n' "$recon_id"
 }
 
-if ! RECON_OUTPUT=$(discover_reconciliations); then
-    log "Failed to discover seeded reconciliations"
-    printf 'Last response: %s\n' "${LAST_RESPONSE:-<empty>}" >&2
-    tail -n 50 "$APP_LOG" >&2 || true
-    exit 1
-fi
-CASH_ID=$(printf '%s' "$RECON_OUTPUT" | sed -n '1p')
-CUSTODIAN_ID=$(printf '%s' "$RECON_OUTPUT" | sed -n '2p')
-if [[ -z "$CASH_ID" || -z "$CUSTODIAN_ID" ]]; then
-    log "Discovery returned incomplete identifiers"
-    printf 'Payload: %s\n' "${RECON_OUTPUT}" >&2
-    exit 1
-fi
-
-log "Executing initial cash vs GL reconciliation run"
-CASH_TRIGGER_PAYLOAD='{"triggerType":"MANUAL_API","correlationId":"harness-initial","comments":"Initial harness verification","initiatedBy":"integration-harness"}'
-if ! CASH_TRIGGER_RESULT=$(curl -sSf -X POST "http://localhost:$APP_PORT/api/reconciliations/$CASH_ID/run" \
-    -H 'Content-Type: application/json' -H "${AUTH_HEADER[@]}" -d "$CASH_TRIGGER_PAYLOAD" 2>/dev/null); then
-    log "Unable to trigger cash vs GL reconciliation run"
-    tail -n 50 "$APP_LOG" >&2 || true
-    exit 1
-fi
-
-log "Validating cash vs GL data ingestion"
-wait_for_cash_run() {
+trigger_run() {
     local recon_id="$1"
-    local attempts=0
-    local payload=""
-    while (( attempts < 30 )); do
-        if payload=$(curl -sSf -H "${AUTH_HEADER[@]}" "http://localhost:$APP_PORT/api/reconciliations/$recon_id/runs/latest" 2>/dev/null); then
-            LAST_RESPONSE="$payload"
-            if python3 - "$payload" <<'PY'
-import json,sys
-run=json.loads(sys.argv[1] or '{}')
-summary=run.get('summary') or {}
-matched=summary.get('matched', 0)
-mismatched=summary.get('mismatched', 0)
-missing=summary.get('missing', 0)
-if matched > 0 and mismatched > 0 and missing > 0:
-    sys.exit(0)
-sys.exit(1)
-PY
-then
-                return 0
-            fi
-        fi
-        attempts=$((attempts + 1))
-        sleep 2
-    done
-    LAST_RESPONSE="$payload"
-    return 1
+    local token="$2"
+    local comments="$3"
+    local response status tmp
+    tmp=$(mktemp)
+    status=$(curl -sS -o "$tmp" -w '%{http_code}' -X POST "$BASE_URL/api/reconciliations/$recon_id/run" \
+        -H "Authorization: Bearer $token" \
+        -H 'Content-Type: application/json' \
+        -d "{\"triggerType\":\"MANUAL_API\",\"comments\":\"$comments\",\"initiatedBy\":\"integration-harness\"}")
+    if [[ "$status" -ne 200 ]]; then
+        echo "Trigger run request failed for reconciliation $recon_id (status $status)" >&2
+        cat "$tmp" >&2 || true
+        rm -f "$tmp"
+        exit 1
+    fi
+    cat "$tmp"
+    rm -f "$tmp"
 }
 
-if ! wait_for_cash_run "$CASH_ID"; then
-    log "Cash vs GL latest run did not contain expected activity"
-    printf 'Last response: %s\n' "${LAST_RESPONSE:-<empty>}" >&2
-    tail -n 50 "$APP_LOG" >&2 || true
-    exit 1
-fi
+validate_summary() {
+    local payload="$1"
+    local code="$2"
+    local expr
+    case "$code" in
+        CASH_VS_GL_SIMPLE)
+            expr='(.summary.matched // 0) > 0 and (.summary.mismatched // 0) > 0 and (.summary.missing // 0) > 0'
+            ;;
+        CUSTODIAN_TRADE_COMPLEX)
+            expr='(.summary.missing // 0) > 0'
+            ;;
+        SEC_POSITION_COMPLEX)
+            expr='(.summary.matched // 0) > 0 and (.summary.mismatched // 0) > 0'
+            ;;
+        *)
+            expr='true'
+            ;;
+    esac
 
-log "Inspecting custodian cutoffs for automatic triggers"
-wait_for_cutoffs() {
-    local attempts=0
-    local payload=""
-    while (( attempts < 30 )); do
-        if payload=$(curl -sSf -H "${AUTH_HEADER[@]}" "http://localhost:$APP_PORT/api/examples/custodian/cutoffs" 2>/dev/null); then
-            LAST_RESPONSE="$payload"
-            if python3 - "$payload" <<'PY'
-import json,sys
-cutoffs=json.loads(sys.argv[1] or '[]')
-auto=[c for c in cutoffs if c.get('cycle') == 'MORNING' and not c.get('triggeredByCutoff')]
-cutoff=[c for c in cutoffs if c.get('cycle') == 'EVENING' and c.get('triggeredByCutoff')]
-if not auto or not cutoff:
-    sys.exit(1)
-auto_comment=(auto[0].get('runDetail', {}).get('summary', {}).get('triggerComments', '') or '').lower()
-cutoff_comment=(cutoff[0].get('runDetail', {}).get('summary', {}).get('triggerComments', '') or '').lower()
-if 'automatic' not in auto_comment:
-    sys.exit(1)
-if 'cutoff' not in cutoff_comment:
-    sys.exit(1)
-sys.exit(0)
-PY
-then
-                return 0
-            fi
-        fi
-        attempts=$((attempts + 1))
-        sleep 2
-    done
-    LAST_RESPONSE="$payload"
-    return 1
+    if ! echo "$payload" | jq -e "$expr" >/dev/null; then
+        echo "Run summary validation failed for $code" >&2
+        echo "$payload" | jq '.' >&2 || true
+        exit 1
+    fi
 }
 
-if ! wait_for_cutoffs; then
-    log "Custodian cutoffs did not report expected triggers"
-    printf 'Last response: %s\n' "${LAST_RESPONSE:-<empty>}" >&2
-    tail -n 50 "$APP_LOG" >&2 || true
-    exit 1
-fi
+main() {
+    ensure_port_available
+    build_artifacts
+    start_platform
+    wait_for_health
 
-log "Ensuring scheduled reports executed"
-wait_for_reports() {
-    local attempts=0
-    local payload=""
-    while (( attempts < 30 )); do
-        if payload=$(curl -sSf -H "${AUTH_HEADER[@]}" "http://localhost:$APP_PORT/api/examples/custodian/reports" 2>/dev/null); then
-            LAST_RESPONSE="$payload"
-            if python3 - "$payload" <<'PY'
-import json,sys
-reports=json.loads(sys.argv[1] or '[]')
-if len(reports) != 3:
-    sys.exit(1)
-if not all(r.get('workbook') for r in reports):
-    sys.exit(1)
-sys.exit(0)
-PY
-then
-                return 0
-            fi
-        fi
-        attempts=$((attempts + 1))
-        sleep 2
+    log "Authenticating admin user"
+    if ! ADMIN_TOKEN=$(login "$ADMIN_USERNAME" "$ADMIN_PASSWORD"); then
+        echo "Failed to authenticate admin user" >&2
+        exit 1
+    fi
+
+    local -a CODES=()
+    local -a IDS=()
+    for payload in "${PAYLOADS[@]}"; do
+        log "Installing reconciliation from $(basename "$payload")"
+        recon_id=$(upsert_reconciliation "$payload" "$ADMIN_TOKEN")
+        code=$(jq -r '.code' "$payload")
+        CODES+=("$code")
+        IDS+=("$recon_id")
     done
-    LAST_RESPONSE="$payload"
-    return 1
+
+    local cli_jar="$HARNESS_DIR/target/integration-ingestion-cli.jar"
+    if [[ ! -f "$cli_jar" ]]; then
+        echo "Ingestion CLI jar not found at $cli_jar" >&2
+        exit 1
+    fi
+
+    log "Running ingestion CLI to load all scenarios"
+    java -jar "$cli_jar" \
+        --base-url "$BASE_URL" \
+        --username "$ADMIN_USERNAME" \
+        --password "$ADMIN_PASSWORD" \
+        --scenario all
+
+    log "Authenticating operations user"
+    if ! OPS_TOKEN=$(login "$OPS_USERNAME" "$OPS_PASSWORD"); then
+        echo "Failed to authenticate operations user" >&2
+        exit 1
+    fi
+
+    for idx in "${!CODES[@]}"; do
+        code="${CODES[$idx]}"
+        recon_id="${IDS[$idx]}"
+        log "Triggering reconciliation run for $code"
+        run_payload=$(trigger_run "$recon_id" "$OPS_TOKEN" "Harness validation")
+        summary_json=$(echo "$run_payload" | jq -c '.summary // empty')
+        if [[ -z "$summary_json" ]]; then
+            log "Run payload for $code: $(echo "$run_payload" | jq -c '.')"
+        fi
+        log "Run summary for $code: ${summary_json:-<unavailable>}"
+        validate_summary "$run_payload" "$code"
+    done
+
+    log "Integration harness validation completed successfully"
 }
 
-if ! wait_for_reports; then
-    log "Scheduled reports were not generated as expected"
-    printf 'Last response: %s\n' "${LAST_RESPONSE:-<empty>}" >&2
-    tail -n 50 "$APP_LOG" >&2 || true
-    exit 1
-fi
-
-log "Triggering manual reconciliation due to missing evening file"
-MANUAL_PAYLOAD='{"triggerType":"MANUAL_API","correlationId":"harness-manual","comments":"Manual trigger for missing custodial file","initiatedBy":"integration-harness"}'
-MANUAL_RUN=$(curl -sSf -X POST "http://localhost:$APP_PORT/api/reconciliations/$CUSTODIAN_ID/run" \
-    -H 'Content-Type: application/json' -H "${AUTH_HEADER[@]}" -d "$MANUAL_PAYLOAD" 2>/dev/null)
-if ! python3 - "$MANUAL_RUN" <<'PY'
-import json,sys
-run=json.loads(sys.argv[1] or '{}')
-summary=run.get('summary') or {}
-if summary.get('triggerType') != 'MANUAL_API':
-    sys.exit(1)
-if 'Manual trigger for missing custodial file' not in (summary.get('triggerComments', '') or ''):
-    sys.exit(1)
-sys.exit(0)
-PY
-then
-    log "Manual trigger validation failed"
-    printf 'Manual run response: %s\n' "${MANUAL_RUN:-<empty>}" >&2
-    tail -n 50 "$APP_LOG" >&2 || true
-    exit 1
-fi
-
-log "Manual trigger appended to run history"
-UPDATED_RUNS=$(curl -sSf -H "${AUTH_HEADER[@]}" "http://localhost:$APP_PORT/api/reconciliations/$CUSTODIAN_ID/runs?limit=1" 2>/dev/null)
-if ! python3 - "$UPDATED_RUNS" <<'PY'
-import json,sys
-runs=json.loads(sys.argv[1] or '[]')
-if not runs:
-    sys.exit(1)
-latest=runs[0]
-if latest.get('triggerType') != 'MANUAL_API':
-    sys.exit(1)
-if latest.get('triggerComments') != 'Manual trigger for missing custodial file':
-    sys.exit(1)
-sys.exit(0)
-PY
-then
-    log "Run history validation failed"
-    printf 'Run history payload: %s\n' "${UPDATED_RUNS:-<empty>}" >&2
-    tail -n 50 "$APP_LOG" >&2 || true
-    exit 1
-fi
-
-log "Integration harness validation completed successfully"
+main "$@"

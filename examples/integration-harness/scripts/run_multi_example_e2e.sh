@@ -169,7 +169,7 @@ upsert_reconciliation() {
     fi
 
     local response status
-    response=$(mktemp)
+    response=$(mktemp "$LOG_DIR/curl_response.XXXXXX")
     status=$(curl -sS -o "$response" -w '%{http_code}' -X "$method" "$url" \
         -H "Authorization: Bearer $token" \
         -H 'Content-Type: application/json' \
@@ -199,7 +199,7 @@ trigger_run() {
     local token="$2"
     local comments="$3"
     local response status tmp
-    tmp=$(mktemp)
+    tmp=$(mktemp "$LOG_DIR/curl_response.XXXXXX")
     status=$(curl -sS -o "$tmp" -w '%{http_code}' -X POST "$BASE_URL/api/reconciliations/$recon_id/run" \
         -H "Authorization: Bearer $token" \
         -H 'Content-Type: application/json' \

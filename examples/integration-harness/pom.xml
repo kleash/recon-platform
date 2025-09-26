@@ -60,7 +60,6 @@
                             <goal>single</goal>
                         </goals>
                         <configuration>
-                            <classifier>cli</classifier>
                             <archive>
                                 <manifest>
                                     <mainClass>com.universal.reconciliation.examples.harness.ingestion.IngestionCliApplication</mainClass>

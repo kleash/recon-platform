@@ -75,7 +75,7 @@ java -jar examples/integration-harness/target/integration-ingestion-cli.jar \
 
 Valid scenarios are `cash-vs-gl`, `custodian-trade`, `securities-position`, or `all` (default).
 
-## Customising the harness
+## Customizing the harness
 
 - Add new payloads under `payloads/` and reference additional CSV fixtures from
   `src/main/resources/data/` to extend the scenario coverage.

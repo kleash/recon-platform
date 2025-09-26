@@ -13,7 +13,7 @@ Use this playbook to introduce new reconciliations into the Universal Reconcilia
 | --- | --- | --- | --- |
 | Scoping | Document business rules, tolerances, workflow requirements. | Product owner | Approved requirements brief |
 | Data Prep | Build or update ETL pipelines to stage normalized records. | Data engineering | Populated staging tables |
-| Configuration | Create reconciliation definition, fields, and matching rules via admin UI or API. | Recon admin | Metadata package |
+| Configuration | Create reconciliation definition, fields, matching rules, and report templates via the Admin Configurator. | Recon admin | Published metadata version |
 | Security | Map LDAP groups to access scopes and workflow roles. | Security admin | Access control matrix |
 | Verification | Execute dry runs, validate breaks, review dashboards, and confirm reports. | Recon admin & analysts | Run acceptance report |
 | Automation | Configure schedules, APIs, or Kafka triggers for production workloads. | Operations | Automation runbook |
@@ -31,11 +31,17 @@ Use this playbook to introduce new reconciliations into the Universal Reconcilia
 | `account` | `account_number` | `gl_account` | Display only |
 
 ### 3.2 Configuration Method
-In the current version of the platform, new reconciliations are defined programmatically by a developer, not through an API. This is done by creating a Java class that defines the reconciliation, its fields, reports, and data loading logic.
+Author the reconciliation directly in the **Admin Configurator**:
 
-This approach ensures that reconciliation definitions are version-controlled and deployed as part of a standard release process.
+1. Navigate to **Admin → Reconciliations → New definition**.
+2. Provide metadata (code, name, description) and assign ownership and maker/checker defaults.
+3. Define sources, selecting adapter types (CSV, JDBC, API) and configuring adapter-specific options.
+4. Add canonical fields, tagging keys, compare fields, products, sub-products, and entities.
+5. Build report templates with tabs, column ordering, and formatting hints.
+6. Configure access control entries mapping LDAP groups to viewer/maker/checker roles.
+7. Save the draft and publish it when validation passes; the platform versions the metadata automatically.
 
-For a complete, step-by-step guide on how to create a new reconciliation pipeline in Java, please see the **[Tutorial: Creating a New Reconciliation](./Tutorial-Creating-a-New-Reconciliation.md)**.
+If you need to bootstrap via API (for automation or migration), export a metadata package from the UI and POST it to `/api/admin/reconciliations` as documented in the **[Admin Configurator Guide](./Admin-Configurator-Guide.md)** and **[API Reference](./API-Reference.md)**.
 
 ### 3.3 Workflow Setup
 - **Maker group:** `cn=recon-makers,ou=groups,dc=corp,dc=internal`
@@ -48,7 +54,12 @@ For a complete, step-by-step guide on how to create a new reconciliation pipelin
 2. Trigger run manually through UI and review analytics for expected break distribution.
 3. Validate maker dashboard filters, drill-down views, and attachments.
 4. Generate ad-hoc Excel export and compare totals to source systems.
-5. Capture screenshots and run IDs for sign-off artifacts.
+5. Capture screenshots and run IDs for sign-off artifacts. Attach the Playwright regression evidence bundle from `automation/regression/reports/latest/` when available.
+
+### 3.5 Promote Between Environments
+1. From the reconciliation detail view, select **Export package** to download the JSON metadata bundle.
+2. In the target environment, import the package and review the diff summary before publishing.
+3. Re-run smoke tests and the automation regression suite to confirm parity.
 
 ## 4. Automation Patterns
 
@@ -97,9 +108,10 @@ POST /api/reports/schedules
 
 ## 5. Database Touchpoints
 - Staging tables: `recon_source_a_cash`, `recon_source_b_gl` (custom ETL-managed).
-- Configuration tables: `recon_definition`, `recon_field`, `matching_rule`, `report_template`, `report_column`.
-- Run tables: `recon_run`, `break_item`, `break_comment`, `break_attachment`, `analytic_snapshot`.
-- Security tables: `access_scope`, `security_group_mapping`.
+- Configuration tables: `reconciliation_definitions`, `reconciliation_sources`, `reconciliation_fields`, `report_templates`, `report_columns`.
+- Ingestion telemetry: `ingestion_batches`, `ingestion_batch_events` (records adapter runs and outcomes).
+- Run tables: `reconciliation_runs`, `break_items`, `break_workflow_audit`, `break_comments`, `break_attachments`, `analytic_snapshots`.
+- Security tables: `access_control_entries`, `group_scope_mappings`.
 
 Ensure Liquibase or Flyway migrations include new templates and reference data when promoting to higher environments.
 

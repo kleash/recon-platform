@@ -13,16 +13,18 @@ If you are a new developer on the project, start here.
 These guides provide deep dives into the platform's architecture, data model, and APIs.
 
 - **[Architecture Deep Dive](./Architecture.md)**: An overview of the system's architecture, key components, design patterns, and code organization.
-- **[Database Schema Reference](./Database-Schema.md)**: Detailed reference for the core database tables.
-- **[API Reference](./API-Reference.md)**: A complete reference for the backend REST API, including endpoints and sample payloads.
+- **[Database Schema Reference](./Database-Schema.md)**: Detailed reference for the core database tables, including maker-checker audit history and ingestion metadata.
+- **[API Reference](./API-Reference.md)**: A complete reference for the backend REST API, including admin configuration endpoints and maker/checker workflow operations.
+- **[Documentation Navigator](./Documentation-Navigator.md)**: Quick index of every guide and when to use it.
 
 ## 3. Development & Extension
 
 Use these guides to understand common development workflows and learn how to extend the platform.
 
-- **[Tutorial: Creating a New Reconciliation](./Tutorial-Creating-a-New-Reconciliation.md)**: A hands-on tutorial for adding a new reconciliation pipeline to the platform.
+- **[Tutorial: Creating a New Reconciliation](./Tutorial-Creating-a-New-Reconciliation.md)**: A hands-on tutorial for adding a new reconciliation pipeline to the platform via configuration-driven metadata.
 - **[Development Workflow Guide](./Development-Workflow.md)**: Information on building, testing, debugging, and other common development tasks.
 - **[Admin Reconciliation Configurator Guide](./Admin-Configurator-Guide.md)**: Step-by-step instructions for using the admin workspace, schema exports, and ingestion helpers.
+- **[Automation Regression Guide](../../automation/regression/README.md)**: How to execute the Playwright end-to-end suite and interpret reports.
 
 ## 4. Process & Governance
 
@@ -30,6 +32,5 @@ These documents cover the business-level processes and features of the platform.
 
 - **[Onboarding Playbook](./onboarding-guide.md)**: A checklist and process guide for onboarding a new reconciliation from a business perspective.
 - **[Feature Overview](./features.md)**: A description of the platform's features from a user's point of view.
-- **[Feature Request: Enhanced Maker-Checker Workflow](./feature-request-maker-checker-enhancements.md)**: Consolidated proposal to extend maker-checker controls across backend and frontend.
 - **[Maker-Checker Enhancements](./maker-checker-enhancements.md)**: Implementation guide and user experience notes for the enhanced approval workflow.
-- **[Feature Request: Admin Reconciliation Configurator](./Feature-Request-Admin-Reconciliation-Configurator.md)**: Comprehensive plan for delivering the admin UI and API enhancements that let a single platform instance host multiple reconciliations configured through metadata.
+- **Completed feature requests:** Historical specifications that informed delivery now live in [`completed-features/`](./completed-features/README.md).

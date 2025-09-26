@@ -105,14 +105,16 @@ _Response `200 OK`_
     {
       "id": 5012,
       "breakType": "MISMATCH",
-      "status": "OPEN",
+      "status": "PENDING_APPROVAL",
       "product": "EQUITIES",
       "subProduct": "US LISTED",
       "entity": "Fund-01",
-      "allowedStatusTransitions": ["PENDING_APPROVAL"],
+      "submittedBy": "CN=analyst.jane,OU=Users,DC=corp,DC=example",
+      "allowedStatusTransitions": ["REJECTED", "CLOSED"],
       "detectedAt": "2024-09-15T21:05:18Z",
       "sourceA": {"transactionId": "TX-99321", "amount": 100000.0},
       "sourceB": {"transactionId": "TX-99321", "amount": 95000.0},
+      "workflowAuditCount": 1,
       "comments": []
     }
   ],
@@ -139,8 +141,9 @@ _Response `200 OK`_: identical payload shape as the trigger response but scoped 
 | Endpoint | Method | Description |
 | --- | --- | --- |
 | `/api/breaks/{id}/comments` | POST | Append a timeline comment and optional action code to a break. |
-| `/api/breaks/{id}/status` | PATCH | Transition a break to `PENDING_APPROVAL` or `CLOSED` (maker/checker enforced). |
+| `/api/breaks/{id}/status` | PATCH | Transition a break to `PENDING_APPROVAL`, `REJECTED`, or `CLOSED` (maker/checker enforced with role validation). |
 | `/api/breaks/bulk` | POST | Apply a shared status change and/or comment to multiple breaks. |
+| `/api/breaks/{id}/workflow-audit` | GET | Retrieve the immutable maker/checker audit trail for a break, including actor roles and comments. |
 
 **Sample: Comment on a break**
 
@@ -161,14 +164,16 @@ _Response `200 OK`_
 {
   "id": 5012,
   "breakType": "MISMATCH",
-  "status": "OPEN",
+  "status": "PENDING_APPROVAL",
   "product": "EQUITIES",
   "subProduct": "US LISTED",
   "entity": "Fund-01",
-  "allowedStatusTransitions": ["PENDING_APPROVAL"],
+  "submittedBy": "CN=analyst.jane,OU=Users,DC=corp,DC=example",
+  "allowedStatusTransitions": ["REJECTED", "CLOSED"],
   "detectedAt": "2024-09-15T21:05:18Z",
   "sourceA": {"transactionId": "TX-99321", "amount": 100000.0},
   "sourceB": {"transactionId": "TX-99321", "amount": 95000.0},
+  "workflowAuditCount": 1,
   "comments": [
     {
       "id": 88291,
@@ -198,6 +203,42 @@ Authorization: Bearer <token>
 ```
 
 _Response `200 OK`_: returns an array of updated `BreakItemDto` objects mirroring the structure above.
+
+**Sample: Fetch workflow audit**
+
+_Request_
+```http
+GET /api/breaks/5012/workflow-audit HTTP/1.1
+Authorization: Bearer <token>
+```
+
+_Response `200 OK`_
+```json
+[
+  {
+    "id": 70001,
+    "breakId": 5012,
+    "previousStatus": "OPEN",
+    "newStatus": "PENDING_APPROVAL",
+    "actorDn": "CN=analyst.jane,OU=Users,DC=corp,DC=example",
+    "actorRole": "MAKER",
+    "comment": "Escalating for approval",
+    "correlationId": "OPS-2024-09-15-001",
+    "createdAt": "2024-09-15T21:12:03Z"
+  },
+  {
+    "id": 70002,
+    "breakId": 5012,
+    "previousStatus": "PENDING_APPROVAL",
+    "newStatus": "REJECTED",
+    "actorDn": "CN=checker.dave,OU=Users,DC=corp,DC=example",
+    "actorRole": "CHECKER",
+    "comment": "Variance still unexplained",
+    "correlationId": "OPS-2024-09-15-001",
+    "createdAt": "2024-09-15T21:20:11Z"
+  }
+]
+```
 
 ### 7.4 Administration
 | Endpoint | Method | Description |

@@ -1,0 +1,235 @@
+{
+  "code": "CUSTODIAN_TRADE_COMPLEX",
+  "name": "Global Custodian Trade Reconciliation",
+  "description": "Multi-custodian trade comparison with morning and evening cutoffs authored via admin API.",
+  "owner": "Global Markets Operations",
+  "makerCheckerEnabled": true,
+  "notes": "Provisioned through the integration harness admin configurator flow.",
+  "status": "PUBLISHED",
+  "autoTriggerEnabled": false,
+  "autoTriggerCron": null,
+  "autoTriggerTimezone": null,
+  "autoTriggerGraceMinutes": null,
+  "version": null,
+  "sources": [
+    {
+      "id": null,
+      "code": "PLATFORM",
+      "displayName": "Trading Platform",
+      "adapterType": "CSV_FILE",
+      "anchor": true,
+      "description": "Trading platform summary export aligned to custodian trades.",
+      "connectionConfig": "jdbc:postgresql://platform-sim/trades",
+      "arrivalExpectation": "Morning 09:15 & Evening 18:00 Eastern",
+      "arrivalTimezone": "America/New_York",
+      "arrivalSlaMinutes": 30,
+      "adapterOptions": "{\"delimiter\":\",\",\"header\":true}"
+    },
+    {
+      "id": null,
+      "code": "CUSTODIAN",
+      "displayName": "Custodian Feeds",
+      "adapterType": "CSV_FILE",
+      "anchor": false,
+      "description": "Intraday custodian files arriving across global cutoffs.",
+      "connectionConfig": "sftp://custodian-dropbox/trades",
+      "arrivalExpectation": "Morning 08:30 & Evening 17:30 Eastern",
+      "arrivalTimezone": "America/New_York",
+      "arrivalSlaMinutes": 45,
+      "adapterOptions": "{\"delimiter\":\",\",\"header\":true}"
+    }
+  ],
+  "canonicalFields": [
+    {
+      "id": null,
+      "canonicalName": "transactionId",
+      "displayName": "Trade ID",
+      "role": "KEY",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 1,
+      "required": true,
+      "mappings": [
+        {"id": null, "sourceCode": "PLATFORM", "sourceColumn": "trade_id", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
+        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "trade_id", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "subProduct",
+      "displayName": "Source",
+      "role": "KEY",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": "subProduct",
+      "formattingHint": null,
+      "displayOrder": 2,
+      "required": true,
+      "mappings": [
+        {"id": null, "sourceCode": "PLATFORM", "sourceColumn": "source", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
+        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "source", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "amount",
+      "displayName": "Gross Amount",
+      "role": "COMPARE",
+      "dataType": "DECIMAL",
+      "comparisonLogic": "NUMERIC_THRESHOLD",
+      "thresholdPercentage": 0.25,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 3,
+      "required": true,
+      "mappings": [
+        {"id": null, "sourceCode": "PLATFORM", "sourceColumn": "gross_amount", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
+        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "gross_amount", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "quantity",
+      "displayName": "Quantity",
+      "role": "COMPARE",
+      "dataType": "DECIMAL",
+      "comparisonLogic": "NUMERIC_THRESHOLD",
+      "thresholdPercentage": 0.5,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 4,
+      "required": true,
+      "mappings": [
+        {"id": null, "sourceCode": "PLATFORM", "sourceColumn": "quantity", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
+        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "quantity", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "currency",
+      "displayName": "Currency",
+      "role": "COMPARE",
+      "dataType": "STRING",
+      "comparisonLogic": "CASE_INSENSITIVE",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 5,
+      "required": true,
+      "mappings": [
+        {"id": null, "sourceCode": "PLATFORM", "sourceColumn": "currency", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
+        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "currency", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "tradeDate",
+      "displayName": "Trade Date",
+      "role": "COMPARE",
+      "dataType": "DATE",
+      "comparisonLogic": "DATE_ONLY",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 6,
+      "required": true,
+      "mappings": [
+        {"id": null, "sourceCode": "PLATFORM", "sourceColumn": "trade_date", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
+        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "trade_date", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "product",
+      "displayName": "Product",
+      "role": "PRODUCT",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": "product",
+      "formattingHint": null,
+      "displayOrder": 7,
+      "required": true,
+      "mappings": [
+        {"id": null, "sourceCode": "PLATFORM", "sourceColumn": "book", "transformationExpression": null, "defaultValue": "Global Markets", "ordinalPosition": 0, "required": true},
+        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "desk", "transformationExpression": null, "defaultValue": "Global Markets", "ordinalPosition": 0, "required": true}
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "entityName",
+      "displayName": "Portfolio",
+      "role": "ENTITY",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": "entity",
+      "formattingHint": null,
+      "displayOrder": 8,
+      "required": true,
+      "mappings": [
+        {"id": null, "sourceCode": "PLATFORM", "sourceColumn": "book", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
+        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "portfolio", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+      ]
+    }
+  ],
+  "reportTemplates": [
+    {
+      "id": null,
+      "name": "Custodian Trade Health",
+      "description": "Automated reporting of custodian versus platform variances.",
+      "includeMatched": true,
+      "includeMismatched": true,
+      "includeMissing": true,
+      "highlightDifferences": true,
+      "columns": [
+        {"id": null, "header": "Trade ID", "source": "SOURCE_A", "sourceField": "transactionId", "displayOrder": 1, "highlightDifferences": false},
+        {"id": null, "header": "Source", "source": "SOURCE_A", "sourceField": "subProduct", "displayOrder": 2, "highlightDifferences": false},
+        {"id": null, "header": "Gross Amount (Custodian)", "source": "SOURCE_B", "sourceField": "amount", "displayOrder": 3, "highlightDifferences": true},
+        {"id": null, "header": "Gross Amount (Platform)", "source": "SOURCE_A", "sourceField": "amount", "displayOrder": 4, "highlightDifferences": true},
+        {"id": null, "header": "Quantity (Custodian)", "source": "SOURCE_B", "sourceField": "quantity", "displayOrder": 5, "highlightDifferences": true},
+        {"id": null, "header": "Quantity (Platform)", "source": "SOURCE_A", "sourceField": "quantity", "displayOrder": 6, "highlightDifferences": true},
+        {"id": null, "header": "Workflow Status", "source": "BREAK_METADATA", "sourceField": "status", "displayOrder": 7, "highlightDifferences": false}
+      ]
+    }
+  ],
+  "accessControlEntries": [
+    {
+      "id": null,
+      "ldapGroupDn": "recon-makers",
+      "role": "MAKER",
+      "product": "Global Markets",
+      "subProduct": "Equities",
+      "entityName": "US",
+      "notifyOnPublish": false,
+      "notifyOnIngestionFailure": true,
+      "notificationChannel": "gm-makers@universal.example"
+    },
+    {
+      "id": null,
+      "ldapGroupDn": "recon-checkers",
+      "role": "CHECKER",
+      "product": "Global Markets",
+      "subProduct": "Equities",
+      "entityName": "US",
+      "notifyOnPublish": true,
+      "notifyOnIngestionFailure": false,
+      "notificationChannel": "gm-checkers@universal.example"
+    },
+    {
+      "id": null,
+      "ldapGroupDn": "recon-ops",
+      "role": "VIEWER",
+      "product": "Global Markets",
+      "subProduct": "Equities",
+      "entityName": "US",
+      "notifyOnPublish": false,
+      "notifyOnIngestionFailure": false,
+      "notificationChannel": "gm-ops@universal.example"
+    }
+  ]
+}

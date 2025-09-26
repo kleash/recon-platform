@@ -1,0 +1,262 @@
+{
+  "code": "SEC_POSITION_COMPLEX",
+  "name": "Global Securities Positions",
+  "description": "Complex maker-checker securities position comparison with tolerances.",
+  "owner": "Securities Operations",
+  "makerCheckerEnabled": true,
+  "notes": "Provisioned through the integration harness admin configurator flow.",
+  "status": "PUBLISHED",
+  "autoTriggerEnabled": true,
+  "autoTriggerCron": "0 18 * * MON-FRI",
+  "autoTriggerTimezone": "Europe/London",
+  "autoTriggerGraceMinutes": 25,
+  "version": null,
+  "sources": [
+    {
+      "id": null,
+      "code": "CUSTODIAN",
+      "displayName": "Global Custodians",
+      "adapterType": "CSV_FILE",
+      "anchor": true,
+      "description": "Aggregated positions received from global custodians (anchor).",
+      "connectionConfig": "sftp://custodian-dropbox/global",
+      "arrivalExpectation": "Global cut by 17:30 London",
+      "arrivalTimezone": "Europe/London",
+      "arrivalSlaMinutes": 45,
+      "adapterOptions": "{\"delimiter\":\",\"}"
+    },
+    {
+      "id": null,
+      "code": "PORTFOLIO",
+      "displayName": "Portfolio Accounting",
+      "adapterType": "CSV_FILE",
+      "anchor": false,
+      "description": "In-house portfolio accounting snapshot for comparison.",
+      "connectionConfig": "jdbc:postgresql://portfolio-sim/positions",
+      "arrivalExpectation": "Downstream publish by 17:15 London",
+      "arrivalTimezone": "Europe/London",
+      "arrivalSlaMinutes": 30,
+      "adapterOptions": "{\"delimiter\":\",\"}"
+    }
+  ],
+  "canonicalFields": [
+    {
+      "id": null,
+      "canonicalName": "transactionId",
+      "displayName": "Position ID",
+      "role": "KEY",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 1,
+      "required": true,
+      "mappings": [
+        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "transactionId", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
+        {"id": null, "sourceCode": "PORTFOLIO", "sourceColumn": "transactionId", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "accountId",
+      "displayName": "Account",
+      "role": "KEY",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 2,
+      "required": true,
+      "mappings": [
+        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "accountId", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
+        {"id": null, "sourceCode": "PORTFOLIO", "sourceColumn": "accountId", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "isin",
+      "displayName": "ISIN",
+      "role": "KEY",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 3,
+      "required": true,
+      "mappings": [
+        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "isin", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
+        {"id": null, "sourceCode": "PORTFOLIO", "sourceColumn": "isin", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "quantity",
+      "displayName": "Quantity",
+      "role": "COMPARE",
+      "dataType": "DECIMAL",
+      "comparisonLogic": "NUMERIC_THRESHOLD",
+      "thresholdPercentage": 0.5,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 4,
+      "required": true,
+      "mappings": [
+        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "quantity", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
+        {"id": null, "sourceCode": "PORTFOLIO", "sourceColumn": "quantity", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "marketValue",
+      "displayName": "Market Value",
+      "role": "COMPARE",
+      "dataType": "DECIMAL",
+      "comparisonLogic": "NUMERIC_THRESHOLD",
+      "thresholdPercentage": 1.5,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 5,
+      "required": true,
+      "mappings": [
+        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "marketValue", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
+        {"id": null, "sourceCode": "PORTFOLIO", "sourceColumn": "marketValue", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "valuationCurrency",
+      "displayName": "Valuation CCY",
+      "role": "COMPARE",
+      "dataType": "STRING",
+      "comparisonLogic": "CASE_INSENSITIVE",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 6,
+      "required": true,
+      "mappings": [
+        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "valuationCurrency", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
+        {"id": null, "sourceCode": "PORTFOLIO", "sourceColumn": "valuationCurrency", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "valuationDate",
+      "displayName": "Valuation Date",
+      "role": "COMPARE",
+      "dataType": "DATE",
+      "comparisonLogic": "DATE_ONLY",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 7,
+      "required": true,
+      "mappings": [
+        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "valuationDate", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
+        {"id": null, "sourceCode": "PORTFOLIO", "sourceColumn": "valuationDate", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "product",
+      "displayName": "Product",
+      "role": "PRODUCT",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": "product",
+      "formattingHint": null,
+      "displayOrder": 8,
+      "required": true,
+      "mappings": [
+        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "product", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
+        {"id": null, "sourceCode": "PORTFOLIO", "sourceColumn": "product", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "subProduct",
+      "displayName": "Desk",
+      "role": "SUB_PRODUCT",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": "subProduct",
+      "formattingHint": null,
+      "displayOrder": 9,
+      "required": true,
+      "mappings": [
+        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "subProduct", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
+        {"id": null, "sourceCode": "PORTFOLIO", "sourceColumn": "subProduct", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "entityName",
+      "displayName": "Entity",
+      "role": "ENTITY",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": "entity",
+      "formattingHint": null,
+      "displayOrder": 10,
+      "required": true,
+      "mappings": [
+        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "entityName", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
+        {"id": null, "sourceCode": "PORTFOLIO", "sourceColumn": "entityName", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+      ]
+    }
+  ],
+  "reportTemplates": [
+    {
+      "id": null,
+      "name": "Global Securities Export",
+      "description": "Detailed maker-checker export with tolerances and workflow metadata.",
+      "includeMatched": true,
+      "includeMismatched": true,
+      "includeMissing": true,
+      "highlightDifferences": true,
+      "columns": [
+        {"id": null, "header": "Account", "source": "SOURCE_A", "sourceField": "accountId", "displayOrder": 1, "highlightDifferences": false},
+        {"id": null, "header": "ISIN", "source": "SOURCE_A", "sourceField": "isin", "displayOrder": 2, "highlightDifferences": false},
+        {"id": null, "header": "Quantity (Custodian)", "source": "SOURCE_A", "sourceField": "quantity", "displayOrder": 3, "highlightDifferences": true},
+        {"id": null, "header": "Quantity (Portfolio)", "source": "SOURCE_B", "sourceField": "quantity", "displayOrder": 4, "highlightDifferences": true},
+        {"id": null, "header": "Market Value (Custodian)", "source": "SOURCE_A", "sourceField": "marketValue", "displayOrder": 5, "highlightDifferences": true},
+        {"id": null, "header": "Market Value (Portfolio)", "source": "SOURCE_B", "sourceField": "marketValue", "displayOrder": 6, "highlightDifferences": true},
+        {"id": null, "header": "Valuation CCY (Custodian)", "source": "SOURCE_A", "sourceField": "valuationCurrency", "displayOrder": 7, "highlightDifferences": true},
+        {"id": null, "header": "Valuation CCY (Portfolio)", "source": "SOURCE_B", "sourceField": "valuationCurrency", "displayOrder": 8, "highlightDifferences": true},
+        {"id": null, "header": "Valuation Date (Custodian)", "source": "SOURCE_A", "sourceField": "valuationDate", "displayOrder": 9, "highlightDifferences": true},
+        {"id": null, "header": "Valuation Date (Portfolio)", "source": "SOURCE_B", "sourceField": "valuationDate", "displayOrder": 10, "highlightDifferences": true},
+        {"id": null, "header": "Workflow Status", "source": "BREAK_METADATA", "sourceField": "status", "displayOrder": 11, "highlightDifferences": false}
+      ]
+    }
+  ],
+  "accessControlEntries": [
+    {
+      "id": null,
+      "ldapGroupDn": "recon-makers",
+      "role": "MAKER",
+      "product": "Securities",
+      "subProduct": "Equities",
+      "entityName": null,
+      "notifyOnPublish": false,
+      "notifyOnIngestionFailure": true,
+      "notificationChannel": "securities-makers@universal.example"
+    },
+    {
+      "id": null,
+      "ldapGroupDn": "recon-checkers",
+      "role": "CHECKER",
+      "product": "Securities",
+      "subProduct": "Equities",
+      "entityName": null,
+      "notifyOnPublish": true,
+      "notifyOnIngestionFailure": false,
+      "notificationChannel": "securities-checkers@universal.example"
+    }
+  ]
+}

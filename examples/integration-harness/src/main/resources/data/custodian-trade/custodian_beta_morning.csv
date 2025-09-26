@@ -1,0 +1,2 @@
+trade_id,source_trade_id,symbol,quantity,price,gross_amount,net_amount,trade_date,settlement_date,custodian_code,desk,portfolio,trader,broker,currency,direction,source,status,fee_amount,exchange
+BETA-M-003,BT-EXT-003,SAP,120,148.90,17868.00,17820.50,2024-03-18,2024-03-21,BETA,EQD,EuropeFund,Sophia Patel,Deutsche,EUR,SELL,BETA_TRUST,BOOKED,47.50,XETRA

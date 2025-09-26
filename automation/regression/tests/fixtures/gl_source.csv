@@ -1,0 +1,5 @@
+transactionId,amount,currency,tradeDate,product,subProduct,entityName
+CASH-2001,1000.00,USD,2024-04-01,Payments,Wire,US
+CASH-2002,505.50,EUR,2024-04-01,Payments,Wire,EU
+CASH-2004,450.75,GBP,2024-04-01,Payments,Wire,UK
+CASH-2005,310.10,USD,2024-04-01,Payments,Wire,US

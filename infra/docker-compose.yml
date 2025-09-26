@@ -1,0 +1,64 @@
+services:
+  mariadb:
+    image: mariadb:10.6
+    container_name: urp_mariadb
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: recon_admin
+      MYSQL_DATABASE: recon
+      MYSQL_USER: recon
+      MYSQL_PASSWORD: recon
+    ports:
+      - "${RECON_DB_PORT:-3306}:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+
+  ldap:
+    image: bitnami/openldap:2.6
+    container_name: urp_ldap
+    restart: unless-stopped
+    environment:
+      LDAP_ROOT: dc=universal,dc=local
+      LDAP_ADMIN_USERNAME: admin
+      LDAP_ADMIN_PASSWORD: adminpassword
+      LDAP_SKIP_DEFAULT_TREE: "yes"
+      LDAP_PORT_NUMBER: 389
+      LDAP_LDAPS_PORT_NUMBER: 636
+      LDAP_CUSTOM_LDIF_DIR: /ldifs
+    ports:
+      - "${RECON_LDAP_PORT:-389}:389"
+    volumes:
+      - ./ldap/bootstrap.ldif:/ldifs/00-bootstrap.ldif:ro
+      - ldap_data:/bitnami/openldap
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "/opt/bitnami/openldap/bin/ldapsearch",
+          "-x",
+          "-H",
+          "ldap://localhost:389",
+          "-D",
+          "cn=admin,dc=universal,dc=local",
+          "-w",
+          "adminpassword",
+          "-b",
+          "dc=universal,dc=local",
+          "-s",
+          "base",
+          "(objectClass=*)"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+
+volumes:
+  mariadb_data:
+  ldap_data:

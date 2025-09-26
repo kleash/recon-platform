@@ -39,6 +39,20 @@
 - **Refreshing data:** Restarting the backend clears the in-memory H2 database. For MariaDB, run `DELETE FROM source_a_records`, `source_b_records`, and `break_items` before rerunning the application to let the ETL pipelines repopulate data.
 - **User identities:** `ldap-data.ldif` seeds demo users and groups when using the embedded LDAP server. Update this file or point Spring LDAP to an external directory for enterprise integration.
 
+### 3.5 Local Dev Helper Script
+You can automate setup and local runtime tasks with `./scripts/local-dev.sh`:
+
+- `./scripts/local-dev.sh bootstrap` installs backend dependencies (`./mvnw dependency:go-offline`) and frontend packages (`npm install`).
+- `./scripts/local-dev.sh infra start` launches MariaDB (port `3306`, override with `RECON_DB_PORT`) and an OpenLDAP instance seeded with demo users (port `389`, override with `RECON_LDAP_PORT`). Use `infra stop` or `infra clean` to tear everything down and drop the attached volumes.
+- `./scripts/local-dev.sh backend --profile dev` starts the Spring Boot service against in-memory H2; pass `--profile local-mariadb` when pointing at the containerised database.
+- `./scripts/local-dev.sh backend --profile local-mariadb,external-ldap` points Spring to both the MariaDB container and the external LDAP directory (`admin1/password`, `ops1/password`).
+- `./scripts/local-dev.sh frontend` runs the Angular dev server (`npm start`) on `http://localhost:4200`.
+- `./scripts/local-dev.sh all --profile local-mariadb,external-ldap` bootstraps dependencies (unless `--skip-bootstrap` is provided), starts infrastructure, and then runs backend and frontend side-by-side until interrupted.
+- `./scripts/local-dev.sh seed` is a post-start helper that applies sample reconciliations, ingests fixture CSVs, and triggers runs so the UI loads with realistic data.
+- `./scripts/local-dev.sh stop` stops the Angular/Java processes (if they’re running) and brings down the Docker infrastructure in one step.
+
+**Default credentials:** When using the local OpenLDAP instance, the demo accounts are `admin1/password` (ROLE_RECON_ADMIN) and `ops1/password` (recon-makers/checkers).
+
 
 ## 6.3 Running Locally
 1. Start the backend: `cd backend && ./mvnw spring-boot:run`

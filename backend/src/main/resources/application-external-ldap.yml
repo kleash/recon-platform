@@ -1,0 +1,8 @@
+spring:
+  ldap:
+    embedded:
+      enabled: false
+    urls: ${LDAP_URL:ldap://localhost:389}
+    base: ${LDAP_BASE_DN:dc=universal,dc=local}
+    username: ${LDAP_BIND_DN:cn=admin,dc=universal,dc=local}
+    password: ${LDAP_BIND_PASSWORD:adminpassword}

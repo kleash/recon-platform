@@ -2,6 +2,16 @@
 
 This document enumerates every major capability delivered by the Universal Reconciliation Platform. Use it to scope implementations, align stakeholders, and ensure downstream teams understand the depth of functionality available today.
 
+## 2024 Highlights
+
+| Theme | Enhancements | What Changed |
+| --- | --- | --- |
+| **Configuration Studio** | Metadata-first admin workspace | Reconciliations, sources, canonical fields, and report templates are now authored in the UI and stored in versioned metadata, eliminating the previous Java-based definitions.
+| **Maker-Checker Workflow** | Rejection handling, dual-control enforcement, workflow audit trail | Makers can no longer self-approve, checkers can reject with mandatory comments, and every transition is persisted in `break_workflow_audit`.
+| **Ingestion Flexibility** | Multi-source ingestion APIs and batch telemetry | Admins can register CSV/JDBC/API adapters and upload batches through secure endpoints, with ingestion activity surfaced in dashboards and audit feeds.
+| **Automation Evidence** | Consolidated Playwright regression suite | The regression pack exercises both admin and analyst workspaces, publishing HTML and Markdown evidence bundles for release sign-off.
+| **Observability & Reporting** | Expanded dashboards and scheduled distribution | Run analytics expose richer dimensional slicing and scheduled reports deliver via email/SFTP with full audit coverage.
+
 ## Executive Overview
 - **Audience:** product owners, delivery leads, and stakeholders who need a concise overview of platform value.
 - **Outcome:** rapid mapping of high-level features to supporting subsystems and workflows.
@@ -33,7 +43,7 @@ graph TD
 | Matching | Multi-stage matching rules | Support exact, tolerance-based, and custom comparison logic with prioritised rule stacks. | Matching engine |
 | Matching | Run orchestration | Trigger runs manually, on schedules, via API calls, or from Kafka topics. | Operations teams |
 | Workflow | Automated break creation | Classify mismatches into actionable break records with contextual metadata. | Makers |
-| Workflow | Maker-checker lifecycle | Enforce configurable approval flows with comments, attachments, and status transitions. | Makers, checkers |
+| Workflow | Maker-checker lifecycle | Enforce configurable approval flows with comments, attachments, status transitions (`OPEN`, `PENDING_APPROVAL`, `REJECTED`, `CLOSED`), and immutable audit trails. | Makers, checkers |
 | Workflow | Bulk updates | Perform mass status updates and annotations directly from filtered break lists. | Makers |
 | Analytics | Real-time dashboards | Surface run-level KPIs, distribution charts, and trend lines for each reconciliation. | Analysts, leadership |
 | Analytics | Activity feeds | Chronicle runs, approvals, exports, and user actions for audit review. | Risk & audit |
@@ -62,7 +72,7 @@ graph TD
 - **Audit immutability:** every transition, comment, and attachment is recorded with LDAP principal metadata for traceability.
 
 ### 4. Analyst Experience
-- **Responsive dashboards:** present run KPIs, filterable break grids, and drill-down side-by-side source comparisons.
+- **Responsive dashboards:** present run KPIs, filterable break grids, and drill-down side-by-side source comparisons with saved filter sets and reusable views.
 - **Stateful sessions:** preserve analyst context, filters, and selections across navigation or page refreshes.
 - **Assisted investigation:** highlight mismatched fields, surface data lineage, and embed reference data for faster resolution.
 
@@ -72,7 +82,7 @@ graph TD
 - **Compliance-ready archives:** persist generated reports with metadata for audit retrieval and retention policies.
 
 ### 6. Integration Surface
-- **REST API:** orchestrate reconciliations, manage configurations, and query outcomes programmatically.
+- **REST API:** orchestrate reconciliations, manage configurations, and query outcomes programmatically with OAuth2/JWT enforcement and fine-grained scopes for admin endpoints.
 - **Event-driven hooks:** listen to Kafka topics for automated triggers or push notifications on run completion.
 - **External orchestrators:** support invocation from enterprise schedulers, RPA bots, or workflow engines via secure APIs.
 
@@ -86,7 +96,7 @@ graph TD
 - **Self-healing ETL:** detect missing demo data or configuration drift and reseed baseline reconciliations on startup.
 - **Run diagnostics:** provide correlation IDs, execution timelines, and anomaly detection flags for support engineers.
 
-## Release Map
+## Roadmap Snapshot
 
 ```mermaid
 gantt
@@ -94,13 +104,16 @@ gantt
     title Capability Delivery Roadmap
     section Core Engine
     MVP Matching & Run Tracking         :done,    des1, 2023-10-01, 2024-01-15
-    Advanced Rule Configurations        :active,  des2, 2024-01-16, 2024-03-30
+    Advanced Rule Configurations        :done,    des2, 2024-01-16, 2024-03-30
     section Workflow & UI
     Analyst Dashboard Foundations       :done,    des3, 2023-11-01, 2024-02-15
-    Maker-Checker Enhancements          :active,  des4, 2024-02-16, 2024-04-30
+    Maker-Checker Enhancements          :done,    des4, 2024-02-16, 2024-04-30
     section Reporting & Automation
     Excel Template Engine               :done,    des5, 2023-12-01, 2024-02-28
-    Scheduled Distribution              :        des6, 2024-03-15, 2024-05-31
+    Scheduled Distribution              :done,    des6, 2024-03-15, 2024-05-31
+    section Continuous Investment
+    Admin Configurator Iterations       :active,  des7, 2024-06-01, 2024-09-30
+    Observability Enhancements          :active,  des8, 2024-07-01, 2024-10-15
 ```
 
-Use this roadmap to communicate current scope and planned investments. Update milestones as delivery progresses.
+Use this roadmap to communicate current scope and planned investments. Update milestones as delivery progresses and add future initiatives as they are approved.

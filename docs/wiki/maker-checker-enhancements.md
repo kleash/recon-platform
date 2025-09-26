@@ -43,6 +43,6 @@ identifier (e.g., `queue-approve-<timestamp>`) to simplify monitoring.
 
 ## Related Documentation
 
-- [Feature Request: Enhanced Maker-Checker Workflow](./feature-request-maker-checker-enhancements.md)
+- [Feature Request: Enhanced Maker-Checker Workflow](./completed-features/feature-request-maker-checker-enhancements.md)
 - [Run Detail Analytics](./run-detail.md)
 

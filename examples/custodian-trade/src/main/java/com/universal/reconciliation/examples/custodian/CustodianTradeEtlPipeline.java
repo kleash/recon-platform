@@ -1,5 +1,6 @@
 package com.universal.reconciliation.examples.custodian;
 
+import com.universal.reconciliation.domain.entity.AccessControlEntry;
 import com.universal.reconciliation.domain.entity.CanonicalField;
 import com.universal.reconciliation.domain.entity.CanonicalFieldMapping;
 import com.universal.reconciliation.domain.entity.ReconciliationDefinition;
@@ -11,6 +12,7 @@ import com.universal.reconciliation.domain.enums.FieldDataType;
 import com.universal.reconciliation.domain.enums.FieldRole;
 import com.universal.reconciliation.domain.enums.IngestionAdapterType;
 import com.universal.reconciliation.domain.enums.ReportColumnSource;
+import com.universal.reconciliation.domain.enums.ReconciliationLifecycleStatus;
 import com.universal.reconciliation.examples.support.AbstractExampleEtlPipeline;
 import com.universal.reconciliation.etl.EtlPipeline;
 import com.universal.reconciliation.repository.AccessControlEntryRepository;
@@ -79,6 +81,10 @@ public class CustodianTradeEtlPipeline extends AbstractExampleEtlPipeline implem
                 "Global Custodian Trade Reconciliation",
                 "Illustrates a multi-file workflow with automated cutoffs and report scheduling.",
                 true);
+        definition.setOwnedBy("Global Markets Operations");
+        definition.setNotes("Demonstrates custodian cutoff logic, scheduler triggers, and report automation.");
+        definition.setStatus(ReconciliationLifecycleStatus.PUBLISHED);
+        definition.setAutoTriggerEnabled(false);
 
         ReconciliationSource custodianSource = source(
                 definition,
@@ -92,16 +98,33 @@ public class CustodianTradeEtlPipeline extends AbstractExampleEtlPipeline implem
                 "Trading Platform",
                 true,
                 IngestionAdapterType.CSV_FILE);
+        custodianSource.setDescription("Intraday custodian files arriving across global cutoffs.");
+        custodianSource.setConnectionConfig("sftp://custodian-dropbox/trades");
+        custodianSource.setArrivalExpectation("Morning 08:30 & Evening 17:30 Eastern");
+        custodianSource.setArrivalTimezone("America/New_York");
+        custodianSource.setArrivalSlaMinutes(45);
+        custodianSource.setAdapterOptions("{\"delimiter\":\",\",\"header\":true}");
+        platformSource.setDescription("Trading platform summary export aligned to custodian trades.");
+        platformSource.setConnectionConfig("jdbc:postgresql://platform-sim/trades");
+        platformSource.setArrivalExpectation("Morning 09:15 & Evening 18:00 Eastern");
+        platformSource.setArrivalTimezone("America/New_York");
+        platformSource.setArrivalSlaMinutes(30);
+        platformSource.setAdapterOptions("{\"delimiter\":\",\",\"header\":true}");
 
         configureFields(definition, custodianSource, platformSource);
         configureReportTemplate(definition);
 
         persistDefinition(definition);
 
-        saveAccessControlEntries(List.of(
-                entry(definition, "recon-makers", AccessRole.MAKER, "Global Markets", "Equities", "US"),
-                entry(definition, "recon-checkers", AccessRole.CHECKER, "Global Markets", "Equities", "US"),
-                entry(definition, "recon-ops", AccessRole.VIEWER, "Global Markets", "Equities", "US")));
+        AccessControlEntry maker = entry(definition, "recon-makers", AccessRole.MAKER, "Global Markets", "Equities", "US");
+        maker.setNotifyOnIngestionFailure(true);
+        maker.setNotificationChannel("gm-makers@universal.example");
+        AccessControlEntry checker = entry(definition, "recon-checkers", AccessRole.CHECKER, "Global Markets", "Equities", "US");
+        checker.setNotifyOnPublish(true);
+        checker.setNotificationChannel("gm-checkers@universal.example");
+        AccessControlEntry viewer = entry(definition, "recon-ops", AccessRole.VIEWER, "Global Markets", "Equities", "US");
+        viewer.setNotificationChannel("gm-ops@universal.example");
+        saveAccessControlEntries(List.of(maker, checker, viewer));
 
         scheduler.configure(definition, CUSTODIANS);
 

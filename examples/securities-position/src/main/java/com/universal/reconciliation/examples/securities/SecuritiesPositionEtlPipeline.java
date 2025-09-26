@@ -1,5 +1,6 @@
 package com.universal.reconciliation.examples.securities;
 
+import com.universal.reconciliation.domain.entity.AccessControlEntry;
 import com.universal.reconciliation.domain.entity.CanonicalField;
 import com.universal.reconciliation.domain.entity.ReconciliationDefinition;
 import com.universal.reconciliation.domain.entity.ReconciliationSource;
@@ -10,6 +11,7 @@ import com.universal.reconciliation.domain.enums.FieldDataType;
 import com.universal.reconciliation.domain.enums.FieldRole;
 import com.universal.reconciliation.domain.enums.IngestionAdapterType;
 import com.universal.reconciliation.domain.enums.ReportColumnSource;
+import com.universal.reconciliation.domain.enums.ReconciliationLifecycleStatus;
 import com.universal.reconciliation.examples.support.AbstractExampleEtlPipeline;
 import com.universal.reconciliation.etl.EtlPipeline;
 import com.universal.reconciliation.repository.AccessControlEntryRepository;
@@ -68,6 +70,13 @@ public class SecuritiesPositionEtlPipeline extends AbstractExampleEtlPipeline im
                 "Global Securities Positions",
                 "Complex maker-checker example covering quantity and valuation tolerances.",
                 true);
+        definition.setOwnedBy("Securities Operations");
+        definition.setNotes("Illustrates tolerance-based comparisons with maker-checker enabled.");
+        definition.setStatus(ReconciliationLifecycleStatus.PUBLISHED);
+        definition.setAutoTriggerEnabled(true);
+        definition.setAutoTriggerCron("0 18 * * MON-FRI");
+        definition.setAutoTriggerTimezone("Europe/London");
+        definition.setAutoTriggerGraceMinutes(25);
 
         ReconciliationSource custodianSource = source(
                 definition,
@@ -81,6 +90,18 @@ public class SecuritiesPositionEtlPipeline extends AbstractExampleEtlPipeline im
                 "Portfolio Accounting",
                 false,
                 IngestionAdapterType.CSV_FILE);
+        custodianSource.setDescription("Aggregated positions received from global custodians (anchor).");
+        custodianSource.setConnectionConfig("sftp://custodian-dropbox/global");
+        custodianSource.setArrivalExpectation("Global cut by 17:30 London");
+        custodianSource.setArrivalTimezone("Europe/London");
+        custodianSource.setArrivalSlaMinutes(45);
+        custodianSource.setAdapterOptions("{\"delimiter\":\",\"}");
+        portfolioSource.setDescription("In-house portfolio accounting snapshot for comparison.");
+        portfolioSource.setConnectionConfig("jdbc:postgresql://portfolio-sim/positions");
+        portfolioSource.setArrivalExpectation("Downstream publish by 17:15 London");
+        portfolioSource.setArrivalTimezone("Europe/London");
+        portfolioSource.setArrivalSlaMinutes(30);
+        portfolioSource.setAdapterOptions("{\"delimiter\":\",\"}");
 
         configureFields(definition, custodianSource, portfolioSource);
 
@@ -108,9 +129,13 @@ public class SecuritiesPositionEtlPipeline extends AbstractExampleEtlPipeline im
 
         persistDefinition(definition);
 
-        saveAccessControlEntries(List.of(
-                entry(definition, "recon-makers", AccessRole.MAKER, "Securities", "Equities", null),
-                entry(definition, "recon-checkers", AccessRole.CHECKER, "Securities", "Equities", null)));
+        AccessControlEntry maker = entry(definition, "recon-makers", AccessRole.MAKER, "Securities", "Equities", null);
+        maker.setNotifyOnIngestionFailure(true);
+        maker.setNotificationChannel("securities-makers@universal.example");
+        AccessControlEntry checker = entry(definition, "recon-checkers", AccessRole.CHECKER, "Securities", "Equities", null);
+        checker.setNotifyOnPublish(true);
+        checker.setNotificationChannel("securities-checkers@universal.example");
+        saveAccessControlEntries(List.of(maker, checker));
 
         ingestCsv(definition, custodianSource.getCode(), "etl/securities/source_a.csv");
         ingestCsv(definition, portfolioSource.getCode(), "etl/securities/source_b.csv");

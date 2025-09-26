@@ -14,6 +14,10 @@ self-contained Spring Boot application.
 - **Matching logic:** Positions are keyed by account and ISIN with numeric tolerances applied to
   quantity and market value fields. Currency and valuation date comparisons enforce straight-through
   accuracy, and additional metadata captures custodian and portfolio manager context.
+- **Automation:** The reconciliation auto-triggers on a weekday 18:00 London cron with a 25 minute
+  grace window to showcase the scheduling metadata.
+- **Notifications:** Makers are alerted on ingestion failure while checkers are notified when runs
+  publish so the activity stream reflects real-world governance.
 - **Workflow:** Maker-checker approvals are enabled; access control entries grant makers and checkers
   visibility across the securities desk.
 

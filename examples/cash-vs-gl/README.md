@@ -13,6 +13,10 @@ general ledger agree with balances delivered by the upstream bank feed.
 sources are ingested by the CSV adapter that is configured in the pipeline.
 - **Matching logic:** The reconciliation key is `transactionId` with exact comparisons on amount,
 trade date, and currency plus product/entity classifiers that drive report segmentation.
+- **Automation:** The definition auto-triggers on a weekday 07:00 Eastern cron with a 20 minute
+grace window so the example reflects the platform's scheduling controls.
+- **Notifications:** Maker groups receive ingestion failure alerts while checkers are notified upon
+publish to mirror the activity stream and compliance hooks.
 - **Workflow:** Maker-checker is disabled for brevity, but access control entries still grant maker
 and checker visibility across the demo business units.
 

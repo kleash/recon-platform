@@ -1,5 +1,6 @@
 package com.universal.reconciliation.examples.cashgl;
 
+import com.universal.reconciliation.domain.entity.AccessControlEntry;
 import com.universal.reconciliation.domain.entity.CanonicalField;
 import com.universal.reconciliation.domain.entity.ReconciliationDefinition;
 import com.universal.reconciliation.domain.entity.ReconciliationSource;
@@ -10,6 +11,7 @@ import com.universal.reconciliation.domain.enums.FieldDataType;
 import com.universal.reconciliation.domain.enums.FieldRole;
 import com.universal.reconciliation.domain.enums.IngestionAdapterType;
 import com.universal.reconciliation.domain.enums.ReportColumnSource;
+import com.universal.reconciliation.domain.enums.ReconciliationLifecycleStatus;
 import com.universal.reconciliation.examples.support.AbstractExampleEtlPipeline;
 import com.universal.reconciliation.etl.EtlPipeline;
 import com.universal.reconciliation.repository.AccessControlEntryRepository;
@@ -66,11 +68,30 @@ public class CashVsGlEtlPipeline extends AbstractExampleEtlPipeline implements E
                 "Cash vs General Ledger (Simple)",
                 "Illustrative single-ledger reconciliation without maker-checker workflow.",
                 false);
+        definition.setOwnedBy("Treasury Operations");
+        definition.setNotes("Seeded via cash vs GL example pipeline for demo environments.");
+        definition.setStatus(ReconciliationLifecycleStatus.PUBLISHED);
+        definition.setAutoTriggerEnabled(true);
+        definition.setAutoTriggerCron("0 7 * * MON-FRI");
+        definition.setAutoTriggerTimezone("America/New_York");
+        definition.setAutoTriggerGraceMinutes(20);
 
         ReconciliationSource cashSource = source(
                 definition, "CASH", "Cash Ledger", true, IngestionAdapterType.CSV_FILE);
         ReconciliationSource glSource = source(
                 definition, "GL", "General Ledger", false, IngestionAdapterType.CSV_FILE);
+        cashSource.setDescription("Daily bank statement feed used as the anchor dataset.");
+        cashSource.setConnectionConfig("s3://demo-data/cash-ledger");
+        cashSource.setArrivalExpectation("Weekdays by 06:30 Eastern");
+        cashSource.setArrivalTimezone("America/New_York");
+        cashSource.setArrivalSlaMinutes(30);
+        cashSource.setAdapterOptions("{\"delimiter\":\",\"}");
+        glSource.setDescription("ERP general ledger export aligned to the cash view.");
+        glSource.setConnectionConfig("jdbc:postgresql://ledger-sim/gl");
+        glSource.setArrivalExpectation("Weekdays by 06:45 Eastern");
+        glSource.setArrivalTimezone("America/New_York");
+        glSource.setArrivalSlaMinutes(45);
+        glSource.setAdapterOptions("{\"delimiter\":\",\"}");
 
         CanonicalField transactionId = canonicalField(
                 definition,
@@ -199,11 +220,20 @@ public class CashVsGlEtlPipeline extends AbstractExampleEtlPipeline implements E
 
         persistDefinition(definition);
 
-        saveAccessControlEntries(List.of(
-                entry(definition, "recon-makers", AccessRole.MAKER, "Payments", "Wire", "US"),
-                entry(definition, "recon-makers", AccessRole.MAKER, "Payments", "Wire", "EU"),
-                entry(definition, "recon-checkers", AccessRole.CHECKER, "Payments", "Wire", "US"),
-                entry(definition, "recon-checkers", AccessRole.CHECKER, "Payments", "Wire", "EU")));
+        AccessControlEntry makerUs = entry(definition, "recon-makers", AccessRole.MAKER, "Payments", "Wire", "US");
+        makerUs.setNotifyOnIngestionFailure(true);
+        makerUs.setNotificationChannel("treasury-makers@universal.example");
+        AccessControlEntry makerEu = entry(definition, "recon-makers", AccessRole.MAKER, "Payments", "Wire", "EU");
+        makerEu.setNotifyOnIngestionFailure(true);
+        makerEu.setNotificationChannel("treasury-makers@universal.example");
+        AccessControlEntry checkerUs = entry(definition, "recon-checkers", AccessRole.CHECKER, "Payments", "Wire", "US");
+        checkerUs.setNotifyOnPublish(true);
+        checkerUs.setNotificationChannel("treasury-checkers@universal.example");
+        AccessControlEntry checkerEu = entry(definition, "recon-checkers", AccessRole.CHECKER, "Payments", "Wire", "EU");
+        checkerEu.setNotifyOnPublish(true);
+        checkerEu.setNotificationChannel("treasury-checkers@universal.example");
+
+        saveAccessControlEntries(List.of(makerUs, makerEu, checkerUs, checkerEu));
 
         ingestCsv(definition, cashSource.getCode(), "etl/cash_gl/source_a.csv");
         ingestCsv(definition, glSource.getCode(), "etl/cash_gl/source_b.csv");

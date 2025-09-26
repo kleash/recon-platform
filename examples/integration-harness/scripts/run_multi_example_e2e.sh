@@ -27,7 +27,7 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 log() {
-    printf '[%(%H:%M:%S)T] %s\n' -1 "$1"
+    printf '[%s] %s\n' "$(date +%H:%M:%S)" "$1"
 }
 
 log "Building backend platform artifact"
@@ -66,7 +66,7 @@ STARTED=false
 for _ in {1..60}; do
     if curl -sf "http://localhost:$APP_PORT/actuator/health" >/dev/null; then
         STATUS=$(curl -sf "http://localhost:$APP_PORT/actuator/health")
-        if python - "$STATUS" <<'PY'
+        if python3 - "$STATUS" <<'PY'
 import json, sys
 payload=json.loads(sys.argv[1])
 if payload.get("status") == "UP":
@@ -99,7 +99,7 @@ authenticate() {
         if response=$(curl -sSf -X POST "http://localhost:$APP_PORT/api/auth/login" \
             -H 'Content-Type: application/json' \
             -d '{"username":"ops1","password":"password"}') && [[ -n "$response" ]]; then
-            if token=$(python - "$response" <<'PY'
+            if token=$(python3 - "$response" <<'PY'
 import json,sys
 try:
     payload=json.loads(sys.argv[1])
@@ -137,7 +137,7 @@ discover_reconciliations() {
     while (( attempts < 30 )); do
         if payload=$(curl -sSf -H "${AUTH_HEADER[@]}" "http://localhost:$APP_PORT/api/reconciliations" 2>/dev/null); then
             LAST_RESPONSE="$payload"
-            if ids=$(python - "$payload" <<'PY'
+            if ids=$(python3 - "$payload" <<'PY'
 import json,sys
 text=sys.argv[1] or '[]'
 recons=json.loads(text)
@@ -161,14 +161,19 @@ PY
     return 1
 }
 
-if ! mapfile -t RECON_IDS < <(discover_reconciliations); then
+if ! RECON_OUTPUT=$(discover_reconciliations); then
     log "Failed to discover seeded reconciliations"
     printf 'Last response: %s\n' "${LAST_RESPONSE:-<empty>}" >&2
     tail -n 50 "$APP_LOG" >&2 || true
     exit 1
 fi
-CASH_ID="${RECON_IDS[0]}"
-CUSTODIAN_ID="${RECON_IDS[1]}"
+CASH_ID=$(printf '%s' "$RECON_OUTPUT" | sed -n '1p')
+CUSTODIAN_ID=$(printf '%s' "$RECON_OUTPUT" | sed -n '2p')
+if [[ -z "$CASH_ID" || -z "$CUSTODIAN_ID" ]]; then
+    log "Discovery returned incomplete identifiers"
+    printf 'Payload: %s\n' "${RECON_OUTPUT}" >&2
+    exit 1
+fi
 
 log "Executing initial cash vs GL reconciliation run"
 CASH_TRIGGER_PAYLOAD='{"triggerType":"MANUAL_API","correlationId":"harness-initial","comments":"Initial harness verification","initiatedBy":"integration-harness"}'
@@ -187,7 +192,7 @@ wait_for_cash_run() {
     while (( attempts < 30 )); do
         if payload=$(curl -sSf -H "${AUTH_HEADER[@]}" "http://localhost:$APP_PORT/api/reconciliations/$recon_id/runs/latest" 2>/dev/null); then
             LAST_RESPONSE="$payload"
-            if python - "$payload" <<'PY'
+            if python3 - "$payload" <<'PY'
 import json,sys
 run=json.loads(sys.argv[1] or '{}')
 summary=run.get('summary') or {}
@@ -223,7 +228,7 @@ wait_for_cutoffs() {
     while (( attempts < 30 )); do
         if payload=$(curl -sSf -H "${AUTH_HEADER[@]}" "http://localhost:$APP_PORT/api/examples/custodian/cutoffs" 2>/dev/null); then
             LAST_RESPONSE="$payload"
-            if python - "$payload" <<'PY'
+            if python3 - "$payload" <<'PY'
 import json,sys
 cutoffs=json.loads(sys.argv[1] or '[]')
 auto=[c for c in cutoffs if c.get('cycle') == 'MORNING' and not c.get('triggeredByCutoff')]
@@ -263,7 +268,7 @@ wait_for_reports() {
     while (( attempts < 30 )); do
         if payload=$(curl -sSf -H "${AUTH_HEADER[@]}" "http://localhost:$APP_PORT/api/examples/custodian/reports" 2>/dev/null); then
             LAST_RESPONSE="$payload"
-            if python - "$payload" <<'PY'
+            if python3 - "$payload" <<'PY'
 import json,sys
 reports=json.loads(sys.argv[1] or '[]')
 if len(reports) != 3:
@@ -294,7 +299,7 @@ log "Triggering manual reconciliation due to missing evening file"
 MANUAL_PAYLOAD='{"triggerType":"MANUAL_API","correlationId":"harness-manual","comments":"Manual trigger for missing custodial file","initiatedBy":"integration-harness"}'
 MANUAL_RUN=$(curl -sSf -X POST "http://localhost:$APP_PORT/api/reconciliations/$CUSTODIAN_ID/run" \
     -H 'Content-Type: application/json' -H "${AUTH_HEADER[@]}" -d "$MANUAL_PAYLOAD" 2>/dev/null)
-if ! python - "$MANUAL_RUN" <<'PY'
+if ! python3 - "$MANUAL_RUN" <<'PY'
 import json,sys
 run=json.loads(sys.argv[1] or '{}')
 summary=run.get('summary') or {}
@@ -313,7 +318,7 @@ fi
 
 log "Manual trigger appended to run history"
 UPDATED_RUNS=$(curl -sSf -H "${AUTH_HEADER[@]}" "http://localhost:$APP_PORT/api/reconciliations/$CUSTODIAN_ID/runs?limit=1" 2>/dev/null)
-if ! python - "$UPDATED_RUNS" <<'PY'
+if ! python3 - "$UPDATED_RUNS" <<'PY'
 import json,sys
 runs=json.loads(sys.argv[1] or '[]')
 if not runs:

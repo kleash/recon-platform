@@ -5,6 +5,8 @@ import com.universal.reconciliation.domain.dto.LoginResponse;
 import com.universal.reconciliation.security.JwtService;
 import java.util.List;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -18,6 +20,8 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class AuthService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     private final AuthenticationManager authenticationManager;
     private final UserDirectoryService userDirectoryService;
@@ -38,6 +42,9 @@ public class AuthService {
     public LoginResponse login(LoginRequest request) {
         Authentication authentication;
         boolean harnessAuthenticated = false;
+        if (log.isDebugEnabled()) {
+            log.debug("Attempting login for user: {}", request.username());
+        }
         Optional<HarnessUser> harnessUser = resolveHarnessUser(request.username(), request.password());
         try {
             authentication = authenticationManager.authenticate(
@@ -47,6 +54,7 @@ public class AuthService {
                 authentication = new UsernamePasswordAuthenticationToken(request.username(), request.password());
                 harnessAuthenticated = true;
             } else {
+                log.debug("Authentication failed for {}: {}", request.username(), ex.getMessage());
                 throw ex;
             }
         }
@@ -60,6 +68,10 @@ public class AuthService {
         } else {
             groups = userDirectoryService.findGroups(username);
             displayName = userDirectoryService.lookupDisplayName(username);
+        }
+
+        if (log.isDebugEnabled()) {
+            log.debug("Login successful for {} with groups: {}", username, groups);
         }
 
         String token = jwtService.generateToken(username, groups, displayName);

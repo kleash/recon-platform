@@ -67,15 +67,15 @@ public class BreakItem {
     private String entityName;
 
     @Lob
-    @Column(name = "source_payload_json", columnDefinition = "CLOB")
+    @Column(name = "source_payload_json", columnDefinition = "LONGTEXT")
     private String sourcePayloadJson;
 
     @Lob
-    @Column(name = "classification_json", columnDefinition = "CLOB")
+    @Column(name = "classification_json", columnDefinition = "LONGTEXT")
     private String classificationJson;
 
     @Lob
-    @Column(name = "missing_sources_json", columnDefinition = "CLOB")
+    @Column(name = "missing_sources_json", columnDefinition = "LONGTEXT")
     private String missingSourcesJson;
 
     /**
@@ -84,12 +84,12 @@ public class BreakItem {
      */
     @Deprecated(forRemoval = true)
     @Lob
-    @Column(columnDefinition = "CLOB")
+    @Column(columnDefinition = "LONGTEXT")
     private String sourceAJson;
 
     @Deprecated(forRemoval = true)
     @Lob
-    @Column(columnDefinition = "CLOB")
+    @Column(columnDefinition = "LONGTEXT")
     private String sourceBJson;
 
     @OneToMany(mappedBy = "breakItem")

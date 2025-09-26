@@ -1,0 +1,58 @@
+dn: dc=universal,dc=local
+objectClass: top
+objectClass: dcObject
+objectClass: organization
+o: Universal Reconciliation
+dc: universal
+
+dn: ou=people,dc=universal,dc=local
+objectClass: top
+objectClass: organizationalUnit
+ou: people
+
+dn: ou=groups,dc=universal,dc=local
+objectClass: top
+objectClass: organizationalUnit
+ou: groups
+
+dn: uid=ops1,ou=people,dc=universal,dc=local
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: ops1
+cn: Operations User
+sn: Operations
+givenName: Ops
+mail: ops1@universal.local
+userPassword: {SSHA}yI6cZwQadOA1e+/f+T+H3eCQQhRzYWx0
+
+dn: uid=admin1,ou=people,dc=universal,dc=local
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: admin1
+cn: Admin User
+sn: Administrator
+givenName: Admin
+mail: admin1@universal.local
+userPassword: {SSHA}yI6cZwQadOA1e+/f+T+H3eCQQhRzYWx0
+
+dn: cn=recon-makers,ou=groups,dc=universal,dc=local
+objectClass: groupOfUniqueNames
+objectClass: top
+cn: recon-makers
+uniqueMember: uid=ops1,ou=people,dc=universal,dc=local
+
+dn: cn=recon-checkers,ou=groups,dc=universal,dc=local
+objectClass: groupOfUniqueNames
+objectClass: top
+cn: recon-checkers
+uniqueMember: uid=ops1,ou=people,dc=universal,dc=local
+
+dn: cn=ROLE_RECON_ADMIN,ou=groups,dc=universal,dc=local
+objectClass: groupOfUniqueNames
+objectClass: top
+cn: ROLE_RECON_ADMIN
+uniqueMember: uid=admin1,ou=people,dc=universal,dc=local

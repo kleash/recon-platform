@@ -31,7 +31,7 @@ spring:
 app:
   security:
     jwt:
-      secret: ${JWT_SECRET}
+      secret: ${JWT_SECRET:bG9jYWwtZGV2LWp3dC1zZWNyZXQta2V5LTMyYnl0ZXMhIQ==}
       expiration-seconds: 86400
     ldap:
       people-base: ${LDAP_PEOPLE_BASE:ou=people,dc=universal,dc=local}

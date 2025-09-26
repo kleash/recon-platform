@@ -6,6 +6,6 @@ BACKEND_DIR="$PROJECT_ROOT/backend"
 COMMON_DIR="$PROJECT_ROOT/examples/common"
 EXAMPLE_DIR="$PROJECT_ROOT/examples/cash-vs-gl"
 
-"$BACKEND_DIR/mvnw" -f "$BACKEND_DIR/pom.xml" install -DskipTests -Dspring-boot.repackage.skip=true
-"$BACKEND_DIR/mvnw" -f "$COMMON_DIR/pom.xml" install -DskipTests
-"$BACKEND_DIR/mvnw" -f "$EXAMPLE_DIR/pom.xml" test
+"$BACKEND_DIR/mvnw" -f "$BACKEND_DIR/pom.xml" clean install -DskipTests -Dspring-boot.repackage.skip=true
+"$BACKEND_DIR/mvnw" -f "$COMMON_DIR/pom.xml" clean install -DskipTests
+"$BACKEND_DIR/mvnw" -f "$EXAMPLE_DIR/pom.xml" clean test

@@ -13,9 +13,13 @@ infrastructure.
   identifies which custodian should have reported each item.
 - **Matching logic:** Trades are keyed by `trade_id` and `source` with tolerance-based comparisons on
   quantity and gross amount so minor rounding differences are tolerated.
+- **Metadata:** Source definitions capture arrival expectations, SLA minutes, and adapter options to
+  demonstrate the platform's richer ingestion metadata model.
 - **Cutoffs and scheduling:** Morning runs are triggered automatically when all files are present,
   while the evening run is forced at 18:00 if a custodian is late. Report jobs run at 15:00, 21:00,
   and 02:00 to cover operational and compliance needs.
+- **Notifications:** Makers receive ingestion failure alerts, checkers receive publish notifications,
+  and operations viewers are copied via the metadata-driven notification channel.
 - **Workflow:** Maker-checker is enabled and access roles are provisioned for makers, checkers, and
   operations viewers across the equities desk.
 

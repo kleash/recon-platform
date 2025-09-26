@@ -13,6 +13,7 @@ import com.universal.reconciliation.domain.enums.FieldDataType;
 import com.universal.reconciliation.domain.enums.FieldRole;
 import com.universal.reconciliation.domain.enums.IngestionAdapterType;
 import com.universal.reconciliation.domain.enums.ReportColumnSource;
+import com.universal.reconciliation.domain.enums.ReconciliationLifecycleStatus;
 import com.universal.reconciliation.repository.AccessControlEntryRepository;
 import com.universal.reconciliation.repository.CanonicalFieldRepository;
 import com.universal.reconciliation.repository.ReconciliationDefinitionRepository;
@@ -82,6 +83,11 @@ public abstract class AbstractExampleEtlPipeline {
         definition.setName(name);
         definition.setDescription(description);
         definition.setMakerCheckerEnabled(makerCheckerEnabled);
+        definition.setStatus(ReconciliationLifecycleStatus.PUBLISHED);
+        definition.setAutoTriggerEnabled(false);
+        definition.setAutoTriggerCron(null);
+        definition.setAutoTriggerTimezone(null);
+        definition.setAutoTriggerGraceMinutes(null);
         return definition;
     }
 
@@ -198,6 +204,9 @@ public abstract class AbstractExampleEtlPipeline {
         entry.setProduct(product);
         entry.setSubProduct(subProduct);
         entry.setEntityName(entity);
+        entry.setNotifyOnPublish(false);
+        entry.setNotifyOnIngestionFailure(false);
+        entry.setNotificationChannel(null);
         return entry;
     }
 

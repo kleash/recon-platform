@@ -5,7 +5,7 @@
   "owner": "Custody Operations",
   "makerCheckerEnabled": true,
   "notes": "Authored via admin configurator example",
-  "status": "DRAFT",
+  "status": "PUBLISHED",
   "autoTriggerEnabled": true,
   "autoTriggerCron": "0 2 * * *",
   "autoTriggerTimezone": "UTC",

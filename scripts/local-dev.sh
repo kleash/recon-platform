@@ -27,7 +27,7 @@ Examples:
   ./scripts/local-dev.sh bootstrap
   ./scripts/local-dev.sh infra start
   ./scripts/local-dev.sh backend --profile local-mariadb
-  ./scripts/local-dev.sh all --profile local-mariadb
+  ./scripts/local-dev.sh all --profile local-mariadb,external-ldap
   ./scripts/local-dev.sh seed
   ./scripts/local-dev.sh stop
 USAGE

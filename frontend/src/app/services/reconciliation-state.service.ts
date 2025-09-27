@@ -175,6 +175,10 @@ export class ReconciliationStateService {
           }
         }
         this.refreshActivity();
+        const selected = this.selectedReconciliationSubject.value;
+        if (selected) {
+          this.fetchLatestRun(selected.id);
+        }
         this.loadApprovalQueue();
       },
       error: (err) => {

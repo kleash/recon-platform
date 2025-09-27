@@ -1,0 +1,187 @@
+{
+  "code": "CASH_GL_HISTORY",
+  "name": "Treasury Cash vs GL Historical",
+  "description": "Simulated 30-day cash versus general ledger control with high volume data.",
+  "owner": "Treasury Operations",
+  "makerCheckerEnabled": true,
+  "notes": "Provisioned by seed-historical script for volume testing.",
+  "status": "PUBLISHED",
+  "autoTriggerEnabled": false,
+  "autoTriggerCron": null,
+  "autoTriggerTimezone": null,
+  "autoTriggerGraceMinutes": null,
+  "version": null,
+  "sources": [
+    {
+      "id": null,
+      "code": "CASH30",
+      "displayName": "Cash Ledger Feed",
+      "adapterType": "CSV_FILE",
+      "anchor": true,
+      "description": "Anchor cash statement used for historical simulation.",
+      "connectionConfig": "s3://historical-seed/cash",
+      "arrivalExpectation": "Daily by 06:30 UTC",
+      "arrivalTimezone": "UTC",
+      "arrivalSlaMinutes": 45,
+      "adapterOptions": "{\"delimiter\":\",\"}"
+    },
+    {
+      "id": null,
+      "code": "GL30",
+      "displayName": "GL Extract",
+      "adapterType": "CSV_FILE",
+      "anchor": false,
+      "description": "Ledger extract aligned to the cash view.",
+      "connectionConfig": "snowflake://historical/gl",
+      "arrivalExpectation": "Daily by 07:00 UTC",
+      "arrivalTimezone": "UTC",
+      "arrivalSlaMinutes": 60,
+      "adapterOptions": "{\"delimiter\":\",\"}"
+    }
+  ],
+  "canonicalFields": [
+    {
+      "id": null,
+      "canonicalName": "transactionId",
+      "displayName": "Transaction ID",
+      "role": "KEY",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 1,
+      "required": true,
+      "mappings": [
+        { "id": null, "sourceCode": "CASH30", "sourceColumn": "transactionId", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
+        { "id": null, "sourceCode": "GL30", "sourceColumn": "transactionId", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "amount",
+      "displayName": "Amount",
+      "role": "COMPARE",
+      "dataType": "DECIMAL",
+      "comparisonLogic": "NUMERIC_THRESHOLD",
+      "thresholdPercentage": 0.5,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 2,
+      "required": true,
+      "mappings": [
+        { "id": null, "sourceCode": "CASH30", "sourceColumn": "amount", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
+        { "id": null, "sourceCode": "GL30", "sourceColumn": "amount", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "currency",
+      "displayName": "Currency",
+      "role": "COMPARE",
+      "dataType": "STRING",
+      "comparisonLogic": "CASE_INSENSITIVE",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 3,
+      "required": true,
+      "mappings": [
+        { "id": null, "sourceCode": "CASH30", "sourceColumn": "currency", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
+        { "id": null, "sourceCode": "GL30", "sourceColumn": "currency", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "tradeDate",
+      "displayName": "Trade Date",
+      "role": "COMPARE",
+      "dataType": "DATE",
+      "comparisonLogic": "DATE_ONLY",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 4,
+      "required": true,
+      "mappings": [
+        { "id": null, "sourceCode": "CASH30", "sourceColumn": "tradeDate", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
+        { "id": null, "sourceCode": "GL30", "sourceColumn": "tradeDate", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "product",
+      "displayName": "Product",
+      "role": "PRODUCT",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": "product",
+      "formattingHint": null,
+      "displayOrder": 5,
+      "required": true,
+      "mappings": [
+        { "id": null, "sourceCode": "CASH30", "sourceColumn": "product", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
+        { "id": null, "sourceCode": "GL30", "sourceColumn": "product", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "subProduct",
+      "displayName": "Sub Product",
+      "role": "SUB_PRODUCT",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": "subProduct",
+      "formattingHint": null,
+      "displayOrder": 6,
+      "required": true,
+      "mappings": [
+        { "id": null, "sourceCode": "CASH30", "sourceColumn": "subProduct", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
+        { "id": null, "sourceCode": "GL30", "sourceColumn": "subProduct", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "entityName",
+      "displayName": "Entity",
+      "role": "ENTITY",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": "entity",
+      "formattingHint": null,
+      "displayOrder": 7,
+      "required": true,
+      "mappings": [
+        { "id": null, "sourceCode": "CASH30", "sourceColumn": "entity", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
+        { "id": null, "sourceCode": "GL30", "sourceColumn": "entity", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+      ]
+    }
+  ],
+  "accessControlEntries": [
+    {
+      "id": null,
+      "ldapGroupDn": "recon-makers",
+      "role": "MAKER",
+      "product": null,
+      "subProduct": null,
+      "entityName": null,
+      "notifyOnPublish": false,
+      "notifyOnIngestionFailure": false,
+      "notificationChannel": null
+    },
+    {
+      "id": null,
+      "ldapGroupDn": "recon-checkers",
+      "role": "CHECKER",
+      "product": null,
+      "subProduct": null,
+      "entityName": null,
+      "notifyOnPublish": false,
+      "notifyOnIngestionFailure": false,
+      "notificationChannel": null
+    }
+  ]
+}

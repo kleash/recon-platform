@@ -175,7 +175,12 @@ export class ReconciliationStateService {
           }
         }
         this.refreshActivity();
+        const selected = this.selectedReconciliationSubject.value;
+        if (selected) {
+          this.fetchLatestRun(selected.id);
+        }
         this.loadApprovalQueue();
+        this.breakEventsSubject.next();
       },
       error: (err) => {
         const message = err?.error?.details ?? err?.error?.message ?? 'Bulk update failed.';

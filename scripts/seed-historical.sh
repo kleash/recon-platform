@@ -305,7 +305,7 @@ queue_export() {
     -d "$payload")
   local body="${response%$'\n'*}"
   local status="${response##*$'\n'}"
-  if [[ "$status" != "201" ]]; then
+  if [[ "$status" != "201" && "$status" != "202" ]]; then
     fail "Failed to queue export (HTTP $status): $body"
   fi
   local job_id

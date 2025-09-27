@@ -5,6 +5,7 @@ import com.universal.reconciliation.domain.dto.SavedViewRequest;
 import com.universal.reconciliation.security.UserContext;
 import com.universal.reconciliation.service.AnalystSavedViewService;
 import jakarta.validation.Valid;
+import java.net.URI;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 /**
  * CRUD endpoints for analyst saved views.
@@ -42,7 +44,11 @@ public class SavedViewController {
             @Valid @RequestBody SavedViewRequest request) {
         SavedViewDto dto = savedViewService.create(
                 reconciliationId, userContext.getUsername(), request, userContext.getGroups());
-        return ResponseEntity.ok(dto);
+        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+                .path("/{viewId}")
+                .buildAndExpand(dto.id())
+                .toUri();
+        return ResponseEntity.created(location).body(dto);
     }
 
     @PutMapping("/reconciliations/{id}/saved-views/{viewId}")

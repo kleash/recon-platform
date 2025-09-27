@@ -16,6 +16,8 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+
+import com.universal.reconciliation.util.ParsingUtils;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -258,14 +260,10 @@ public class DynamicMatchingEngine implements MatchingEngine {
     }
 
     private Boolean asBoolean(Object value) {
-        if (value instanceof Boolean bool) {
-            return bool;
+        try {
+            return ParsingUtils.parseFlexibleBoolean(value);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalStateException(ex.getMessage(), ex);
         }
-        String string = value.toString().trim().toLowerCase(Locale.ROOT);
-        return switch (string) {
-            case "true", "1", "yes", "y" -> Boolean.TRUE;
-            case "false", "0", "no", "n" -> Boolean.FALSE;
-            default -> throw new IllegalStateException("Unable to parse boolean value: " + value);
-        };
     }
 }

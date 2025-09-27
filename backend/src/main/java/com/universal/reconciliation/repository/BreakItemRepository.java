@@ -4,6 +4,7 @@ import com.universal.reconciliation.domain.entity.BreakItem;
 import com.universal.reconciliation.domain.entity.ReconciliationRun;
 import com.universal.reconciliation.domain.enums.BreakStatus;
 import java.util.List;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -17,5 +18,6 @@ public interface BreakItemRepository extends JpaRepository<BreakItem, Long>, Jpa
     List<BreakItem> findByRunOrderByDetectedAtAsc(ReconciliationRun run);
 
     @EntityGraph(attributePaths = {"comments", "workflowAudits", "classificationValues"})
-    List<BreakItem> findTop200ByRunDefinitionIdAndStatusOrderByDetectedAtAsc(Long definitionId, BreakStatus status);
+    List<BreakItem> findByRunDefinitionIdAndStatusOrderByDetectedAtAsc(
+            Long definitionId, BreakStatus status, Pageable pageable);
 }

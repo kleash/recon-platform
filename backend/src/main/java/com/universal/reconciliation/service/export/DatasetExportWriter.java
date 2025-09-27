@@ -18,6 +18,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -55,53 +57,59 @@ public class DatasetExportWriter {
     }
 
     private byte[] writeCsv(List<DatasetRow> rows, List<String> attributeKeys, Map<String, Object> metadata) {
-        StringBuilder builder = new StringBuilder();
-        builder.append("# Export generated at ")
-                .append(TIMESTAMP_FORMAT.format(Instant.now()))
-                .append(" SGT\n");
-        builder.append("# Filters: ")
-                .append(metadata.getOrDefault("filterSummary", "{}"))
-                .append("\n");
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream();
+                OutputStreamWriter writer = new OutputStreamWriter(out, StandardCharsets.UTF_8);
+                CSVPrinter printer = new CSVPrinter(writer, CSVFormat.DEFAULT)) {
+            writer.write("# Export generated at ");
+            writer.write(TIMESTAMP_FORMAT.format(Instant.now()));
+            writer.write(" SGT\n");
+            writer.write("# Filters: ");
+            writer.write(String.valueOf(metadata.getOrDefault("filterSummary", "{}")));
+            writer.write('\n');
 
-        List<String> header = new ArrayList<>(List.of(
-                "Break ID",
-                "Run ID",
-                "Run Time (SGT)",
-                "Trigger Type",
-                "Status",
-                "Break Type",
-                "Detected At (SGT)",
-                "Maker",
-                "Checker",
-                "Latest Comment",
-                "Missing Sources",
-                "Submitted By",
-                "Submitted At (SGT)"));
-        header.addAll(attributeKeys.stream().map(this::formatHeader).toList());
-        builder.append(String.join(",", header)).append('\n');
+            List<String> header = new ArrayList<>(List.of(
+                    "Break ID",
+                    "Run ID",
+                    "Run Time (SGT)",
+                    "Trigger Type",
+                    "Status",
+                    "Break Type",
+                    "Detected At (SGT)",
+                    "Maker",
+                    "Checker",
+                    "Latest Comment",
+                    "Missing Sources",
+                    "Submitted By",
+                    "Submitted At (SGT)"));
+            header.addAll(attributeKeys.stream().map(this::formatHeader).toList());
+            printer.printRecord(header);
 
-        for (DatasetRow row : rows) {
-            List<String> values = new ArrayList<>();
-            values.add(toCsv(row.breakId()));
-            values.add(toCsv(row.runId()));
-            values.add(toCsv(row.runDateTime() != null ? TIMESTAMP_FORMAT.format(row.runDateTime()) : null));
-            values.add(toCsv(row.triggerType() != null ? row.triggerType().name() : null));
-            values.add(toCsv(row.status() != null ? row.status().name() : null));
-            values.add(toCsv(row.breakType()));
-            values.add(toCsv(row.detectedAt() != null ? TIMESTAMP_FORMAT.format(row.detectedAt()) : null));
-            values.add(toCsv(row.maker()));
-            values.add(toCsv(row.checker()));
-            values.add(toCsv(row.latestComment()));
-            values.add(toCsv(String.join(" | ", row.missingSources() != null ? row.missingSources() : List.of())));
-            values.add(toCsv(row.submittedBy()));
-            values.add(toCsv(row.submittedAt() != null ? TIMESTAMP_FORMAT.format(row.submittedAt()) : null));
-            for (String key : attributeKeys) {
-                values.add(toCsv(row.attributes().getOrDefault(key, "")));
+            for (DatasetRow row : rows) {
+                List<Object> values = new ArrayList<>();
+                values.add(row.breakId());
+                values.add(row.runId());
+                values.add(row.runDateTime() != null ? TIMESTAMP_FORMAT.format(row.runDateTime()) : null);
+                values.add(row.triggerType() != null ? row.triggerType().name() : null);
+                values.add(row.status() != null ? row.status().name() : null);
+                values.add(row.breakType());
+                values.add(row.detectedAt() != null ? TIMESTAMP_FORMAT.format(row.detectedAt()) : null);
+                values.add(row.maker());
+                values.add(row.checker());
+                values.add(row.latestComment());
+                values.add(String.join(" | ", row.missingSources() != null ? row.missingSources() : List.of()));
+                values.add(row.submittedBy());
+                values.add(row.submittedAt() != null ? TIMESTAMP_FORMAT.format(row.submittedAt()) : null);
+                for (String key : attributeKeys) {
+                    values.add(row.attributes().getOrDefault(key, ""));
+                }
+                printer.printRecord(values);
             }
-            builder.append(String.join(",", values)).append('\n');
-        }
 
-        return builder.toString().getBytes(StandardCharsets.UTF_8);
+            printer.flush();
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to generate CSV export", e);
+        }
     }
 
     private byte[] writeJsonl(List<DatasetRow> rows, List<String> attributeKeys, Map<String, Object> metadata) {
@@ -216,18 +224,6 @@ public class DatasetExportWriter {
         }
         String spaced = key.replace('_', ' ');
         return Character.toUpperCase(spaced.charAt(0)) + spaced.substring(1);
-    }
-
-    private String toCsv(Object value) {
-        if (value == null) {
-            return "";
-        }
-        String string = value.toString();
-        if (string.contains(",") || string.contains("\"") || string.contains("\n")) {
-            string = string.replace("\"", "\"\"");
-            return "\"" + string + "\"";
-        }
-        return string;
     }
 
     private void setCell(Row row, int column, Object value) {

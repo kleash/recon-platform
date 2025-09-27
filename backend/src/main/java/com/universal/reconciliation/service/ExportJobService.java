@@ -19,6 +19,7 @@ import com.universal.reconciliation.service.export.DatasetRow;
 import com.universal.reconciliation.service.search.BreakSearchCriteria;
 import com.universal.reconciliation.service.search.BreakSearchResult;
 import com.universal.reconciliation.service.search.BreakSearchRow;
+import com.universal.reconciliation.util.ParsingUtils;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
@@ -35,6 +36,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,6 +60,7 @@ public class ExportJobService {
     private final BreakAccessService breakAccessService;
     private final DatasetExportWriter datasetExportWriter;
     private final ObjectMapper objectMapper;
+    private ExportJobService self;
 
     public ExportJobService(
             ExportJobRepository exportJobRepository,
@@ -73,6 +77,11 @@ public class ExportJobService {
         this.breakAccessService = breakAccessService;
         this.datasetExportWriter = datasetExportWriter;
         this.objectMapper = objectMapper;
+    }
+
+    @Autowired
+    public void setSelf(@Lazy ExportJobService self) {
+        this.self = self;
     }
 
     @Transactional
@@ -117,14 +126,15 @@ public class ExportJobService {
     @Async
     public void processJobAsync(Long jobId) {
         try {
-            processJob(jobId);
+            ExportJobService target = self != null ? self : this;
+            target.processJob(jobId);
         } catch (Exception ex) {
             log.error("Export job {} failed", jobId, ex);
         }
     }
 
     @Transactional
-    protected void processJob(Long jobId) {
+    public void processJob(Long jobId) {
         ExportJob job = exportJobRepository.findById(jobId)
                 .orElseThrow(() -> new IllegalArgumentException("Export job not found"));
         try {
@@ -133,7 +143,7 @@ public class ExportJobService {
             exportJobRepository.save(job);
 
             MultiValueMap<String, String> params = toParams(job.getFiltersJson());
-            int requestedSize = parseInt(params.getFirst("size"), 2000);
+            int requestedSize = ParsingUtils.parseIntOrDefault(params.getFirst("size"), 2000, "size");
             int effectiveSize = Math.min(Math.max(requestedSize, 200), 5000);
             params.set("size", String.valueOf(effectiveSize));
 
@@ -269,17 +279,6 @@ public class ExportJobService {
             return Base64.getEncoder().encodeToString(hash);
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 not available", e);
-        }
-    }
-
-    private int parseInt(String raw, int defaultValue) {
-        if (raw == null || raw.isBlank()) {
-            return defaultValue;
-        }
-        try {
-            return Integer.parseInt(raw);
-        } catch (NumberFormatException ex) {
-            return defaultValue;
         }
     }
 

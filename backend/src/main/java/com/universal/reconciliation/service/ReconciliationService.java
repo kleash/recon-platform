@@ -36,6 +36,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,6 +58,7 @@ public class ReconciliationService {
     private final BreakAccessService breakAccessService;
     private final SystemActivityService systemActivityService;
     private final RunAnalyticsCalculator runAnalyticsCalculator;
+    private final int approvalQueueSize;
 
     public ReconciliationService(
             ReconciliationDefinitionRepository definitionRepository,
@@ -67,7 +70,8 @@ public class ReconciliationService {
             BreakMapper breakMapper,
             BreakAccessService breakAccessService,
             SystemActivityService systemActivityService,
-            RunAnalyticsCalculator runAnalyticsCalculator) {
+            RunAnalyticsCalculator runAnalyticsCalculator,
+            @Value("${app.approvals.queue-size:200}") int approvalQueueSize) {
         this.definitionRepository = definitionRepository;
         this.accessControlEntryRepository = accessControlEntryRepository;
         this.runRepository = runRepository;
@@ -78,6 +82,7 @@ public class ReconciliationService {
         this.breakAccessService = breakAccessService;
         this.systemActivityService = systemActivityService;
         this.runAnalyticsCalculator = runAnalyticsCalculator;
+        this.approvalQueueSize = approvalQueueSize;
     }
 
     public List<ReconciliationListItemDto> listAccessible(List<String> userGroups) {
@@ -196,8 +201,8 @@ public class ReconciliationService {
             throw new AccessDeniedException("Checker role required to view approvals queue");
         }
 
-        List<BreakItem> pending = breakItemRepository
-                .findTop200ByRunDefinitionIdAndStatusOrderByDetectedAtAsc(definitionId, BreakStatus.PENDING_APPROVAL);
+        List<BreakItem> pending = breakItemRepository.findByRunDefinitionIdAndStatusOrderByDetectedAtAsc(
+                definitionId, BreakStatus.PENDING_APPROVAL, PageRequest.of(0, approvalQueueSize));
 
         List<BreakItemDto> accessible = pending.stream()
                 .filter(item -> breakAccessService.canView(item, entries))

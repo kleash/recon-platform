@@ -33,6 +33,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import com.universal.reconciliation.util.ParsingUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -197,15 +199,7 @@ public class SourceIngestionService {
     }
 
     private Boolean parseBoolean(Object value) {
-        if (value instanceof Boolean bool) {
-            return bool;
-        }
-        String string = value.toString().trim().toLowerCase(Locale.ROOT);
-        return switch (string) {
-            case "true", "1", "yes", "y" -> Boolean.TRUE;
-            case "false", "0", "no", "n" -> Boolean.FALSE;
-            default -> throw new IllegalArgumentException("Unable to parse boolean value: " + value);
-        };
+        return ParsingUtils.parseFlexibleBoolean(value);
     }
 
     private String buildCanonicalKey(List<CanonicalField> keyFields, Map<String, Object> payload) {

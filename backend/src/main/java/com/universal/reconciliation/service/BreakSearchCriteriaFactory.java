@@ -6,6 +6,7 @@ import com.universal.reconciliation.domain.enums.FilterOperator;
 import com.universal.reconciliation.domain.enums.TriggerType;
 import com.universal.reconciliation.service.search.BreakSearchCriteria;
 import com.universal.reconciliation.service.search.BreakSearchCursor;
+import com.universal.reconciliation.util.ParsingUtils;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -40,7 +41,7 @@ public class BreakSearchCriteriaFactory {
 
         Map<String, BreakColumnFilterDto> columnFilters = extractColumnFilters(params);
         String search = params.getFirst("search");
-        int size = parseInt(params.getFirst("size"), 200);
+        int size = ParsingUtils.parseIntOrDefault(params.getFirst("size"), 200, "size");
         boolean includeTotals = Boolean.parseBoolean(params.getFirst("includeTotals"));
         BreakSearchCursor cursor = BreakSearchCursor.fromToken(params.getFirst("cursor"));
 
@@ -62,17 +63,6 @@ public class BreakSearchCriteriaFactory {
             return null;
         }
         return LocalDate.parse(value);
-    }
-
-    private int parseInt(String value, int defaultValue) {
-        if (value == null || value.isBlank()) {
-            return defaultValue;
-        }
-        try {
-            return Integer.parseInt(value);
-        } catch (NumberFormatException ex) {
-            return defaultValue;
-        }
     }
 
     private Set<Long> parseLongSet(List<String> rawValues) {

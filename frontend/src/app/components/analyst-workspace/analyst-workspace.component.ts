@@ -2,6 +2,7 @@ import { AsyncPipe, CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule, NgForm } from '@angular/forms';
 import { Subject } from 'rxjs';
+import { DateTime } from 'luxon';
 import { takeUntil } from 'rxjs/operators';
 import { BreakStatus } from '../../models/break-status';
 import {
@@ -437,10 +438,7 @@ export class AnalystWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   private todayInSgt(): string {
-    const now = new Date();
-    const utcMillis = now.getTime() + now.getTimezoneOffset() * 60000;
-    const sgtMillis = utcMillis + 8 * 60 * 60000;
-    return new Date(sgtMillis).toISOString().slice(0, 10);
+    return DateTime.now().setZone('Asia/Singapore').toISODate();
   }
 }
 

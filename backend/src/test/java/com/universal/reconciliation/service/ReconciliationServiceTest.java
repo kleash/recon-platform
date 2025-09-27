@@ -2,6 +2,8 @@ package com.universal.reconciliation.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.when;
 
 import com.universal.reconciliation.domain.dto.ApprovalQueueDto;
@@ -79,7 +81,8 @@ class ReconciliationServiceTest {
                 breakMapper,
                 breakAccessService,
                 systemActivityService,
-                runAnalyticsCalculator);
+                runAnalyticsCalculator,
+                200);
 
         definition = new ReconciliationDefinition();
         definition.setId(1L);
@@ -120,7 +123,10 @@ class ReconciliationServiceTest {
         breakItem.setSubProduct("SPOT");
         breakItem.setEntityName("SG");
 
-        when(breakItemRepository.findTop200ByRunDefinitionIdAndStatusOrderByDetectedAtAsc(1L, BreakStatus.PENDING_APPROVAL))
+        when(breakItemRepository.findByRunDefinitionIdAndStatusOrderByDetectedAtAsc(
+                        eq(1L),
+                        eq(BreakStatus.PENDING_APPROVAL),
+                        any(org.springframework.data.domain.Pageable.class)))
                 .thenReturn(List.of(breakItem));
         when(breakAccessService.canView(breakItem, List.of(entry))).thenReturn(true);
         when(breakAccessService.allowedStatuses(breakItem, definition, List.of(entry)))

@@ -74,6 +74,12 @@ public class BreakSearchService {
 
         var accessEntries = breakAccessService.findEntries(definition, userGroups);
 
+        if (accessEntries.isEmpty()) {
+            List<GridColumnDto> columns = buildColumnMetadata(definition);
+            long totalCount = criteria.includeTotals() ? 0L : -1L;
+            return new BreakSearchResult(List.of(), null, false, totalCount, columns);
+        }
+
         CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<BreakItem> query = cb.createQuery(BreakItem.class);
         Root<BreakItem> root = query.from(BreakItem.class);
@@ -138,6 +144,16 @@ public class BreakSearchService {
             predicates.add(cb.or(byId, byStatus, cb.exists(subquery)));
         }
 
+        if (!accessEntries.isEmpty()) {
+            Subquery<Long> subquery = query.subquery(Long.class);
+            Root<AccessControlEntry> aceRoot = subquery.from(AccessControlEntry.class);
+            subquery.select(aceRoot.get("id"));
+            subquery.where(
+                    aceRoot.in(accessEntries),
+                    matchesAccessScope(cb, aceRoot, root));
+            predicates.add(cb.exists(subquery));
+        }
+
         query.select(root).where(predicates.toArray(Predicate[]::new));
         query.orderBy(cb.desc(runJoin.get("runDateTime")), cb.desc(root.get("id")));
         query.distinct(true);
@@ -153,7 +169,6 @@ public class BreakSearchService {
 
         Map<Long, ReconciliationRun> runLookup = fetchRuns(items);
         List<BreakSearchRow> rows = items.stream()
-                .filter(item -> breakAccessService.canView(item, accessEntries))
                 .map(item -> toRow(item, runLookup.get(item.getRun().getId()), definition, accessEntries))
                 .toList();
 
@@ -197,6 +212,24 @@ public class BreakSearchService {
                     break;
                 case NOT_EQUALS:
                     predicates.add(cb.not(subRoot.get("attributeValue").in(values)));
+                    break;
+                case GREATER_THAN:
+                    predicates.add(cb.greaterThan(subRoot.get("attributeValue"), values.get(0)));
+                    break;
+                case GREATER_THAN_OR_EQUALS:
+                    predicates.add(cb.greaterThanOrEqualTo(subRoot.get("attributeValue"), values.get(0)));
+                    break;
+                case LESS_THAN:
+                    predicates.add(cb.lessThan(subRoot.get("attributeValue"), values.get(0)));
+                    break;
+                case LESS_THAN_OR_EQUALS:
+                    predicates.add(cb.lessThanOrEqualTo(subRoot.get("attributeValue"), values.get(0)));
+                    break;
+                case BETWEEN:
+                    if (values.size() < 2) {
+                        throw new IllegalArgumentException("Between operator requires two values");
+                    }
+                    predicates.add(cb.between(subRoot.get("attributeValue"), values.get(0), values.get(1)));
                     break;
                 case CONTAINS: {
                     List<Predicate> orPredicates = values.stream()

@@ -51,17 +51,13 @@ public class ExportJobController {
 
     @GetMapping("/export-jobs/{jobId}")
     public ResponseEntity<ExportJobDto> status(@PathVariable Long jobId) {
-        ExportJob job = exportJobService
-                .findJob(jobId, userContext.getUsername())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        ExportJob job = findJobOrThrow(jobId);
         return ResponseEntity.ok(exportJobService.toDto(job));
     }
 
     @GetMapping("/export-jobs/{jobId}/download")
     public ResponseEntity<byte[]> download(@PathVariable Long jobId) {
-        ExportJob job = exportJobService
-                .findJob(jobId, userContext.getUsername())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        ExportJob job = findJobOrThrow(jobId);
         if (job.getStatus() != ExportJobStatus.COMPLETED) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Export job is not yet complete");
         }
@@ -73,6 +69,12 @@ public class ExportJobController {
                 .contentType(mediaType)
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + job.getFileName())
                 .body(job.getPayload());
+    }
+
+    private ExportJob findJobOrThrow(Long jobId) {
+        return exportJobService
+                .findJob(jobId, userContext.getUsername())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
 
     private MediaType mapContentType(ExportFormat format) {

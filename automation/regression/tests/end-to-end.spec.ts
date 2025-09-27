@@ -687,16 +687,23 @@ test('reconciliation authoring to maker-checker workflow', async ({ page }) => {
     ],
   });
 
-  const gridRows = page.locator('urp-result-grid .data-row');
-  await expect(gridRows.first()).toBeVisible({ timeout: 60000 });
+  const primaryBreakId =
+    runDetailSnapshot?.breakSummaries?.[0]?.id ?? breakSearchSnapshot?.rows?.[0]?.id ?? null;
+  if (primaryBreakId === null) {
+    throw new Error('Unable to resolve primary break identifier from reconciliation run.');
+  }
+  const primaryBreakLabel = String(primaryBreakId);
 
-  const firstGridRow = gridRows.first();
-  await firstGridRow.click();
+  const gridRows = page.locator('urp-result-grid .data-row');
+  const primaryGridRow = gridRows.filter({ hasText: primaryBreakLabel }).first();
+  await expect(primaryGridRow).toBeVisible({ timeout: 60000 });
+
+  await primaryGridRow.click();
   let detailSection = page.locator('.break-detail');
-  await expect(detailSection).toContainText('Break');
+  await expect(detailSection).toContainText(`Break ${primaryBreakLabel}`);
   await expect(detailSection).toContainText('Status: OPEN', { timeout: 30000 });
 
-  const selectionCheckbox = firstGridRow.locator('input[type="checkbox"]');
+  const selectionCheckbox = primaryGridRow.locator('input[type="checkbox"]');
   await selectionCheckbox.check();
 
   const bulkSection = page.locator('.bulk-actions');
@@ -794,11 +801,13 @@ test('reconciliation authoring to maker-checker workflow', async ({ page }) => {
   await closedReconListItem.click();
 
   const refreshedGridRows = page.locator('urp-result-grid .data-row');
-  await expect(refreshedGridRows.first()).toBeVisible({ timeout: 30000 });
-  await refreshedGridRows.first().click();
+  const refreshedPrimaryRow = refreshedGridRows.filter({ hasText: primaryBreakLabel }).first();
+  await expect(refreshedPrimaryRow).toBeVisible({ timeout: 30000 });
+  await refreshedPrimaryRow.click();
   const reloadedCheckerQueue = page.locator('.checker-queue');
   await expect(reloadedCheckerQueue.locator('tbody tr')).toHaveCount(0, { timeout: 30000 });
   detailSection = page.locator('.break-detail');
+  await expect(detailSection).toContainText(`Break ${primaryBreakLabel}`);
   await expect(detailSection).toContainText('Status: CLOSED', { timeout: 30000 });
 
   const workflowScreenshot = '11-maker-checker.png';

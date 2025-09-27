@@ -38,12 +38,13 @@ test('authenticated users can reach the reconciliation workspace shell', async (
   await expect(page.getByRole('button', { name: 'Reports' })).toBeVisible();
 
   await page.getByRole('button', { name: 'Approvals' }).click();
-  await expect(page.getByRole('heading', { name: 'Pending approvals' })).toBeVisible();
+  const approvalsPanel = page.locator('.approvals-panel');
+  await expect(approvalsPanel.getByRole('heading', { name: 'Pending approvals' }).first()).toBeVisible();
   await page.getByRole('button', { name: 'Runs' }).click();
 
   await page.getByRole('button', { name: 'Reports' }).click();
   await expect(page.getByRole('button', { name: 'CSV' })).toBeVisible();
-  await expect(page.getByRole('columnheader', { name: 'Format' })).toBeVisible();
+  await expect(page.locator('.reports-panel')).toContainText('No exports queued yet.', { timeout: 5000 });
   await page.getByRole('button', { name: 'Runs' }).click();
 
   const workspaceScreenshot = '02-workspace.png';

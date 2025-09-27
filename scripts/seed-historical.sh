@@ -147,7 +147,8 @@ iso_date_utc() {
 import datetime
 import sys
 offset = int(sys.argv[1])
-print((datetime.datetime.utcnow() - datetime.timedelta(days=offset)).date())
+utc_now = datetime.datetime.now(datetime.timezone.utc)
+print((utc_now - datetime.timedelta(days=offset)).date())
 PY
 }
 
@@ -157,10 +158,11 @@ import datetime
 import sys
 offset = int(sys.argv[1])
 run_index = int(sys.argv[2])
-base = datetime.datetime.utcnow() - datetime.timedelta(days=offset)
-# Spread runs across the day by subtracting additional minutes.
+utc_now = datetime.datetime.now(datetime.timezone.utc)
+base = utc_now - datetime.timedelta(days=offset)
+# Spread runs across the day by subtracting additional hours.
 when = base.replace(hour=22, minute=0, second=0, microsecond=0) - datetime.timedelta(hours=run_index)
-print(when.isoformat(timespec='seconds') + 'Z')
+print(when.isoformat(timespec='seconds').replace('+00:00', 'Z'))
 PY
 }
 

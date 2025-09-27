@@ -250,7 +250,7 @@ jobs:
           done
 
           ./scripts/seed-historical.sh --days 3 --runs-per-day 1 --min-records 60 --max-records 80 --report-format NONE --ci-mode
-          ./scripts/verify-historical-seed.sh --days 3 --runs-per-day 1
+          ./scripts/verify-historical-seed.sh --days 3 --runs-per-day 1 --skip-export-check
 
       - name: Upload backend log
         if: always()

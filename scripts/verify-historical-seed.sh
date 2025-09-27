@@ -97,7 +97,8 @@ EXPECTED_RUNS=$((DAYS * RUNS_PER_DAY))
 
 threshold_timestamp=$(python3 - <<'PY'
 import datetime
-print((datetime.datetime.utcnow() - datetime.timedelta(days=1)).isoformat())
+utc_now = datetime.datetime.now(datetime.timezone.utc)
+print((utc_now - datetime.timedelta(days=1)).isoformat())
 PY
 )
 

@@ -222,7 +222,7 @@ export class ResultGridStateService {
         })),
         tap(({ breakIds, totalCount }) => {
           if (breakIds.length === 0) {
-            this.notifications.push('No records match the current filters.', 'warning');
+            this.notifications.push('No records match the current filters.', 'info');
           } else {
             const message = totalCount > breakIds.length
               ? `Loaded ${breakIds.length} filtered breaks (truncated from ${totalCount}).`

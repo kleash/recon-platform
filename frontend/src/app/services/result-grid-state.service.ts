@@ -78,6 +78,10 @@ export class ResultGridStateService {
     this.loadExportJobs();
   }
 
+  refreshExportHistory(): void {
+    this.loadExportJobs();
+  }
+
   replaceQuery(newQuery: QueryParams): void {
     if (!this.reconciliation) {
       return;
@@ -183,6 +187,23 @@ export class ResultGridStateService {
         this.exportJobsSubject.next(next);
       },
       error: () => this.notifications.push('Unable to refresh export job.', 'error')
+    });
+  }
+
+  downloadExport(job: ExportJobSummary): void {
+    this.api.downloadExportJob(job.id).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = job.fileName || `export-${job.id}.${job.format.toLowerCase()}`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        URL.revokeObjectURL(url);
+        this.notifications.push('Export downloaded successfully.', 'success');
+      },
+      error: () => this.notifications.push('Unable to download export.', 'error')
     });
   }
 

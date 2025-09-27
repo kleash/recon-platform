@@ -2,6 +2,7 @@ package com.universal.reconciliation.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.universal.reconciliation.domain.dto.ApprovalQueueDto;
 import com.universal.reconciliation.domain.dto.BreakItemDto;
 import com.universal.reconciliation.domain.dto.FilterMetadataDto;
 import com.universal.reconciliation.domain.dto.ReconciliationListItemDto;
@@ -14,6 +15,7 @@ import com.universal.reconciliation.domain.entity.BreakClassificationValue;
 import com.universal.reconciliation.domain.entity.BreakItem;
 import com.universal.reconciliation.domain.entity.ReconciliationDefinition;
 import com.universal.reconciliation.domain.entity.ReconciliationRun;
+import com.universal.reconciliation.domain.enums.AccessRole;
 import com.universal.reconciliation.domain.enums.BreakStatus;
 import com.universal.reconciliation.domain.enums.RunStatus;
 import com.universal.reconciliation.domain.enums.SystemEventType;
@@ -34,6 +36,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -182,6 +185,27 @@ public class ReconciliationService {
                         run.getMismatchedCount(),
                         run.getMissingCount()))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ApprovalQueueDto fetchApprovalQueue(Long definitionId, List<String> userGroups) {
+        ReconciliationDefinition definition = loadDefinition(definitionId);
+        List<AccessControlEntry> entries = ensureAccess(definition, userGroups);
+        boolean hasCheckerRole = entries.stream().anyMatch(entry -> entry.getRole() == AccessRole.CHECKER);
+        if (!hasCheckerRole) {
+            throw new AccessDeniedException("Checker role required to view approvals queue");
+        }
+
+        List<BreakItem> pending = breakItemRepository
+                .findTop200ByRunDefinitionIdAndStatusOrderByDetectedAtAsc(definitionId, BreakStatus.PENDING_APPROVAL);
+
+        List<BreakItemDto> accessible = pending.stream()
+                .filter(item -> breakAccessService.canView(item, entries))
+                .map(item -> breakMapper.toDto(
+                        item, breakAccessService.allowedStatuses(item, definition, entries)))
+                .toList();
+
+        return new ApprovalQueueDto(accessible, buildFilterMetadata(entries));
     }
 
     private ReconciliationDefinition loadDefinition(Long definitionId) {

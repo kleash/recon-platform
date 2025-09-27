@@ -362,8 +362,8 @@ public class BreakSearchService {
         } else {
             operators = List.of(FilterOperator.EQUALS, FilterOperator.CONTAINS, FilterOperator.STARTS_WITH);
         }
-        String dataType = mapDataType(field.getDataType());
-        return new GridColumnDto(field.getCanonicalName(), field.getDisplayName(), dataType, operators, true, true);
+        String resolvedType = mapDataType(field.getDataType());
+        return new GridColumnDto(field.getCanonicalName(), field.getDisplayName(), resolvedType, operators, true, true);
     }
 
     private String mapDataType(FieldDataType dataType) {

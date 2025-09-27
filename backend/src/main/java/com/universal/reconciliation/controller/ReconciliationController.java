@@ -1,5 +1,6 @@
 package com.universal.reconciliation.controller;
 
+import com.universal.reconciliation.domain.dto.ApprovalQueueDto;
 import com.universal.reconciliation.domain.dto.BreakSearchPageInfoDto;
 import com.universal.reconciliation.domain.dto.BreakSearchResponseDto;
 import com.universal.reconciliation.domain.dto.BreakSearchResultRowDto;
@@ -71,6 +72,11 @@ public class ReconciliationController {
         int boundedLimit = limit <= 0 ? 5 : Math.min(limit, 50);
         return ResponseEntity.ok(
                 reconciliationService.listRuns(reconciliationId, userContext.getGroups(), boundedLimit));
+    }
+
+    @GetMapping("/{id}/approvals")
+    public ResponseEntity<ApprovalQueueDto> approvals(@PathVariable("id") Long reconciliationId) {
+        return ResponseEntity.ok(reconciliationService.fetchApprovalQueue(reconciliationId, userContext.getGroups()));
     }
 
     @PostMapping("/{id}/run")

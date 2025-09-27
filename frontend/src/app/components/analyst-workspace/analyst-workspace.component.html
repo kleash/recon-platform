@@ -48,28 +48,25 @@
         </div>
       </div>
     </section>
-
-    <section class="exports" *ngIf="exportJobs$ | async as exportJobs">
-      <header>
-        <h3>Exports</h3>
-        <div class="export-buttons">
-          <button type="button" (click)="queueExport('CSV')">CSV</button>
-          <button type="button" (click)="queueExport('XLSX')">XLSX</button>
-          <button type="button" (click)="queueExport('JSONL')">JSONL</button>
-        </div>
-      </header>
-      <ul>
-        <li *ngFor="let job of exportJobs">
-          <span>{{ job.fileName }}</span>
-          <small>{{ job.status }}</small>
-          <button type="button" (click)="refreshExport(job)">Refresh</button>
-        </li>
-      </ul>
-    </section>
   </aside>
 
   <main class="main">
-    <section class="filters">
+    <nav class="tab-bar">
+      <button type="button" [class.active]="isActiveTab('runs')" (click)="setActiveTab('runs')">Runs</button>
+      <button type="button" [class.active]="isActiveTab('breaks')" (click)="setActiveTab('breaks')">Breaks</button>
+      <button
+        type="button"
+        [class.active]="isActiveTab('approvals')"
+        (click)="setActiveTab('approvals')"
+      >
+        Approvals
+      </button>
+      <button type="button" [class.active]="isActiveTab('reports')" (click)="setActiveTab('reports')">
+        Reports
+      </button>
+    </nav>
+
+    <section class="filters" *ngIf="isActiveTab('runs')">
       <label>
         From
         <input type="date" [(ngModel)]="dateRange.from" name="fromDate" />
@@ -82,18 +79,96 @@
         Search
         <input type="search" [(ngModel)]="searchTerm" name="searchTerm" (keyup.enter)="applyFilters()" />
       </label>
+      <label>
+        Run IDs
+        <input
+          type="text"
+          [(ngModel)]="runIdFilter"
+          name="runId"
+          placeholder="Comma or newline separated"
+        />
+      </label>
       <div class="status-filter">
         <span>Status</span>
         <label *ngFor="let status of allStatuses">
-          <input type="checkbox" [value]="status" (change)="handleStatusToggle(status, $event.target.checked)" />
+          <input
+            type="checkbox"
+            [checked]="statusFilters.has(status)"
+            (change)="handleStatusToggle(status, $event.target.checked)"
+          />
           {{ status }}
         </label>
       </div>
-      <button type="button" (click)="applyFilters()">Apply</button>
-      <button type="button" (click)="resetFilters()">Reset</button>
+      <div class="status-filter">
+        <span>Run Type</span>
+        <label *ngFor="let type of triggerTypeOptions">
+          <input
+            type="checkbox"
+            [checked]="triggerTypeFilters.has(type)"
+            (change)="handleTriggerTypeToggle(type, $event.target.checked)"
+          />
+          {{ type }}
+        </label>
+      </div>
+      <div class="column-filters">
+        <div class="column-filters-header">
+          <span>Column Filters</span>
+          <button type="button" (click)="addColumnFilter()" [disabled]="availableColumns.length === 0">
+            Add filter
+          </button>
+        </div>
+        <div class="column-filter-rows" *ngIf="columnFilters.length > 0; else noColumnFilters">
+          <div class="column-filter-row" *ngFor="let filter of columnFilters">
+            <label>
+              Column
+              <select
+                [ngModel]="filter.columnKey"
+                (ngModelChange)="handleColumnKeyChange(filter.id, $event)"
+                name="column-{{ filter.id }}"
+              >
+                <option *ngFor="let column of availableColumns" [value]="column.key">
+                  {{ column.label }}
+                </option>
+              </select>
+            </label>
+            <label>
+              Operator
+              <select
+                [ngModel]="filter.operator"
+                (ngModelChange)="handleColumnOperatorChange(filter.id, $event)"
+                name="operator-{{ filter.id }}"
+              >
+                <option *ngFor="let operator of operatorOptions(filter.columnKey)" [value]="operator">
+                  {{ operator }}
+                </option>
+              </select>
+            </label>
+            <label class="column-filter-value">
+              Value(s)
+              <textarea
+                rows="1"
+                [ngModel]="filter.value"
+                (ngModelChange)="handleColumnValueChange(filter.id, $event)"
+                name="value-{{ filter.id }}"
+                placeholder="Comma or newline separated"
+              ></textarea>
+            </label>
+            <button type="button" class="remove-filter" (click)="removeColumnFilter(filter.id)">
+              Remove
+            </button>
+          </div>
+        </div>
+        <ng-template #noColumnFilters>
+          <p class="empty-hint">No column filters applied.</p>
+        </ng-template>
+      </div>
+      <div class="filter-actions">
+        <button type="button" (click)="applyFilters()">Apply</button>
+        <button type="button" (click)="resetFilters()">Reset</button>
+      </div>
     </section>
 
-    <section class="grid-section">
+    <section class="grid-section" *ngIf="isActiveTab('runs')">
       <ng-container *ngIf="rows$ | async as rows">
         <ng-container *ngIf="columns$ | async as columns">
           <urp-result-grid
@@ -112,7 +187,7 @@
       </ng-container>
     </section>
 
-    <section class="bulk-actions" *ngIf="selectedBreakIds.length > 0">
+    <section class="bulk-actions" *ngIf="isActiveTab('runs') && selectedBreakIds.length > 0">
       <h4>Bulk Actions ({{ selectedBreakIds.length }})</h4>
       <textarea
         rows="2"
@@ -127,12 +202,82 @@
       </div>
     </section>
 
+    <section class="breaks-panel" *ngIf="isActiveTab('breaks')">
+      <urp-run-detail
+        [runDetail]="runDetail$ | async"
+        [selectedBreak]="selectedBreak$ | async"
+        [filterMetadata]="filterMetadata$ | async"
+        [filter]="filter$ | async"
+        (selectBreak)="state.selectBreak($event)"
+        (filterChange)="state.updateFilter($event)"
+        (bulkAction)="state.bulkUpdateBreaks($event)"
+      ></urp-run-detail>
+    </section>
+
+    <section class="approvals-panel" *ngIf="isActiveTab('approvals')">
+      <div class="approvals-header">
+        <h3>Pending approvals</h3>
+        <button type="button" (click)="refreshApprovals()">Refresh</button>
+      </div>
+      <urp-checker-queue
+        [pendingBreaks]="approvals$ | async"
+        [filterMetadata]="approvalMetadata$ | async"
+        (approve)="handleApproval($event, BreakStatus.Closed)"
+        (reject)="handleApproval($event, BreakStatus.Rejected)"
+      ></urp-checker-queue>
+    </section>
+
+    <section class="reports-panel" *ngIf="isActiveTab('reports')">
+      <div class="reports-header">
+        <div class="export-buttons">
+          <button type="button" (click)="queueExport('CSV')">CSV</button>
+          <button type="button" (click)="queueExport('XLSX')">XLSX</button>
+          <button type="button" (click)="queueExport('JSONL')">JSONL</button>
+        </div>
+        <button type="button" (click)="resultState.refreshExportHistory()">Refresh</button>
+      </div>
+      <table class="reports-table" *ngIf="exportJobs$ | async as exportJobs">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Format</th>
+            <th>Created</th>
+            <th>Completed</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let job of exportJobs">
+            <td>{{ job.fileName }}</td>
+            <td>
+              <span [class.completed]="job.status === 'COMPLETED'" [class.failed]="job.status === 'FAILED'">
+                {{ job.status }}
+              </span>
+            </td>
+            <td>{{ job.format }}</td>
+            <td>{{ job.createdAt | date: 'short' }}</td>
+            <td>{{ job.completedAt ? (job.completedAt | date: 'short') : '—' }}</td>
+            <td class="report-actions">
+              <button type="button" (click)="refreshExport(job)">Refresh</button>
+              <button type="button" (click)="downloadExport(job)" [disabled]="job.status !== 'COMPLETED'">
+                Download
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="exportJobs.length === 0">
+            <td colspan="6" class="empty-state">No exports queued yet.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
     <section class="activity" *ngIf="activity$ | async as activity">
       <urp-system-activity [entries]="activity"></urp-system-activity>
     </section>
   </main>
 
-  <aside class="detail-panel">
+  <aside class="detail-panel" *ngIf="isActiveTab('runs') || isActiveTab('breaks')">
     <urp-break-detail
       [breakItem]="selectedBreak$ | async"
       (addComment)="state.addComment($event.breakId, $event.comment, $event.action)"

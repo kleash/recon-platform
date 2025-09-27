@@ -5,6 +5,7 @@ import {
   BreakItem,
   BreakSearchResponse,
   BreakSelectionResponse,
+  ApprovalQueueResponse,
   BulkBreakUpdatePayload,
   BulkBreakUpdateResponse,
   ExportJobRequestPayload,
@@ -52,6 +53,10 @@ export class ApiService {
     return this.http.get<RunDetail>(`${BASE_URL}/reconciliations/${reconciliationId}/runs/latest`, {
       params: this.buildFilterParams(filter)
     });
+  }
+
+  getApprovalQueue(reconciliationId: number): Observable<ApprovalQueueResponse> {
+    return this.http.get<ApprovalQueueResponse>(`${BASE_URL}/reconciliations/${reconciliationId}/approvals`);
   }
 
   searchBreakResults(

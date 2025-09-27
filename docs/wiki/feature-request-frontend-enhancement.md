@@ -91,13 +91,12 @@ Demo GIFs in PR descriptions
 
 ## Implementation Snapshot — September 2025
 
-The first delivery slice is now wired end-to-end. Highlights:
+The analyst workspace and supporting services are now feature-complete for the enhancement request:
 
-- **Server-side grid selection.** The backend exposes `GET /api/reconciliations/{id}/results/ids`, which walks the cursor-paginated break search and returns the identifiers (and total count) for the current filter set. The Angular workspace now surfaces a **Select Filtered** action that hydrates bulk operations with those IDs while still supporting page-only and loaded-row toggles.
-- **Saved views & export history APIs.** Dedicated controllers (`SavedViewController`, `ExportJobController`) cover CRUD for analyst saved views, async export job tracking, and download links. Both services enforce maker/checker access rules via the shared `BreakAccessService` helper.
-- **Break search plumbing.** `BreakSearchService` now emits fully paginated row DTOs, column metadata (including operator lists per data type), and derives grid attributes from canonical field configuration. A companion `BreakSelectionService` iterates pagination for bulk selections.
-- **Richer export pipeline.** `ExportJobService` performs cursor-driven aggregation, normalises attribute keys, and writes CSV/JSONL/XLSX payloads via the new `DatasetExportWriter`. Each payload embeds filter summaries and SGT timestamps; jobs persist hashes and row counts for audit.
-- **Type system upgrades.** `FieldDataType` adds `BOOLEAN` and `DATETIME` variants so both ingestion and matching logic can normalise and compare non-string fields consistently.
-- **Automation visibility.** The Playwright smoke test asserts the presence of the new bulk-selection affordance in the analyst workspace, keeping UI regressions visible in nightly runs.
+- **Tabbed workspace navigation.** Analysts pivot between **Runs**, **Breaks**, **Approvals**, and **Reports** without losing context. The runs tab hosts the virtualised, server-driven result grid; the breaks tab exposes per-run analytics; approvals and reports receive dedicated surfaces.
+- **Dynamic filtering + saved views.** The runs grid supports date, status, run-type, run-id, and ad-hoc column filters (operators derive from canonical field metadata). Filter state persists through saved views, and bulk actions respect “select filtered” server-side selections.
+- **Checker approval queue.** A new `GET /api/reconciliations/{id}/approvals` endpoint returns pending breaks and classification metadata. Checkers can approve or reject in bulk from the approvals tab, with access guarded by `BreakAccessService`.
+- **Export reporting.** The reports tab lists async dataset exports with live status, refresh, and download actions (CSV, XLSX, JSONL). Export jobs continue to embed filter context, SGT timestamps, hashes, and row counts for audit trails.
+- **Regression coverage.** Playwright smoke flows validate navigation, approvals visibility, and export affordances; backend unit coverage exercises the approvals queue service to maintain Jacoco thresholds.
 
-Refer to the API reference for request/response details on the new endpoints. Subsequent increments will address approvals UX stitching, maker/checker notifications, and performance instrumentation.
+Refer to the API reference for request/response details on the new endpoints. Future refinement will focus on advanced grid ergonomics (pinning, resize tokens) and performance instrumentation.

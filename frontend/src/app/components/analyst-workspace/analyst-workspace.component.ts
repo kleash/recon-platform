@@ -7,6 +7,7 @@ import { BreakStatus } from '../../models/break-status';
 import {
   BreakResultRow,
   ExportJobSummary,
+  GridColumn,
   ReconciliationListItem,
   SavedView,
   SavedViewRequestPayload
@@ -15,9 +16,20 @@ import { ReconciliationListComponent } from '../reconciliation-list/reconciliati
 import { BreakDetailComponent } from '../break-detail/break-detail.component';
 import { SystemActivityComponent } from '../system-activity/system-activity.component';
 import { ResultGridComponent } from '../result-grid/result-grid.component';
+import { RunDetailComponent } from '../run-detail/run-detail.component';
+import { CheckerQueueComponent } from '../checker-queue/checker-queue.component';
 import { ReconciliationStateService } from '../../services/reconciliation-state.service';
 import { ResultGridStateService, ExportFormat } from '../../services/result-grid-state.service';
 import { SessionService } from '../../services/session.service';
+
+type WorkspaceTab = 'runs' | 'breaks' | 'approvals' | 'reports';
+
+interface ColumnFilterRow {
+  id: number;
+  columnKey: string;
+  operator: string;
+  value: string;
+}
 
 @Component({
   selector: 'urp-analyst-workspace',
@@ -29,7 +41,9 @@ import { SessionService } from '../../services/session.service';
     ReconciliationListComponent,
     BreakDetailComponent,
     SystemActivityComponent,
-    ResultGridComponent
+    ResultGridComponent,
+    RunDetailComponent,
+    CheckerQueueComponent
   ],
   templateUrl: './analyst-workspace.component.html',
   styleUrls: ['./analyst-workspace.component.css']
@@ -46,15 +60,28 @@ export class AnalystWorkspaceComponent implements OnInit, OnDestroy {
   readonly activeView$ = this.resultState.activeView$;
   readonly selectedBreak$ = this.state.selectedBreak$;
   readonly activity$ = this.state.activity$;
+  readonly runDetail$ = this.state.runDetail$;
+  readonly filterMetadata$ = this.state.filterMetadata$;
+  readonly approvals$ = this.state.approvals$;
+  readonly approvalMetadata$ = this.state.approvalMetadata$;
+  readonly filter$ = this.state.filter$;
 
   readonly BreakStatus = BreakStatus;
   readonly allStatuses = Object.values(BreakStatus);
+  readonly triggerTypeOptions = ['MANUAL_API', 'SCHEDULED_CRON', 'EXTERNAL_API', 'KAFKA_EVENT'];
 
+  activeTab: WorkspaceTab = 'runs';
   dateRange = { from: this.todayInSgt(), to: this.todayInSgt() };
   statusFilters = new Set<BreakStatus>();
+  triggerTypeFilters = new Set<string>();
+  runIdFilter = '';
   searchTerm = '';
   bulkComment = '';
   newView = { name: '', shared: false, defaultView: false, description: '' };
+
+  columnFilters: ColumnFilterRow[] = [];
+  private columnFilterId = 0;
+  availableColumns: GridColumn[] = [];
 
   selectedBreakIds: number[] = [];
   selectedRow: BreakResultRow | null = null;
@@ -69,23 +96,54 @@ export class AnalystWorkspaceComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.state.loadReconciliations();
+
     this.state.selectedReconciliation$
       .pipe(takeUntil(this.destroy$))
       .subscribe((reconciliation) => {
         this.resultState.setReconciliation(reconciliation);
         if (reconciliation) {
           this.applyFilters();
+        } else {
+          this.selectedBreakIds = [];
         }
       });
 
     this.state.breakEvents$
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => this.resultState.refresh());
+
+    this.columns$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((columns) => {
+        this.availableColumns = columns ?? [];
+        const validKeys = new Set(this.availableColumns.map((column) => column.key));
+        this.columnFilters = this.columnFilters
+          .filter((row) => validKeys.has(row.columnKey))
+          .map((row) => this.ensureOperator(row));
+      });
   }
 
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  setActiveTab(tab: WorkspaceTab): void {
+    if (this.activeTab === tab) {
+      return;
+    }
+    this.activeTab = tab;
+    if (tab === 'runs') {
+      this.resultState.refresh();
+    } else if (tab === 'approvals') {
+      this.state.loadApprovalQueue();
+    } else if (tab === 'reports') {
+      this.resultState.refreshExportHistory();
+    }
+  }
+
+  isActiveTab(tab: WorkspaceTab): boolean {
+    return this.activeTab === tab;
   }
 
   handleSelectReconciliation(reconciliation: ReconciliationListItem): void {
@@ -99,25 +157,47 @@ export class AnalystWorkspaceComponent implements OnInit, OnDestroy {
     if (!this.dateRange.to) {
       this.dateRange.to = this.todayInSgt();
     }
+
     const query: Record<string, string | number | boolean | Array<string>> = {
       fromDate: this.dateRange.from,
       toDate: this.dateRange.to,
       size: 200,
       includeTotals: true
     };
+
     if (this.statusFilters.size > 0) {
       query['status'] = Array.from(this.statusFilters);
+    }
+    if (this.triggerTypeFilters.size > 0) {
+      query['runType'] = Array.from(this.triggerTypeFilters);
+    }
+    const runIds = this.normaliseFilterValues(this.runIdFilter);
+    if (runIds.length > 0) {
+      query['runId'] = runIds;
     }
     if (this.searchTerm.trim().length > 0) {
       query['search'] = this.searchTerm.trim();
     }
+
+    this.columnFilters.forEach((row) => {
+      const values = this.normaliseFilterValues(row.value);
+      if (values.length === 0) {
+        return;
+      }
+      query[`filter.${row.columnKey}`] = values;
+      query[`operator.${row.columnKey}`] = row.operator;
+    });
+
     this.resultState.replaceQuery(query);
     this.selectedBreakIds = [];
   }
 
   resetFilters(): void {
     this.statusFilters.clear();
+    this.triggerTypeFilters.clear();
+    this.runIdFilter = '';
     this.searchTerm = '';
+    this.columnFilters = [];
     this.dateRange = { from: this.todayInSgt(), to: this.todayInSgt() };
     this.applyFilters();
   }
@@ -128,6 +208,63 @@ export class AnalystWorkspaceComponent implements OnInit, OnDestroy {
     } else {
       this.statusFilters.delete(status);
     }
+  }
+
+  handleTriggerTypeToggle(triggerType: string, checked: boolean): void {
+    if (checked) {
+      this.triggerTypeFilters.add(triggerType);
+    } else {
+      this.triggerTypeFilters.delete(triggerType);
+    }
+  }
+
+  addColumnFilter(): void {
+    if (this.availableColumns.length === 0) {
+      return;
+    }
+    const firstColumn = this.availableColumns[0];
+    const defaultOperator = firstColumn.operators[0] ?? 'EQUALS';
+    this.columnFilters = [
+      ...this.columnFilters,
+      {
+        id: ++this.columnFilterId,
+        columnKey: firstColumn.key,
+        operator: defaultOperator,
+        value: ''
+      }
+    ];
+  }
+
+  removeColumnFilter(filterId: number): void {
+    this.columnFilters = this.columnFilters.filter((row) => row.id !== filterId);
+  }
+
+  handleColumnKeyChange(filterId: number, columnKey: string): void {
+    this.columnFilters = this.columnFilters.map((row) => {
+      if (row.id !== filterId) {
+        return row;
+      }
+      const defaultOperator = this.defaultOperator(columnKey);
+      return { ...row, columnKey, operator: defaultOperator };
+    });
+  }
+
+  handleColumnOperatorChange(filterId: number, operator: string): void {
+    this.columnFilters = this.columnFilters.map((row) => (row.id === filterId ? { ...row, operator } : row));
+  }
+
+  handleColumnValueChange(filterId: number, value: string): void {
+    this.columnFilters = this.columnFilters.map((row) => (row.id === filterId ? { ...row, value } : row));
+  }
+
+  operatorOptions(columnKey: string): string[] {
+    const column = this.availableColumns.find((entry) => entry.key === columnKey);
+    return column?.operators ?? ['EQUALS'];
+  }
+
+  columnLabel(columnKey: string): string {
+    const column = this.availableColumns.find((entry) => entry.key === columnKey);
+    return column?.label ?? columnKey;
   }
 
   handleRowSelect(row: BreakResultRow): void {
@@ -189,6 +326,25 @@ export class AnalystWorkspaceComponent implements OnInit, OnDestroy {
     this.resultState.refreshExportJob(job.id);
   }
 
+  downloadExport(job: ExportJobSummary): void {
+    this.resultState.downloadExport(job);
+  }
+
+  refreshApprovals(): void {
+    this.state.loadApprovalQueue();
+  }
+
+  handleApproval(event: { breakIds: number[]; comment: string }, status: BreakStatus): void {
+    if (event.breakIds.length === 0) {
+      return;
+    }
+    this.state.bulkUpdateBreaks({
+      breakIds: event.breakIds,
+      status,
+      comment: event.comment
+    });
+  }
+
   bulkUpdate(status: BreakStatus): void {
     if (this.selectedBreakIds.length === 0) {
       return;
@@ -206,17 +362,78 @@ export class AnalystWorkspaceComponent implements OnInit, OnDestroy {
     try {
       const payload = JSON.parse(view.settingsJson ?? '{}');
       const query = (payload?.query ?? {}) as Record<string, unknown>;
+
       this.dateRange.from = String(query['fromDate'] ?? this.todayInSgt());
       this.dateRange.to = String(query['toDate'] ?? this.todayInSgt());
       this.searchTerm = String(query['search'] ?? '');
-      const statuses = query['status'];
+
       this.statusFilters.clear();
+      const statuses = query['status'];
       if (Array.isArray(statuses)) {
         statuses.forEach((status) => this.statusFilters.add(status as BreakStatus));
+      } else if (typeof statuses === 'string' && statuses) {
+        this.statusFilters.add(statuses as BreakStatus);
       }
+
+      this.triggerTypeFilters.clear();
+      const triggerTypes = query['runType'];
+      if (Array.isArray(triggerTypes)) {
+        triggerTypes.forEach((type) => this.triggerTypeFilters.add(String(type)));
+      } else if (typeof triggerTypes === 'string' && triggerTypes) {
+        this.triggerTypeFilters.add(triggerTypes);
+      }
+
+      const runIds = query['runId'];
+      if (Array.isArray(runIds)) {
+        this.runIdFilter = runIds.map(String).join(', ');
+      } else if (typeof runIds === 'string') {
+        this.runIdFilter = runIds;
+      } else {
+        this.runIdFilter = '';
+      }
+
+      this.columnFilters = [];
+      Object.entries(query)
+        .filter(([key]) => key.startsWith('filter.'))
+        .forEach(([key, value]) => {
+          const columnKey = key.substring('filter.'.length);
+          const operatorKey = query[`operator.${columnKey}`];
+          const values = Array.isArray(value) ? value.map(String) : [String(value)];
+          const operator = Array.isArray(operatorKey)
+            ? String(operatorKey[0])
+            : typeof operatorKey === 'string'
+            ? operatorKey
+            : this.defaultOperator(columnKey);
+          this.columnFilters.push({
+            id: ++this.columnFilterId,
+            columnKey,
+            operator,
+            value: values.join(', ')
+          });
+        });
     } catch {
       // ignore parsing errors; filter UI will remain unchanged
     }
+  }
+
+  private ensureOperator(row: ColumnFilterRow): ColumnFilterRow {
+    const options = this.operatorOptions(row.columnKey);
+    if (options.includes(row.operator)) {
+      return row;
+    }
+    return { ...row, operator: options[0] ?? 'EQUALS' };
+  }
+
+  private defaultOperator(columnKey: string): string {
+    const options = this.operatorOptions(columnKey);
+    return options[0] ?? 'EQUALS';
+  }
+
+  private normaliseFilterValues(raw: string): string[] {
+    return raw
+      .split(/\r?\n|,/)
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0);
   }
 
   private todayInSgt(): string {
@@ -226,3 +443,4 @@ export class AnalystWorkspaceComponent implements OnInit, OnDestroy {
     return new Date(sgtMillis).toISOString().slice(0, 10);
   }
 }
+

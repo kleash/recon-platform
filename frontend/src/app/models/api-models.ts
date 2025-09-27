@@ -193,3 +193,8 @@ export interface ExportJobRequestPayload {
   fileNamePrefix?: string | null;
   includeMetadata: boolean;
 }
+
+export interface ApprovalQueueResponse {
+  pendingBreaks: BreakItem[];
+  filterMetadata: FilterMetadata;
+}

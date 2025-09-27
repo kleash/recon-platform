@@ -32,6 +32,19 @@ test('authenticated users can reach the reconciliation workspace shell', async (
   await expect(page.getByRole('button', { name: 'Logout' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Recent system activity' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Select Filtered' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Runs' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Breaks' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Approvals' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Reports' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Approvals' }).click();
+  await expect(page.getByRole('heading', { name: 'Pending approvals' })).toBeVisible();
+  await page.getByRole('button', { name: 'Runs' }).click();
+
+  await page.getByRole('button', { name: 'Reports' }).click();
+  await expect(page.getByRole('button', { name: 'CSV' })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: 'Format' })).toBeVisible();
+  await page.getByRole('button', { name: 'Runs' }).click();
 
   const workspaceScreenshot = '02-workspace.png';
   await page.screenshot({ path: resolveAssetPath(workspaceScreenshot), fullPage: true });

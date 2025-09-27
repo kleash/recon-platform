@@ -25,6 +25,8 @@ export class ReconciliationStateService {
   private readonly filterMetadataSubject = new BehaviorSubject<FilterMetadata | null>(null);
   private readonly activitySubject = new BehaviorSubject<SystemActivityEntry[]>([]);
   private readonly breakEventsSubject = new Subject<void>();
+  private readonly approvalsSubject = new BehaviorSubject<BreakItem[]>([]);
+  private readonly approvalMetadataSubject = new BehaviorSubject<FilterMetadata | null>(null);
 
   readonly reconciliations$ = this.reconciliationsSubject.asObservable();
   readonly selectedReconciliation$ = this.selectedReconciliationSubject.asObservable();
@@ -34,6 +36,8 @@ export class ReconciliationStateService {
   readonly filterMetadata$ = this.filterMetadataSubject.asObservable();
   readonly activity$ = this.activitySubject.asObservable();
   readonly breakEvents$ = this.breakEventsSubject.asObservable();
+  readonly approvals$ = this.approvalsSubject.asObservable();
+  readonly approvalMetadata$ = this.approvalMetadataSubject.asObservable();
 
   constructor(private readonly api: ApiService, private readonly notifications: NotificationService) {}
 
@@ -51,10 +55,13 @@ export class ReconciliationStateService {
         this.selectedReconciliationSubject.next(nextSelection);
         if (nextSelection) {
           this.fetchLatestRun(nextSelection.id);
+          this.loadApprovalQueue(nextSelection.id);
         } else {
           this.runDetailSubject.next(null);
           this.selectedBreakSubject.next(null);
           this.filterMetadataSubject.next(null);
+          this.approvalsSubject.next([]);
+          this.approvalMetadataSubject.next(null);
         }
       },
       error: () => this.notifications.push('Unable to load reconciliations. Please try again later.', 'error')
@@ -66,6 +73,7 @@ export class ReconciliationStateService {
     this.selectedReconciliationSubject.next(reconciliation);
     this.selectedBreakSubject.next(null);
     this.fetchLatestRun(reconciliation.id);
+    this.loadApprovalQueue(reconciliation.id);
   }
 
   triggerRun(payload: TriggerRunPayload): void {
@@ -94,6 +102,7 @@ export class ReconciliationStateService {
         this.refreshActivity();
         this.notifications.push('Comment added to break.', 'success');
         this.breakEventsSubject.next();
+        this.loadApprovalQueue();
       },
       error: (err) => {
         const message = err?.error?.details ?? err?.error?.message ??
@@ -111,6 +120,7 @@ export class ReconciliationStateService {
         const statusText = payload.status.replace(/_/g, ' ').toLowerCase();
         this.notifications.push(`Break ${breakId} ${statusText}.`, 'success');
         this.breakEventsSubject.next();
+        this.loadApprovalQueue();
       },
       error: (err) => {
         const message = err?.error?.details ?? err?.error?.message ?? 'Status update failed.';
@@ -145,6 +155,7 @@ export class ReconciliationStateService {
         }
         this.refreshActivity();
         this.breakEventsSubject.next();
+        this.loadApprovalQueue();
       },
       error: (err) => {
         const message = err?.error?.details ?? err?.error?.message ?? 'Bulk update failed.';
@@ -169,6 +180,8 @@ export class ReconciliationStateService {
     this.filterSubject.next({});
     this.filterMetadataSubject.next(null);
     this.activitySubject.next([]);
+    this.approvalsSubject.next([]);
+    this.approvalMetadataSubject.next(null);
   }
 
   getCurrentRunDetail(): RunDetail | null {
@@ -196,6 +209,26 @@ export class ReconciliationStateService {
         this.selectedBreakSubject.next(detail.breaks[0] ?? null);
       },
       error: () => this.notifications.push('Failed to load reconciliation run.', 'error')
+    });
+  }
+
+  loadApprovalQueue(reconciliationId?: number): void {
+    const targetId = reconciliationId ?? this.selectedReconciliationSubject.value?.id;
+    if (!targetId) {
+      this.approvalsSubject.next([]);
+      this.approvalMetadataSubject.next(null);
+      return;
+    }
+    this.api.getApprovalQueue(targetId).subscribe({
+      next: (response) => {
+        this.approvalsSubject.next(response.pendingBreaks);
+        this.approvalMetadataSubject.next(response.filterMetadata);
+      },
+      error: (err) => {
+        const message = err?.error?.message ?? 'Failed to load approvals queue.';
+        this.notifications.push(message, 'error');
+        this.approvalsSubject.next([]);
+      }
     });
   }
 

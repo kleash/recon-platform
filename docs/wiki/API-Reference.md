@@ -39,6 +39,8 @@ _Response `200 OK`_
 | `/api/reconciliations/{id}/run` | POST | Trigger the matching engine for the specified reconciliation definition. |
 | `/api/reconciliations/{id}/runs/latest` | GET | Fetch the latest completed run plus optional break filters (`product`, `subProduct`, `entity`, `status`). |
 | `/api/reconciliations/runs/{runId}` | GET | Retrieve any historical run by identifier, with the same filter parameters as `runs/latest`. |
+| `/api/reconciliations/{id}/results` | GET | Cursor-paginated break search returning grid rows, dynamic column metadata, total counts, and next-cursor token. |
+| `/api/reconciliations/{id}/results/ids` | GET | Server-side aggregation of break identifiers for the current filter set (used for “select all filtered” bulk actions). |
 
 **Sample: List reconciliations**
 
@@ -137,6 +139,64 @@ Authorization: Bearer <token>
 
 _Response `200 OK`_: identical payload shape as the trigger response but scoped to filtered breaks only.
 
+**Sample: Paginated break results**
+
+_Request_
+```http
+GET /api/reconciliations/42/results?fromDate=2024-09-01&toDate=2024-09-30&size=200&status=OPEN HTTP/1.1
+Authorization: Bearer <token>
+```
+
+_Response `200 OK`_
+```json
+{
+  "rows": [
+    {
+      "breakId": 91501,
+      "runId": 1287,
+      "runDateTime": "2024-09-20T13:10:42Z",
+      "timezone": "Asia/Singapore",
+      "triggerType": "SCHEDULED_CRON",
+      "breakItem": { "id": 91501, "status": "OPEN", "breakType": "MISMATCH", "classifications": {"product": "FX"}, ... },
+      "attributes": { "desk": "SG-APAC", "counterparty": "BARC" }
+    }
+  ],
+  "page": {
+    "nextCursor": "1726824642000::91501",
+    "hasMore": true,
+    "totalCount": 417
+  },
+  "columns": [
+    {
+      "key": "product",
+      "label": "Product",
+      "dataType": "string",
+      "operators": ["EQUALS", "CONTAINS", "STARTS_WITH"],
+      "sortable": true,
+      "pinnable": true
+    }
+  ]
+}
+```
+
+**Sample: Select-all filtered**
+
+_Request_
+```http
+GET /api/reconciliations/42/results/ids?fromDate=2024-09-01&toDate=2024-09-30&status=OPEN HTTP/1.1
+Authorization: Bearer <token>
+```
+
+_Response `200 OK`_
+```json
+{
+  "breakIds": [91501, 91502, 91518, 91533],
+  "totalCount": 417
+}
+```
+
+The caller can feed `breakIds` directly into `/api/breaks/bulk` to drive server-side bulk approval flows.
+
 ### 7.3 Break Management
 | Endpoint | Method | Description |
 | --- | --- | --- |
@@ -204,6 +264,58 @@ Authorization: Bearer <token>
 
 _Response `200 OK`_: returns an array of updated `BreakItemDto` objects mirroring the structure above.
 
+### 7.4 Analyst Workspace APIs
+| Endpoint | Method | Description |
+| --- | --- | --- |
+| `/api/reconciliations/{id}/export-jobs` | GET | List export jobs queued by the caller for the specified reconciliation (newest first). |
+| `/api/reconciliations/{id}/export-jobs` | POST | Queue an asynchronous export job for the current filter set (`format`, `filters`, optional `fileNamePrefix`, `includeMetadata`). |
+| `/api/export-jobs/{jobId}` | GET | Retrieve the status of a specific export job (queued, processing, completed, failed). |
+| `/api/export-jobs/{jobId}/download` | GET | Download the generated export payload once the job reaches `COMPLETED`. |
+| `/api/reconciliations/{id}/saved-views` | GET | List the caller’s saved grid views ordered by `updatedAt`. |
+| `/api/reconciliations/{id}/saved-views` | POST | Create a new saved view (name, description, `settingsJson`, `shared`, `defaultView`). |
+| `/api/reconciliations/{id}/saved-views/{viewId}` | PUT | Update an existing saved view owned by the caller. |
+| `/api/reconciliations/{id}/saved-views/{viewId}` | DELETE | Delete a saved view owned by the caller. |
+| `/api/reconciliations/{id}/saved-views/{viewId}/default` | POST | Mark a saved view as the caller’s default (clearing the previous default). |
+| `/api/saved-views/shared/{token}` | GET | Resolve a shared saved view via public share token (read-only). |
+
+**Sample: Queue an export job**
+
+_Request_
+```http
+POST /api/reconciliations/42/export-jobs HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "format": "XLSX",
+  "filters": {
+    "fromDate": ["2024-09-01"],
+    "toDate": ["2024-09-30"],
+    "status": ["OPEN"]
+  },
+  "fileNamePrefix": "sept-open-breaks",
+  "includeMetadata": true
+}
+```
+
+_Response `202 Accepted`_
+```json
+{
+  "id": 884,
+  "jobType": "RESULT_DATASET",
+  "format": "XLSX",
+  "status": "QUEUED",
+  "fileName": "sept-open-breaks-2024-09-27T01-33-20.xlsx",
+  "contentHash": null,
+  "rowCount": null,
+  "createdAt": "2024-09-27T01:33:20Z",
+  "completedAt": null,
+  "errorMessage": null
+}
+```
+
+Clients should poll `GET /api/export-jobs/{jobId}` and, once the job status is `COMPLETED`, call the download endpoint using the provided filename.
+
 **Sample: Fetch workflow audit**
 
 _Request_
@@ -240,7 +352,7 @@ _Response `200 OK`_
 ]
 ```
 
-### 7.4 Administration
+### 7.5 Administration
 | Endpoint | Method | Description |
 | --- | --- | --- |
 | `/api/admin/reconciliations` | GET | List reconciliation definitions with filters (`status`, `owner`, `search`, `updatedAfter`, `updatedBefore`) and pagination (`page`, `size`). |

@@ -20,17 +20,21 @@ import com.universal.reconciliation.repository.SourceDataRecordRepository;
 import java.io.InputStream;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import com.universal.reconciliation.util.ParsingUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -173,6 +177,8 @@ public class SourceIngestionService {
             case STRING -> rawValue.toString();
             case DECIMAL, INTEGER -> new java.math.BigDecimal(rawValue.toString());
             case DATE -> parseDate(rawValue.toString());
+            case DATETIME -> parseDateTime(rawValue.toString());
+            case BOOLEAN -> parseBoolean(rawValue);
         };
     }
 
@@ -182,6 +188,18 @@ public class SourceIngestionService {
         } catch (DateTimeParseException ex) {
             throw new IllegalArgumentException("Unable to parse date value: " + value, ex);
         }
+    }
+
+    private LocalDateTime parseDateTime(String value) {
+        try {
+            return LocalDateTime.parse(value, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        } catch (DateTimeParseException ex) {
+            throw new IllegalArgumentException("Unable to parse datetime value: " + value, ex);
+        }
+    }
+
+    private Boolean parseBoolean(Object value) {
+        return ParsingUtils.parseFlexibleBoolean(value);
     }
 
     private String buildCanonicalKey(List<CanonicalField> keyFields, Map<String, Object> payload) {

@@ -3,11 +3,18 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import {
   BreakItem,
+  BreakSearchResponse,
+  BreakSelectionResponse,
+  ApprovalQueueResponse,
   BulkBreakUpdatePayload,
   BulkBreakUpdateResponse,
+  ExportJobRequestPayload,
+  ExportJobSummary,
   LoginResponse,
   ReconciliationListItem,
   RunDetail,
+  SavedView,
+  SavedViewRequestPayload,
   SystemActivityEntry,
   TriggerRunPayload
 } from '../models/api-models';
@@ -48,6 +55,31 @@ export class ApiService {
     });
   }
 
+  getApprovalQueue(reconciliationId: number): Observable<ApprovalQueueResponse> {
+    return this.http.get<ApprovalQueueResponse>(`${BASE_URL}/reconciliations/${reconciliationId}/approvals`);
+  }
+
+  searchBreakResults(
+    reconciliationId: number,
+    query: Record<string, string | number | boolean | Array<string | number>>
+  ): Observable<BreakSearchResponse> {
+    const params = this.buildQueryParams(query);
+    return this.http.get<BreakSearchResponse>(`${BASE_URL}/reconciliations/${reconciliationId}/results`, {
+      params
+    });
+  }
+
+  selectBreakIds(
+    reconciliationId: number,
+    query: Record<string, string | number | boolean | Array<string | number>>
+  ): Observable<BreakSelectionResponse> {
+    const params = this.buildQueryParams(query);
+    return this.http.get<BreakSelectionResponse>(
+      `${BASE_URL}/reconciliations/${reconciliationId}/results/ids`,
+      { params }
+    );
+  }
+
   getRun(runId: number, filter?: BreakFilter): Observable<RunDetail> {
     return this.http.get<RunDetail>(`${BASE_URL}/reconciliations/runs/${runId}`, {
       params: this.buildFilterParams(filter)
@@ -75,6 +107,53 @@ export class ApiService {
 
   getSystemActivity(): Observable<SystemActivityEntry[]> {
     return this.http.get<SystemActivityEntry[]>(`${BASE_URL}/activity`);
+  }
+
+  listSavedViews(reconciliationId: number): Observable<SavedView[]> {
+    return this.http.get<SavedView[]>(`${BASE_URL}/reconciliations/${reconciliationId}/saved-views`);
+  }
+
+  createSavedView(reconciliationId: number, payload: SavedViewRequestPayload): Observable<SavedView> {
+    return this.http.post<SavedView>(`${BASE_URL}/reconciliations/${reconciliationId}/saved-views`, payload);
+  }
+
+  updateSavedView(
+    reconciliationId: number,
+    viewId: number,
+    payload: SavedViewRequestPayload
+  ): Observable<SavedView> {
+    return this.http.put<SavedView>(`${BASE_URL}/reconciliations/${reconciliationId}/saved-views/${viewId}`, payload);
+  }
+
+  deleteSavedView(reconciliationId: number, viewId: number): Observable<void> {
+    return this.http.delete<void>(`${BASE_URL}/reconciliations/${reconciliationId}/saved-views/${viewId}`);
+  }
+
+  setDefaultSavedView(reconciliationId: number, viewId: number): Observable<void> {
+    return this.http.post<void>(
+      `${BASE_URL}/reconciliations/${reconciliationId}/saved-views/${viewId}/default`,
+      {}
+    );
+  }
+
+  resolveSharedView(token: string): Observable<SavedView> {
+    return this.http.get<SavedView>(`${BASE_URL}/saved-views/shared/${encodeURIComponent(token)}`);
+  }
+
+  listExportJobs(reconciliationId: number): Observable<ExportJobSummary[]> {
+    return this.http.get<ExportJobSummary[]>(`${BASE_URL}/reconciliations/${reconciliationId}/export-jobs`);
+  }
+
+  queueExportJob(reconciliationId: number, payload: ExportJobRequestPayload): Observable<ExportJobSummary> {
+    return this.http.post<ExportJobSummary>(`${BASE_URL}/reconciliations/${reconciliationId}/export-jobs`, payload);
+  }
+
+  getExportJob(jobId: number): Observable<ExportJobSummary> {
+    return this.http.get<ExportJobSummary>(`${BASE_URL}/export-jobs/${jobId}`);
+  }
+
+  downloadExportJob(jobId: number): Observable<Blob> {
+    return this.http.get(`${BASE_URL}/export-jobs/${jobId}/download`, { responseType: 'blob' });
   }
 
   getAdminReconciliations(filters?: {
@@ -156,6 +235,25 @@ export class ApiService {
       `${BASE_URL}/admin/reconciliations/${definitionId}/sources/${encodeURIComponent(sourceCode)}/batches`,
       formData
     );
+  }
+
+  private buildQueryParams(
+    query: Record<string, string | number | boolean | Array<string | number>> | undefined
+  ): HttpParams {
+    let params = new HttpParams();
+    Object.entries(query || {}).forEach(([key, value]) => {
+      if (value === undefined || value === null) {
+        return;
+      }
+      if (Array.isArray(value)) {
+        value.forEach((entry) => {
+          params = params.append(key, String(entry));
+        });
+      } else {
+        params = params.set(key, String(value));
+      }
+    });
+    return params;
   }
 
   private buildFilterParams(filter?: BreakFilter): HttpParams {

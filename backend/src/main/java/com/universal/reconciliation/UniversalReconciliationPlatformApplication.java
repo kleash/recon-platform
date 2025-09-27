@@ -2,6 +2,7 @@ package com.universal.reconciliation;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableAsync;
 
 /**
  * Entry point for the Universal Reconciliation Platform backend application.
@@ -9,6 +10,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * so later phases can be decomposed into autonomous services.
  */
 @SpringBootApplication
+@EnableAsync
 public class UniversalReconciliationPlatformApplication {
 
     /**

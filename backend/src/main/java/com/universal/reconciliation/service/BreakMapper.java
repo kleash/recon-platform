@@ -79,6 +79,16 @@ public class BreakMapper {
             classifications = fallback;
         }
 
+        if (!item.getClassificationValues().isEmpty()) {
+            Map<String, String> combined =
+                    classifications == null || classifications.isEmpty()
+                            ? new LinkedHashMap<>()
+                            : new LinkedHashMap<>(classifications);
+            item.getClassificationValues()
+                    .forEach(entry -> combined.put(entry.getAttributeKey(), entry.getAttributeValue()));
+            classifications = combined;
+        }
+
         Map<String, Map<String, Object>> sources = readNestedMap(item.getId(), "sourcePayload", item.getSourcePayloadJson());
         if (sources == null || sources.isEmpty()) {
             Map<String, Map<String, Object>> fallback = new LinkedHashMap<>();

@@ -15,6 +15,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+
+import com.universal.reconciliation.util.ParsingUtils;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -187,6 +190,8 @@ public class DynamicMatchingEngine implements MatchingEngine {
         return switch (dataType) {
             case DECIMAL, INTEGER -> toBigDecimal(left).compareTo(toBigDecimal(right)) == 0;
             case DATE -> Objects.equals(asLocalDate(left), asLocalDate(right));
+            case DATETIME -> Objects.equals(asLocalDateTime(left), asLocalDateTime(right));
+            case BOOLEAN -> Objects.equals(asBoolean(left), asBoolean(right));
             case STRING -> Objects.equals(left.toString(), right.toString());
         };
     }
@@ -234,6 +239,31 @@ public class DynamicMatchingEngine implements MatchingEngine {
             return LocalDate.parse(value.toString());
         } catch (DateTimeParseException ex) {
             throw new IllegalStateException("Unable to parse date value: " + value, ex);
+        }
+    }
+
+    private LocalDateTime asLocalDateTime(Object value) {
+        if (value instanceof LocalDateTime localDateTime) {
+            return localDateTime;
+        }
+        if (value instanceof LocalDate localDate) {
+            return localDate.atStartOfDay();
+        }
+        if (value instanceof java.util.Date legacyDate) {
+            return legacyDate.toInstant().atZone(ZoneOffset.UTC).toLocalDateTime();
+        }
+        try {
+            return LocalDateTime.parse(value.toString());
+        } catch (DateTimeParseException ex) {
+            throw new IllegalStateException("Unable to parse datetime value: " + value, ex);
+        }
+    }
+
+    private Boolean asBoolean(Object value) {
+        try {
+            return ParsingUtils.parseFlexibleBoolean(value);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalStateException(ex.getMessage(), ex);
         }
     }
 }

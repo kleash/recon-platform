@@ -13,6 +13,7 @@ import { BreakStatus } from '../../models/break-status';
 })
 export class BreakDetailComponent implements OnChanges {
   @Input() breakItem: BreakItem | null = null;
+  @Input() workflowSummary: string | null = null;
   @Output() addComment = new EventEmitter<{ breakId: number; comment: string; action: string }>();
   @Output() updateStatus = new EventEmitter<{
     breakId: number;

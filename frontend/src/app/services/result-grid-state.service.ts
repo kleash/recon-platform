@@ -254,7 +254,12 @@ export class ResultGridStateService {
     this.api.searchBreakResults(this.reconciliation.id, query).subscribe({
       next: (response: BreakSearchResponse) => {
         const existing = reset ? [] : this.rowsSubject.value;
-        const combined = [...existing, ...response.rows];
+        const combined = [...existing, ...response.rows].sort((a, b) => {
+          if (a.breakId === b.breakId) {
+            return 0;
+          }
+          return a.breakId < b.breakId ? -1 : 1;
+        });
         this.rowsSubject.next(combined);
         this.columnsSubject.next(response.columns);
         this.totalSubject.next(response.page.totalCount >= 0 ? response.page.totalCount : null);

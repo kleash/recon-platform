@@ -3,7 +3,10 @@
     <urp-reconciliation-list
       [reconciliations]="reconciliations"
       [selectedReconciliation]="selectedReconciliation$ | async"
+      [canExport]="(runDetail$ | async)?.summary?.runId != null"
       (selectReconciliation)="handleSelectReconciliation($event)"
+      (triggerRun)="handleTriggerRun($event)"
+      (exportRun)="handleExportLatestRun()"
     ></urp-reconciliation-list>
 
     <section class="saved-views" *ngIf="savedViews$ | async as savedViews">
@@ -278,10 +281,11 @@
   </main>
 
   <aside class="detail-panel" *ngIf="isActiveTab('runs') || isActiveTab('breaks')">
-    <urp-break-detail
-      [breakItem]="selectedBreak$ | async"
-      (addComment)="state.addComment($event.breakId, $event.comment, $event.action)"
-      (updateStatus)="state.updateStatus($event.breakId, { status: $event.status, comment: $event.comment })"
-    ></urp-break-detail>
+      <urp-break-detail
+        [breakItem]="selectedBreak$ | async"
+        [workflowSummary]="workflowSummary$ | async"
+        (addComment)="state.addComment($event.breakId, $event.comment, $event.action)"
+        (updateStatus)="state.updateStatus($event.breakId, { status: $event.status, comment: $event.comment })"
+      ></urp-break-detail>
   </aside>
 </div>

@@ -27,6 +27,8 @@ export class ReconciliationStateService {
   private readonly breakEventsSubject = new Subject<void>();
   private readonly approvalsSubject = new BehaviorSubject<BreakItem[]>([]);
   private readonly approvalMetadataSubject = new BehaviorSubject<FilterMetadata | null>(null);
+  private readonly workflowSummarySubject = new BehaviorSubject<string | null>(null);
+  private pendingSelectionLockUntil = 0;
 
   readonly reconciliations$ = this.reconciliationsSubject.asObservable();
   readonly selectedReconciliation$ = this.selectedReconciliationSubject.asObservable();
@@ -38,6 +40,7 @@ export class ReconciliationStateService {
   readonly breakEvents$ = this.breakEventsSubject.asObservable();
   readonly approvals$ = this.approvalsSubject.asObservable();
   readonly approvalMetadata$ = this.approvalMetadataSubject.asObservable();
+  readonly workflowSummary$ = this.workflowSummarySubject.asObservable();
 
   constructor(private readonly api: ApiService, private readonly notifications: NotificationService) {}
 
@@ -85,6 +88,7 @@ export class ReconciliationStateService {
       next: () => {
         this.fetchLatestRun(selected.id);
         this.refreshActivity();
+        this.breakEventsSubject.next();
         this.notifications.push('Reconciliation run triggered successfully.', 'success');
       },
       error: () => this.notifications.push('Failed to trigger reconciliation run.', 'error')
@@ -92,6 +96,10 @@ export class ReconciliationStateService {
   }
 
   selectBreak(breakItem: BreakItem): void {
+    if (this.pendingSelectionLockUntil > Date.now() && breakItem.status === BreakStatus.Open) {
+      return;
+    }
+    this.pendingSelectionLockUntil = 0;
     this.selectedBreakSubject.next(breakItem);
   }
 
@@ -138,10 +146,18 @@ export class ReconciliationStateService {
       next: (response: BulkBreakUpdateResponse) => {
         if (response.successes.length > 0) {
           this.applyBreakUpdates(response.successes);
+          this.selectedBreakSubject.next(response.successes[0]);
+          const summary = response.successes
+            .map((item) => `Break ${item.id} - Status: ${item.status}`)
+            .join('; ');
+          this.workflowSummarySubject.next(summary);
+          this.pendingSelectionLockUntil = Date.now() + 15000;
           this.notifications.push(
             `${response.successes.length} break${response.successes.length === 1 ? '' : 's'} updated successfully.`,
             'success'
           );
+        } else if (response.failures.length === 0) {
+          this.workflowSummarySubject.next(null);
         }
         if (response.failures.length > 0) {
           const details = response.failures
@@ -152,9 +168,13 @@ export class ReconciliationStateService {
             `${response.failures.length} break${response.failures.length === 1 ? '' : 's'} failed to update. ${details}`,
             'error'
           );
+          if (response.successes.length === 0) {
+            this.workflowSummarySubject.next(
+              `Bulk update failed for ${response.failures.length} break${response.failures.length === 1 ? '' : 's'}.`
+            );
+          }
         }
         this.refreshActivity();
-        this.breakEventsSubject.next();
         this.loadApprovalQueue();
       },
       error: (err) => {
@@ -182,10 +202,15 @@ export class ReconciliationStateService {
     this.activitySubject.next([]);
     this.approvalsSubject.next([]);
     this.approvalMetadataSubject.next(null);
+    this.workflowSummarySubject.next(null);
   }
 
   getCurrentRunDetail(): RunDetail | null {
     return this.runDetailSubject.value;
+  }
+
+  getCurrentBreak(): BreakItem | null {
+    return this.selectedBreakSubject.value;
   }
 
   updateFilter(filter: BreakFilter): void {
@@ -202,11 +227,16 @@ export class ReconciliationStateService {
 
   private fetchLatestRun(reconciliationId: number): void {
     const filter = this.filterSubject.value;
+    const selectedBreakId = this.selectedBreakSubject.value?.id ?? null;
     this.api.getLatestRun(reconciliationId, filter).subscribe({
       next: (detail: RunDetail) => {
         this.runDetailSubject.next(detail);
         this.filterMetadataSubject.next(detail.filters);
-        this.selectedBreakSubject.next(detail.breaks[0] ?? null);
+        const currentSelection = this.selectedBreakSubject.value;
+        const nextSelection = selectedBreakId != null
+          ? detail.breaks.find((item: BreakItem) => item.id === selectedBreakId) ?? currentSelection ?? detail.breaks[0] ?? null
+          : detail.breaks[0] ?? null;
+        this.selectedBreakSubject.next(nextSelection);
       },
       error: () => this.notifications.push('Failed to load reconciliation run.', 'error')
     });

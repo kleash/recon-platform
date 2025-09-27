@@ -11,7 +11,8 @@ import {
   GridColumn,
   ReconciliationListItem,
   SavedView,
-  SavedViewRequestPayload
+  SavedViewRequestPayload,
+  TriggerRunPayload
 } from '../../models/api-models';
 import { ReconciliationListComponent } from '../reconciliation-list/reconciliation-list.component';
 import { BreakDetailComponent } from '../break-detail/break-detail.component';
@@ -22,6 +23,7 @@ import { CheckerQueueComponent } from '../checker-queue/checker-queue.component'
 import { ReconciliationStateService } from '../../services/reconciliation-state.service';
 import { ResultGridStateService, ExportFormat } from '../../services/result-grid-state.service';
 import { SessionService } from '../../services/session.service';
+import { NotificationService } from '../../services/notification.service';
 
 type WorkspaceTab = 'runs' | 'breaks' | 'approvals' | 'reports';
 
@@ -66,6 +68,7 @@ export class AnalystWorkspaceComponent implements OnInit, OnDestroy {
   readonly approvals$ = this.state.approvals$;
   readonly approvalMetadata$ = this.state.approvalMetadata$;
   readonly filter$ = this.state.filter$;
+  readonly workflowSummary$ = this.state.workflowSummary$;
 
   readonly BreakStatus = BreakStatus;
   readonly allStatuses = Object.values(BreakStatus);
@@ -92,7 +95,8 @@ export class AnalystWorkspaceComponent implements OnInit, OnDestroy {
   constructor(
     public readonly state: ReconciliationStateService,
     public readonly resultState: ResultGridStateService,
-    public readonly session: SessionService
+    public readonly session: SessionService,
+    private readonly notifications: NotificationService
   ) {}
 
   ngOnInit(): void {
@@ -111,7 +115,13 @@ export class AnalystWorkspaceComponent implements OnInit, OnDestroy {
 
     this.state.breakEvents$
       .pipe(takeUntil(this.destroy$))
-      .subscribe(() => this.resultState.refresh());
+      .subscribe(() => {
+        const currentBreak = this.state.getCurrentBreak();
+        this.resultState.refresh();
+        if (currentBreak) {
+          setTimeout(() => this.state.selectBreak(currentBreak), 0);
+        }
+      });
 
     this.columns$
       .pipe(takeUntil(this.destroy$))
@@ -149,6 +159,28 @@ export class AnalystWorkspaceComponent implements OnInit, OnDestroy {
 
   handleSelectReconciliation(reconciliation: ReconciliationListItem): void {
     this.state.selectReconciliation(reconciliation);
+  }
+
+  handleTriggerRun(payload: TriggerRunPayload): void {
+    this.state.triggerRun(payload);
+  }
+
+  handleExportLatestRun(): void {
+    this.state.exportLatestRun().subscribe({
+      next: (blob) => {
+        const fileName = `run-export-${DateTime.now().toFormat('yyyyLLdd-HHmmss')}.csv`;
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = fileName;
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        URL.revokeObjectURL(url);
+        this.notifications.push('Run export downloaded successfully.', 'success');
+      },
+      error: () => this.notifications.push('Failed to export latest run.', 'error')
+    });
   }
 
   applyFilters(): void {
@@ -356,7 +388,6 @@ export class AnalystWorkspaceComponent implements OnInit, OnDestroy {
       comment: this.bulkComment.trim() || undefined
     });
     this.bulkComment = '';
-    this.resultState.refresh();
   }
 
   private syncFiltersFromSavedView(view: SavedView): void {
@@ -438,7 +469,7 @@ export class AnalystWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   private todayInSgt(): string {
-    return DateTime.now().setZone('Asia/Singapore').toISODate();
+    const nowInSgt = DateTime.now().setZone('Asia/Singapore');
+    return nowInSgt.toISODate() ?? nowInSgt.toFormat('yyyy-LL-dd');
   }
 }
-

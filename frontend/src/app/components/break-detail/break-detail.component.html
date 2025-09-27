@@ -1,5 +1,8 @@
 <section class="break-detail" *ngIf="breakItem as active; else noBreak">
   <h3>Break {{ active.id }}</h3>
+  <div class="workflow-summary" *ngIf="workflowSummary">
+    {{ workflowSummary }}
+  </div>
   <div class="break-meta">
     <span class="meta-chip" *ngFor="let entry of classificationEntries">
       <strong>{{ formatClassificationKey(entry.key) }}:</strong> {{ entry.value || '—' }}

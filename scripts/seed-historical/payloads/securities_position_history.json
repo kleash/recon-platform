@@ -1,0 +1,187 @@
+{
+  "code": "SECURITIES_POSITION_HISTORY",
+  "name": "Securities Position Historical",
+  "description": "Custodian versus portfolio position reconciliation with maker-checker controls.",
+  "owner": "Prime Finance Middle Office",
+  "makerCheckerEnabled": true,
+  "notes": "Provisioned by seed-historical script for high-volume testing.",
+  "status": "PUBLISHED",
+  "autoTriggerEnabled": false,
+  "autoTriggerCron": null,
+  "autoTriggerTimezone": null,
+  "autoTriggerGraceMinutes": null,
+  "version": null,
+  "sources": [
+    {
+      "id": null,
+      "code": "CUST30",
+      "displayName": "Custodian Positions",
+      "adapterType": "CSV_FILE",
+      "anchor": true,
+      "description": "Daily custody positions pulled from prime custodian.",
+      "connectionConfig": "s3://historical-seed/custody",
+      "arrivalExpectation": "Weekdays by 08:00 UTC",
+      "arrivalTimezone": "UTC",
+      "arrivalSlaMinutes": 60,
+      "adapterOptions": "{\"delimiter\":\",\"}"
+    },
+    {
+      "id": null,
+      "code": "PORT30",
+      "displayName": "Portfolio Book",
+      "adapterType": "CSV_FILE",
+      "anchor": false,
+      "description": "Front office position book of record extract.",
+      "connectionConfig": "jdbc:postgresql://historical/portfolio",
+      "arrivalExpectation": "Weekdays by 08:15 UTC",
+      "arrivalTimezone": "UTC",
+      "arrivalSlaMinutes": 75,
+      "adapterOptions": "{\"delimiter\":\",\"}"
+    }
+  ],
+  "canonicalFields": [
+    {
+      "id": null,
+      "canonicalName": "transactionId",
+      "displayName": "Lot Identifier",
+      "role": "KEY",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 1,
+      "required": true,
+      "mappings": [
+        { "id": null, "sourceCode": "CUST30", "sourceColumn": "transactionId", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
+        { "id": null, "sourceCode": "PORT30", "sourceColumn": "transactionId", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "amount",
+      "displayName": "Position Amount",
+      "role": "COMPARE",
+      "dataType": "DECIMAL",
+      "comparisonLogic": "NUMERIC_THRESHOLD",
+      "thresholdPercentage": 0.5,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 2,
+      "required": true,
+      "mappings": [
+        { "id": null, "sourceCode": "CUST30", "sourceColumn": "amount", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
+        { "id": null, "sourceCode": "PORT30", "sourceColumn": "amount", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "currency",
+      "displayName": "Currency",
+      "role": "COMPARE",
+      "dataType": "STRING",
+      "comparisonLogic": "CASE_INSENSITIVE",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 3,
+      "required": true,
+      "mappings": [
+        { "id": null, "sourceCode": "CUST30", "sourceColumn": "currency", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
+        { "id": null, "sourceCode": "PORT30", "sourceColumn": "currency", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "tradeDate",
+      "displayName": "Valuation Date",
+      "role": "COMPARE",
+      "dataType": "DATE",
+      "comparisonLogic": "DATE_ONLY",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 4,
+      "required": true,
+      "mappings": [
+        { "id": null, "sourceCode": "CUST30", "sourceColumn": "tradeDate", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
+        { "id": null, "sourceCode": "PORT30", "sourceColumn": "tradeDate", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "product",
+      "displayName": "Asset Class",
+      "role": "PRODUCT",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": "product",
+      "formattingHint": null,
+      "displayOrder": 5,
+      "required": true,
+      "mappings": [
+        { "id": null, "sourceCode": "CUST30", "sourceColumn": "product", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
+        { "id": null, "sourceCode": "PORT30", "sourceColumn": "product", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "subProduct",
+      "displayName": "Strategy",
+      "role": "SUB_PRODUCT",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": "subProduct",
+      "formattingHint": null,
+      "displayOrder": 6,
+      "required": true,
+      "mappings": [
+        { "id": null, "sourceCode": "CUST30", "sourceColumn": "subProduct", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
+        { "id": null, "sourceCode": "PORT30", "sourceColumn": "subProduct", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "entityName",
+      "displayName": "Client Entity",
+      "role": "ENTITY",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": "entity",
+      "formattingHint": null,
+      "displayOrder": 7,
+      "required": true,
+      "mappings": [
+        { "id": null, "sourceCode": "CUST30", "sourceColumn": "entity", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
+        { "id": null, "sourceCode": "PORT30", "sourceColumn": "entity", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+      ]
+    }
+  ],
+  "accessControlEntries": [
+    {
+      "id": null,
+      "ldapGroupDn": "recon-makers",
+      "role": "MAKER",
+      "product": null,
+      "subProduct": null,
+      "entityName": null,
+      "notifyOnPublish": false,
+      "notifyOnIngestionFailure": false,
+      "notificationChannel": null
+    },
+    {
+      "id": null,
+      "ldapGroupDn": "recon-checkers",
+      "role": "CHECKER",
+      "product": null,
+      "subProduct": null,
+      "entityName": null,
+      "notifyOnPublish": false,
+      "notifyOnIngestionFailure": false,
+      "notificationChannel": null
+    }
+  ]
+}

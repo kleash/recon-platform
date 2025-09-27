@@ -1,0 +1,90 @@
+{
+  "code": "CARD_SETTLEMENT_HISTORY",
+  "name": "Card Settlement Historical",
+  "description": "Network versus ledger reconciliation for card settlements over the last 30 days.",
+  "owner": "Merchant Services",
+  "makerCheckerEnabled": true,
+  "notes": "Provisioned by seed-historical script to evaluate performance at scale.",
+  "status": "PUBLISHED",
+  "autoTriggerEnabled": false,
+  "autoTriggerCron": null,
+  "autoTriggerTimezone": null,
+  "autoTriggerGraceMinutes": null,
+  "version": null,
+  "sources": [
+    {
+      "id": null,
+      "code": "NET30",
+      "displayName": "Network Clearing",
+      "adapterType": "CSV_FILE",
+      "anchor": true,
+      "description": "Card network clearing feed.",
+      "connectionConfig": "s3://historical-seed/card-network",
+      "arrivalExpectation": "Daily by 03:30 UTC",
+      "arrivalTimezone": "UTC",
+      "arrivalSlaMinutes": 35,
+      "adapterOptions": "{\"delimiter\":\",\"}"
+    },
+    {
+      "id": null,
+      "code": "LEDGER30",
+      "displayName": "Settlement Ledger",
+      "adapterType": "CSV_FILE",
+      "anchor": false,
+      "description": "Card settlement ledger postings.",
+      "connectionConfig": "jdbc:mysql://historical/settlement",
+      "arrivalExpectation": "Daily by 04:00 UTC",
+      "arrivalTimezone": "UTC",
+      "arrivalSlaMinutes": 45,
+      "adapterOptions": "{\"delimiter\":\",\"}"
+    }
+  ],
+  "canonicalFields": [
+    { "id": null, "canonicalName": "transactionId", "displayName": "Clearing ID", "role": "KEY", "dataType": "STRING", "comparisonLogic": "EXACT_MATCH", "thresholdPercentage": null, "classifierTag": null, "formattingHint": null, "displayOrder": 1, "required": true,
+      "mappings": [
+        { "id": null, "sourceCode": "NET30", "sourceColumn": "transactionId", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
+        { "id": null, "sourceCode": "LEDGER30", "sourceColumn": "transactionId", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+      ]
+    },
+    { "id": null, "canonicalName": "amount", "displayName": "Settlement Amount", "role": "COMPARE", "dataType": "DECIMAL", "comparisonLogic": "NUMERIC_THRESHOLD", "thresholdPercentage": 0.5, "classifierTag": null, "formattingHint": null, "displayOrder": 2, "required": true,
+      "mappings": [
+        { "id": null, "sourceCode": "NET30", "sourceColumn": "amount", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
+        { "id": null, "sourceCode": "LEDGER30", "sourceColumn": "amount", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+      ]
+    },
+    { "id": null, "canonicalName": "currency", "displayName": "Currency", "role": "COMPARE", "dataType": "STRING", "comparisonLogic": "CASE_INSENSITIVE", "thresholdPercentage": null, "classifierTag": null, "formattingHint": null, "displayOrder": 3, "required": true,
+      "mappings": [
+        { "id": null, "sourceCode": "NET30", "sourceColumn": "currency", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
+        { "id": null, "sourceCode": "LEDGER30", "sourceColumn": "currency", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+      ]
+    },
+    { "id": null, "canonicalName": "tradeDate", "displayName": "Settlement Date", "role": "COMPARE", "dataType": "DATE", "comparisonLogic": "DATE_ONLY", "thresholdPercentage": null, "classifierTag": null, "formattingHint": null, "displayOrder": 4, "required": true,
+      "mappings": [
+        { "id": null, "sourceCode": "NET30", "sourceColumn": "tradeDate", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
+        { "id": null, "sourceCode": "LEDGER30", "sourceColumn": "tradeDate", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+      ]
+    },
+    { "id": null, "canonicalName": "product", "displayName": "Card Brand", "role": "PRODUCT", "dataType": "STRING", "comparisonLogic": "EXACT_MATCH", "thresholdPercentage": null, "classifierTag": "product", "formattingHint": null, "displayOrder": 5, "required": true,
+      "mappings": [
+        { "id": null, "sourceCode": "NET30", "sourceColumn": "product", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
+        { "id": null, "sourceCode": "LEDGER30", "sourceColumn": "product", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+      ]
+    },
+    { "id": null, "canonicalName": "subProduct", "displayName": "Region", "role": "SUB_PRODUCT", "dataType": "STRING", "comparisonLogic": "EXACT_MATCH", "thresholdPercentage": null, "classifierTag": "subProduct", "formattingHint": null, "displayOrder": 6, "required": true,
+      "mappings": [
+        { "id": null, "sourceCode": "NET30", "sourceColumn": "subProduct", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
+        { "id": null, "sourceCode": "LEDGER30", "sourceColumn": "subProduct", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+      ]
+    },
+    { "id": null, "canonicalName": "entityName", "displayName": "Merchant Entity", "role": "ENTITY", "dataType": "STRING", "comparisonLogic": "EXACT_MATCH", "thresholdPercentage": null, "classifierTag": "entity", "formattingHint": null, "displayOrder": 7, "required": true,
+      "mappings": [
+        { "id": null, "sourceCode": "NET30", "sourceColumn": "entity", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
+        { "id": null, "sourceCode": "LEDGER30", "sourceColumn": "entity", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+      ]
+    }
+  ],
+  "accessControlEntries": [
+    { "id": null, "ldapGroupDn": "recon-makers", "role": "MAKER", "product": null, "subProduct": null, "entityName": null, "notifyOnPublish": false, "notifyOnIngestionFailure": false, "notificationChannel": null },
+    { "id": null, "ldapGroupDn": "recon-checkers", "role": "CHECKER", "product": null, "subProduct": null, "entityName": null, "notifyOnPublish": false, "notifyOnIngestionFailure": false, "notificationChannel": null }
+  ]
+}

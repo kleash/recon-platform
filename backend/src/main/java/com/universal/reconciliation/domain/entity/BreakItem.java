@@ -2,6 +2,7 @@ package com.universal.reconciliation.domain.entity;
 
 import com.universal.reconciliation.domain.enums.BreakStatus;
 import com.universal.reconciliation.domain.enums.BreakType;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -92,10 +93,13 @@ public class BreakItem {
     @Column(columnDefinition = "LONGTEXT")
     private String sourceBJson;
 
-    @OneToMany(mappedBy = "breakItem")
+    @OneToMany(mappedBy = "breakItem", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<BreakComment> comments = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "breakItem")
     private Set<BreakWorkflowAudit> workflowAudits = new LinkedHashSet<>();
+
+    @OneToMany(mappedBy = "breakItem", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<BreakClassificationValue> classificationValues = new LinkedHashSet<>();
 
 }

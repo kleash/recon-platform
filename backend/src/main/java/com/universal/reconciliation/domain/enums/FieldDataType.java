@@ -8,6 +8,7 @@ public enum FieldDataType {
     STRING,
     DECIMAL,
     INTEGER,
-    DATE
+    DATE,
+    DATETIME,
+    BOOLEAN
 }
-

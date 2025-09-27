@@ -86,3 +86,18 @@ Updated docs: /wiki/docs/
 E2E suite under /automation/
 
 Demo GIFs in PR descriptions
+
+---
+
+## Implementation Snapshot — September 2025
+
+The first delivery slice is now wired end-to-end. Highlights:
+
+- **Server-side grid selection.** The backend exposes `GET /api/reconciliations/{id}/results/ids`, which walks the cursor-paginated break search and returns the identifiers (and total count) for the current filter set. The Angular workspace now surfaces a **Select Filtered** action that hydrates bulk operations with those IDs while still supporting page-only and loaded-row toggles.
+- **Saved views & export history APIs.** Dedicated controllers (`SavedViewController`, `ExportJobController`) cover CRUD for analyst saved views, async export job tracking, and download links. Both services enforce maker/checker access rules via the shared `BreakAccessService` helper.
+- **Break search plumbing.** `BreakSearchService` now emits fully paginated row DTOs, column metadata (including operator lists per data type), and derives grid attributes from canonical field configuration. A companion `BreakSelectionService` iterates pagination for bulk selections.
+- **Richer export pipeline.** `ExportJobService` performs cursor-driven aggregation, normalises attribute keys, and writes CSV/JSONL/XLSX payloads via the new `DatasetExportWriter`. Each payload embeds filter summaries and SGT timestamps; jobs persist hashes and row counts for audit.
+- **Type system upgrades.** `FieldDataType` adds `BOOLEAN` and `DATETIME` variants so both ingestion and matching logic can normalise and compare non-string fields consistently.
+- **Automation visibility.** The Playwright smoke test asserts the presence of the new bulk-selection affordance in the analyst workspace, keeping UI regressions visible in nightly runs.
+
+Refer to the API reference for request/response details on the new endpoints. Subsequent increments will address approvals UX stitching, maker/checker notifications, and performance instrumentation.

@@ -20,11 +20,13 @@ import com.universal.reconciliation.repository.SourceDataRecordRepository;
 import java.io.InputStream;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -173,6 +175,8 @@ public class SourceIngestionService {
             case STRING -> rawValue.toString();
             case DECIMAL, INTEGER -> new java.math.BigDecimal(rawValue.toString());
             case DATE -> parseDate(rawValue.toString());
+            case DATETIME -> parseDateTime(rawValue.toString());
+            case BOOLEAN -> parseBoolean(rawValue);
         };
     }
 
@@ -182,6 +186,26 @@ public class SourceIngestionService {
         } catch (DateTimeParseException ex) {
             throw new IllegalArgumentException("Unable to parse date value: " + value, ex);
         }
+    }
+
+    private LocalDateTime parseDateTime(String value) {
+        try {
+            return LocalDateTime.parse(value, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        } catch (DateTimeParseException ex) {
+            throw new IllegalArgumentException("Unable to parse datetime value: " + value, ex);
+        }
+    }
+
+    private Boolean parseBoolean(Object value) {
+        if (value instanceof Boolean bool) {
+            return bool;
+        }
+        String string = value.toString().trim().toLowerCase(Locale.ROOT);
+        return switch (string) {
+            case "true", "1", "yes", "y" -> Boolean.TRUE;
+            case "false", "0", "no", "n" -> Boolean.FALSE;
+            default -> throw new IllegalArgumentException("Unable to parse boolean value: " + value);
+        };
     }
 
     private String buildCanonicalKey(List<CanonicalField> keyFields, Map<String, Object> payload) {

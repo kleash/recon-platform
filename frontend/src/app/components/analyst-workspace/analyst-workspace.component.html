@@ -1,40 +1,142 @@
-<section class="content-grid">
-  <urp-reconciliation-list
-    [reconciliations]="(reconciliations$ | async) || []"
-    [selectedReconciliation]="selectedReconciliation$ | async"
-    [canExport]="!!((runDetail$ | async)?.summary.runId)"
-    (selectReconciliation)="handleSelectReconciliation($event)"
-    (triggerRun)="handleTriggerRun($event)"
-    (exportRun)="handleExportRun()"
-  ></urp-reconciliation-list>
+<div class="workspace">
+  <aside class="sidebar" *ngIf="(reconciliations$ | async) as reconciliations">
+    <urp-reconciliation-list
+      [reconciliations]="reconciliations"
+      [selectedReconciliation]="selectedReconciliation$ | async"
+      (selectReconciliation)="handleSelectReconciliation($event)"
+    ></urp-reconciliation-list>
 
-  <section class="card">
-    <ng-container *ngIf="runDetail$ | async as detail">
-      <urp-run-detail
-        [runDetail]="detail"
-        [selectedBreak]="selectedBreak$ | async"
-        [filterMetadata]="filterMetadata$ | async"
-        [filter]="filter$ | async"
-        (selectBreak)="handleSelectBreak($event)"
-        (filterChange)="handleFilterChange($event)"
-        (bulkAction)="handleBulkAction($event)"
-      ></urp-run-detail>
-      <urp-break-detail
-        [breakItem]="selectedBreak$ | async"
-        (addComment)="handleAddComment($event)"
-        (updateStatus)="handleStatusChange($event)"
-      ></urp-break-detail>
-      <urp-checker-queue
-        *ngIf="session.hasCheckerRole(detail.breaks)"
-        [pendingBreaks]="getPendingApprovalBreaks(detail)"
-        [filterMetadata]="filterMetadata$ | async"
-        (approve)="handleQueueApprove($event)"
-        (reject)="handleQueueReject($event)"
-      ></urp-checker-queue>
-    </ng-container>
-  </section>
+    <section class="saved-views" *ngIf="savedViews$ | async as savedViews">
+      <header>
+        <h3>Saved Views</h3>
+      </header>
+      <form #viewForm="ngForm" (ngSubmit)="saveCurrentView(viewForm)" class="view-form">
+        <input
+          type="text"
+          placeholder="View name"
+          name="viewName"
+          [(ngModel)]="newView.name"
+          required
+        />
+        <input
+          type="text"
+          placeholder="Description (optional)"
+          name="viewDescription"
+          [(ngModel)]="newView.description"
+        />
+        <label>
+          <input type="checkbox" name="viewShared" [(ngModel)]="newView.shared" /> Shared
+        </label>
+        <label>
+          <input type="checkbox" name="viewDefault" [(ngModel)]="newView.defaultView" /> Default
+        </label>
+        <button type="submit" [disabled]="viewForm.invalid">Save</button>
+      </form>
+      <div class="views-list">
+        <div class="view-item" *ngFor="let view of savedViews">
+          <button
+            type="button"
+            (click)="handleApplySavedView(view)"
+            [class.active]="(activeView$ | async) === view.id"
+          >
+            {{ view.name }}
+          </button>
+          <div class="view-actions">
+            <button type="button" (click)="markDefault(view)" title="Set as default">★</button>
+            <button type="button" (click)="deleteView(view)" title="Delete">×</button>
+          </div>
+        </div>
+      </div>
+    </section>
 
-  <section class="card activity-card">
-    <urp-system-activity [activity]="(activity$ | async) || []"></urp-system-activity>
-  </section>
-</section>
+    <section class="exports" *ngIf="exportJobs$ | async as exportJobs">
+      <header>
+        <h3>Exports</h3>
+        <div class="export-buttons">
+          <button type="button" (click)="queueExport('CSV')">CSV</button>
+          <button type="button" (click)="queueExport('XLSX')">XLSX</button>
+          <button type="button" (click)="queueExport('JSONL')">JSONL</button>
+        </div>
+      </header>
+      <ul>
+        <li *ngFor="let job of exportJobs">
+          <span>{{ job.fileName }}</span>
+          <small>{{ job.status }}</small>
+          <button type="button" (click)="refreshExport(job)">Refresh</button>
+        </li>
+      </ul>
+    </section>
+  </aside>
+
+  <main class="main">
+    <section class="filters">
+      <label>
+        From
+        <input type="date" [(ngModel)]="dateRange.from" name="fromDate" />
+      </label>
+      <label>
+        To
+        <input type="date" [(ngModel)]="dateRange.to" name="toDate" />
+      </label>
+      <label class="search">
+        Search
+        <input type="search" [(ngModel)]="searchTerm" name="searchTerm" (keyup.enter)="applyFilters()" />
+      </label>
+      <div class="status-filter">
+        <span>Status</span>
+        <label *ngFor="let status of allStatuses">
+          <input type="checkbox" [value]="status" (change)="handleStatusToggle(status, $event.target.checked)" />
+          {{ status }}
+        </label>
+      </div>
+      <button type="button" (click)="applyFilters()">Apply</button>
+      <button type="button" (click)="resetFilters()">Reset</button>
+    </section>
+
+    <section class="grid-section">
+      <ng-container *ngIf="rows$ | async as rows">
+        <ng-container *ngIf="columns$ | async as columns">
+          <urp-result-grid
+            [rows]="rows"
+            [columns]="columns"
+            [loading]="loading$ | async"
+            [total]="total$ | async"
+            [selectedRowId]="selectedRow?.breakId || null"
+            [selectedBreakIds]="selectedBreakIds"
+            (selectRow)="handleRowSelect($event)"
+            (requestMore)="loadMore()"
+            (selectionChange)="handleSelectionChange($event)"
+            (selectFiltered)="selectFiltered()"
+          ></urp-result-grid>
+        </ng-container>
+      </ng-container>
+    </section>
+
+    <section class="bulk-actions" *ngIf="selectedBreakIds.length > 0">
+      <h4>Bulk Actions ({{ selectedBreakIds.length }})</h4>
+      <textarea
+        rows="2"
+        placeholder="Comment"
+        [(ngModel)]="bulkComment"
+        name="bulkComment"
+      ></textarea>
+      <div class="buttons">
+        <button type="button" (click)="bulkUpdate(BreakStatus.PendingApproval)">Submit</button>
+        <button type="button" (click)="bulkUpdate(BreakStatus.Closed)">Close</button>
+        <button type="button" (click)="bulkUpdate(BreakStatus.Rejected)">Reject</button>
+      </div>
+    </section>
+
+    <section class="activity" *ngIf="activity$ | async as activity">
+      <urp-system-activity [entries]="activity"></urp-system-activity>
+    </section>
+  </main>
+
+  <aside class="detail-panel">
+    <urp-break-detail
+      [breakItem]="selectedBreak$ | async"
+      (addComment)="state.addComment($event.breakId, $event.comment, $event.action)"
+      (updateStatus)="state.updateStatus($event.breakId, { status: $event.status, comment: $event.comment })"
+    ></urp-break-detail>
+  </aside>
+</div>

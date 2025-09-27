@@ -31,6 +31,7 @@ test('authenticated users can reach the reconciliation workspace shell', async (
   await expect(page.getByText('Welcome, Operations User!')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Logout' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Recent system activity' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Select Filtered' })).toBeVisible();
 
   const workspaceScreenshot = '02-workspace.png';
   await page.screenshot({ path: resolveAssetPath(workspaceScreenshot), fullPage: true });

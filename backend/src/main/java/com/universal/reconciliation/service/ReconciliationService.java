@@ -10,6 +10,7 @@ import com.universal.reconciliation.domain.dto.RunAnalyticsDto;
 import com.universal.reconciliation.domain.dto.RunDetailDto;
 import com.universal.reconciliation.domain.dto.TriggerRunRequest;
 import com.universal.reconciliation.domain.entity.AccessControlEntry;
+import com.universal.reconciliation.domain.entity.BreakClassificationValue;
 import com.universal.reconciliation.domain.entity.BreakItem;
 import com.universal.reconciliation.domain.entity.ReconciliationDefinition;
 import com.universal.reconciliation.domain.entity.ReconciliationRun;
@@ -212,9 +213,39 @@ public class ReconciliationService {
             breakItem.setClassificationJson(writeJson(candidate.classifications()));
             breakItem.setSourcePayloadJson(writeJson(candidate.sources()));
             breakItem.setMissingSourcesJson(writeJson(candidate.missingSources()));
+
+            if (candidate.classifications() != null && !candidate.classifications().isEmpty()) {
+                candidate.classifications().forEach((key, value) -> {
+                    BreakClassificationValue classificationValue = new BreakClassificationValue();
+                    classificationValue.setBreakItem(breakItem);
+                    classificationValue.setAttributeKey(key);
+                    classificationValue.setAttributeValue(value);
+                    breakItem.getClassificationValues().add(classificationValue);
+                });
+            }
+
+            ensureClassificationValue(breakItem, "product", product);
+            ensureClassificationValue(breakItem, "subProduct", subProduct);
+            ensureClassificationValue(breakItem, "entity", entity);
             items.add(breakItem);
         }
         breakItemRepository.saveAll(items);
+    }
+
+    private void ensureClassificationValue(BreakItem item, String key, String value) {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        boolean exists = item.getClassificationValues().stream()
+                .anyMatch(entry -> key.equals(entry.getAttributeKey()) && value.equals(entry.getAttributeValue()));
+        if (exists) {
+            return;
+        }
+        BreakClassificationValue classificationValue = new BreakClassificationValue();
+        classificationValue.setBreakItem(item);
+        classificationValue.setAttributeKey(key);
+        classificationValue.setAttributeValue(value);
+        item.getClassificationValues().add(classificationValue);
     }
 
     private RunDetailDto buildRunDetail(

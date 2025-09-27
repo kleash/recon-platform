@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, throwError } from 'rxjs';
+import { BehaviorSubject, Observable, Subject, throwError } from 'rxjs';
 import { ApiService } from './api.service';
 import {
   BreakItem,
@@ -24,6 +24,7 @@ export class ReconciliationStateService {
   private readonly filterSubject = new BehaviorSubject<BreakFilter>({});
   private readonly filterMetadataSubject = new BehaviorSubject<FilterMetadata | null>(null);
   private readonly activitySubject = new BehaviorSubject<SystemActivityEntry[]>([]);
+  private readonly breakEventsSubject = new Subject<void>();
 
   readonly reconciliations$ = this.reconciliationsSubject.asObservable();
   readonly selectedReconciliation$ = this.selectedReconciliationSubject.asObservable();
@@ -32,6 +33,7 @@ export class ReconciliationStateService {
   readonly filter$ = this.filterSubject.asObservable();
   readonly filterMetadata$ = this.filterMetadataSubject.asObservable();
   readonly activity$ = this.activitySubject.asObservable();
+  readonly breakEvents$ = this.breakEventsSubject.asObservable();
 
   constructor(private readonly api: ApiService, private readonly notifications: NotificationService) {}
 
@@ -91,6 +93,7 @@ export class ReconciliationStateService {
         this.updateBreak(updated);
         this.refreshActivity();
         this.notifications.push('Comment added to break.', 'success');
+        this.breakEventsSubject.next();
       },
       error: (err) => {
         const message = err?.error?.details ?? err?.error?.message ??
@@ -107,6 +110,7 @@ export class ReconciliationStateService {
         this.refreshActivity();
         const statusText = payload.status.replace(/_/g, ' ').toLowerCase();
         this.notifications.push(`Break ${breakId} ${statusText}.`, 'success');
+        this.breakEventsSubject.next();
       },
       error: (err) => {
         const message = err?.error?.details ?? err?.error?.message ?? 'Status update failed.';
@@ -140,6 +144,7 @@ export class ReconciliationStateService {
           );
         }
         this.refreshActivity();
+        this.breakEventsSubject.next();
       },
       error: (err) => {
         const message = err?.error?.details ?? err?.error?.message ?? 'Bulk update failed.';

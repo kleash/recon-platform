@@ -10,6 +10,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSortModule, Sort } from '@angular/material/sort';
 import { MatTableModule } from '@angular/material/table';
 import { BreakResultRow, GridColumn } from '../../models/api-models';
+import { BreakStatus } from '../../models/break-status';
+import { BreakDetailComponent } from '../break-detail/break-detail.component';
 
 interface DetailRow {
   detailRow: true;
@@ -30,7 +32,8 @@ type TableRow = BreakResultRow | DetailRow;
     MatPaginatorModule,
     MatProgressSpinnerModule,
     MatSortModule,
-    MatTableModule
+    MatTableModule,
+    BreakDetailComponent
   ],
   templateUrl: './result-grid.component.html',
   styleUrls: ['./result-grid.component.css'],
@@ -52,11 +55,19 @@ export class ResultGridComponent implements OnChanges {
   @Input() total: number | null = null;
   @Input() selectedRowId: number | null = null;
   @Input() selectedBreakIds: number[] | null = null;
+  @Input() workflowSummary: string | null = null;
 
   @Output() selectRow = new EventEmitter<BreakResultRow>();
   @Output() requestMore = new EventEmitter<void>();
   @Output() selectionChange = new EventEmitter<number[]>();
   @Output() selectFiltered = new EventEmitter<void>();
+  @Output() addComment = new EventEmitter<{ breakId: number; comment: string; action: string }>();
+  @Output() updateStatus = new EventEmitter<{
+    breakId: number;
+    status: BreakStatus;
+    comment?: string;
+    correlationId?: string;
+  }>();
 
   readonly baseColumns: Array<{ key: string; label: string; sortable: boolean }> = [
     { key: 'breakId', label: 'Break ID', sortable: true },
@@ -107,6 +118,16 @@ export class ResultGridComponent implements OnChanges {
     if (changes['selectedBreakIds']) {
       const incoming: number[] = changes['selectedBreakIds'].currentValue ?? [];
       this.selectedIds = new Set(incoming);
+    }
+
+    if (changes['selectedRowId']) {
+      const nextId: number | null = changes['selectedRowId'].currentValue ?? null;
+      if (nextId == null) {
+        this.expandedRow = null;
+      } else {
+        const match = this.rows.find((row) => row.breakId === nextId) ?? null;
+        this.expandedRow = match;
+      }
     }
 
     if (changes['rows'] && !changes['rows'].firstChange) {
@@ -238,6 +259,14 @@ export class ResultGridComponent implements OnChanges {
 
   select(row: BreakResultRow): void {
     this.selectRow.emit(row);
+  }
+
+  handleAddComment(event: { breakId: number; comment: string; action: string }): void {
+    this.addComment.emit(event);
+  }
+
+  handleUpdateStatus(event: { breakId: number; status: BreakStatus; comment?: string; correlationId?: string }): void {
+    this.updateStatus.emit(event);
   }
 
   displayAttribute(row: BreakResultRow, columnKey: string): string {

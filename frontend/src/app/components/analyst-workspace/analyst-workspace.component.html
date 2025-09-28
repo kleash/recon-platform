@@ -182,10 +182,13 @@
               [total]="total$ | async"
               [selectedRowId]="selectedRow?.breakId || null"
               [selectedBreakIds]="selectedBreakIds"
+              [workflowSummary]="workflowSummary$ | async"
               (selectRow)="handleRowSelect($event)"
               (requestMore)="loadMore()"
               (selectionChange)="handleSelectionChange($event)"
               (selectFiltered)="selectFiltered()"
+              (addComment)="handleAddComment($event)"
+              (updateStatus)="handleUpdateStatus($event)"
             ></urp-result-grid>
           </ng-container>
         </ng-container>
@@ -284,15 +287,13 @@
       <urp-system-activity [entries]="activity"></urp-system-activity>
     </section>
   </main>
-
-  <aside class="detail-panel" *ngIf="isActiveTab('runs') || isActiveTab('breaks')">
-    <div class="detail-scroll">
-      <urp-break-detail
-        [breakItem]="selectedBreak$ | async"
-        [workflowSummary]="workflowSummary$ | async"
-        (addComment)="state.addComment($event.breakId, $event.comment, $event.action)"
-        (updateStatus)="state.updateStatus($event.breakId, { status: $event.status, comment: $event.comment })"
-      ></urp-break-detail>
-    </div>
-  </aside>
 </div>
+
+<ng-container *ngIf="activeBreakId !== null">
+  <ng-container *ngIf="selectedBreak$ | async as accessibleBreak">
+    <section class="break-detail sr-only-break" aria-live="polite">
+      <p>Break {{ accessibleBreak.id }}</p>
+      <p>Status: {{ accessibleBreak.status }}</p>
+    </section>
+  </ng-container>
+</ng-container>

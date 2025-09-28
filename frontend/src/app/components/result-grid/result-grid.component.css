@@ -270,48 +270,14 @@
 
 .expanded-panel {
   overflow: hidden;
-  padding: 0 1rem 1rem;
-  background: #f9fbff;
+  padding: 1.25rem 1.5rem;
+  background: linear-gradient(180deg, #eef5ff 0%, #f8fbff 100%);
+  border-top: 1px solid #dbe4f3;
 }
 
-.expanded-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1.25rem;
-}
-
-.expanded-column h5 {
-  margin: 1rem 0 0.5rem;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #1e293b;
-}
-
-.detail-pair {
-  display: grid;
-  grid-template-columns: minmax(120px, 160px) minmax(0, 1fr);
-  gap: 0.5rem;
-  padding: 0.35rem 0;
-  border-bottom: 1px dashed #e2e8f0;
-}
-
-.detail-pair:last-child {
-  border-bottom: none;
-}
-
-.detail-pair dt {
-  margin: 0;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #64748b;
-}
-
-.detail-pair dd {
-  margin: 0;
-  font-size: 0.95rem;
-  color: #0f172a;
-  word-break: break-word;
+.inline-break-detail {
+  display: block;
+  max-width: 100%;
 }
 
 .detail-placeholder {

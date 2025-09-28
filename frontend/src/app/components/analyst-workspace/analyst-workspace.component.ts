@@ -59,6 +59,7 @@ export class AnalystWorkspaceComponent implements OnInit, OnDestroy {
   readonly savedViews$ = this.resultState.savedViews$;
   readonly exportJobs$ = this.resultState.exportJobs$;
   readonly activeView$ = this.resultState.activeView$;
+  readonly selectedBreak$ = this.state.selectedBreak$;
   readonly activity$ = this.state.activity$;
   readonly runDetail$ = this.state.runDetail$;
   readonly filterMetadata$ = this.state.filterMetadata$;

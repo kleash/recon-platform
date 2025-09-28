@@ -1,5 +1,6 @@
 package com.universal.reconciliation.controller;
 
+import com.universal.reconciliation.service.transform.TransformationEvaluationException;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -44,5 +45,11 @@ public class RestExceptionHandler {
     public ResponseEntity<Map<String, String>> handleOptimistic(OptimisticLockingFailureException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(Map.of("message", "Conflict", "details", ex.getMessage()));
+    }
+
+    @ExceptionHandler(TransformationEvaluationException.class)
+    public ResponseEntity<Map<String, String>> handleTransformation(TransformationEvaluationException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("message", "Transformation Error", "details", ex.getMessage()));
     }
 }

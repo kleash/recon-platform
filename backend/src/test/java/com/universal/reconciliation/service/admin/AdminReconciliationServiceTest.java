@@ -21,6 +21,7 @@ import com.universal.reconciliation.domain.dto.admin.AdminReconciliationSchemaDt
 import com.universal.reconciliation.domain.dto.admin.AdminSourceRequest;
 import com.universal.reconciliation.domain.entity.CanonicalField;
 import com.universal.reconciliation.domain.entity.CanonicalFieldMapping;
+import com.universal.reconciliation.domain.entity.CanonicalFieldTransformation;
 import com.universal.reconciliation.domain.entity.ReconciliationDefinition;
 import com.universal.reconciliation.domain.entity.ReconciliationSource;
 import com.universal.reconciliation.domain.entity.SourceDataBatch;
@@ -32,10 +33,12 @@ import com.universal.reconciliation.domain.enums.IngestionAdapterType;
 import com.universal.reconciliation.domain.enums.DataBatchStatus;
 import com.universal.reconciliation.domain.enums.ReconciliationLifecycleStatus;
 import com.universal.reconciliation.domain.enums.SystemEventType;
+import com.universal.reconciliation.domain.enums.TransformationType;
 import com.universal.reconciliation.repository.ReconciliationDefinitionRepository;
 import com.universal.reconciliation.service.SystemActivityService;
 import com.universal.reconciliation.service.ingestion.IngestionAdapterRequest;
 import com.universal.reconciliation.service.ingestion.SourceIngestionService;
+import com.universal.reconciliation.service.transform.DataTransformationService;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -67,13 +70,16 @@ class AdminReconciliationServiceTest {
     @Mock
     private SourceIngestionService sourceIngestionService;
 
+    @Mock
+    private DataTransformationService transformationService;
+
     private AdminReconciliationService service;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
         service = new AdminReconciliationService(
-                definitionRepository, systemActivityService, validator, sourceIngestionService);
+                definitionRepository, systemActivityService, validator, sourceIngestionService, transformationService);
     }
 
     @Test
@@ -206,8 +212,10 @@ class AdminReconciliationServiceTest {
                         1,
                         true,
                         List.of(
-                                new AdminCanonicalFieldMappingRequest(null, "CUSTODY", "trade_id", null, null, 1, true),
-                                new AdminCanonicalFieldMappingRequest(null, "GL", "trade_id", null, null, 1, true)))),
+                                new AdminCanonicalFieldMappingRequest(
+                                        null, "CUSTODY", "trade_id", null, null, 1, true, List.of()),
+                                new AdminCanonicalFieldMappingRequest(
+                                        null, "GL", "trade_id", null, null, 1, true, List.of())))),
                 List.of(),
                 List.of(new AdminAccessControlEntryRequest(
                         null,
@@ -340,6 +348,11 @@ class AdminReconciliationServiceTest {
         mapping.setDefaultValue("UNKNOWN");
         mapping.setOrdinalPosition(1);
         mapping.setRequired(true);
+        CanonicalFieldTransformation transformation = new CanonicalFieldTransformation();
+        transformation.setMapping(mapping);
+        transformation.setType(TransformationType.FUNCTION_PIPELINE);
+        transformation.setConfiguration("{\"steps\":[{\"function\":\"TRIM\"}]}");
+        mapping.getTransformations().add(transformation);
         field.getMappings().add(mapping);
         source.getFieldMappings().add(mapping);
         definition.getCanonicalFields().add(field);
@@ -378,6 +391,8 @@ class AdminReconciliationServiceTest {
             assertThat(m.defaultValue()).isEqualTo("UNKNOWN");
             assertThat(m.ordinalPosition()).isEqualTo(1);
             assertThat(m.required()).isTrue();
+            assertThat(m.transformations()).hasSize(1);
+            assertThat(m.transformations().get(0).type()).isEqualTo("FUNCTION_PIPELINE");
         });
     }
 
@@ -444,4 +459,3 @@ class AdminReconciliationServiceTest {
                 .recordEvent(SystemEventType.RECONCILIATION_CONFIG_CHANGE, "Reconciliation CUSTODY_GL patched by admin.user");
     }
 }
-

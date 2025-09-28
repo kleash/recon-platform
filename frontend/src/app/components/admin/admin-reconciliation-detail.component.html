@@ -133,6 +133,16 @@
               <li *ngFor="let mapping of field.mappings">
                 <strong>{{ mapping.sourceCode }}</strong>: {{ mapping.sourceColumn }}
                 <span *ngIf="mapping.transformationExpression"> · {{ mapping.transformationExpression }}</span>
+                <div *ngIf="mapping.transformations?.length" class="transformation-summary">
+                  <span>Rules:</span>
+                  <ul>
+                    <li *ngFor="let transformation of mapping.transformations">
+                      {{ transformation.type }}
+                      <span *ngIf="transformation.expression"> · {{ transformation.expression }}</span>
+                      <span *ngIf="transformation.configuration"> · {{ transformation.configuration }}</span>
+                    </li>
+                  </ul>
+                </div>
               </li>
             </ul>
           </td>

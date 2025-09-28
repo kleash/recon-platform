@@ -5,6 +5,8 @@ import com.universal.reconciliation.domain.dto.admin.AdminAccessControlEntryRequ
 import com.universal.reconciliation.domain.dto.admin.AdminCanonicalFieldDto;
 import com.universal.reconciliation.domain.dto.admin.AdminCanonicalFieldMappingDto;
 import com.universal.reconciliation.domain.dto.admin.AdminCanonicalFieldMappingRequest;
+import com.universal.reconciliation.domain.dto.admin.AdminCanonicalFieldTransformationDto;
+import com.universal.reconciliation.domain.dto.admin.AdminCanonicalFieldTransformationRequest;
 import com.universal.reconciliation.domain.dto.admin.AdminCanonicalFieldRequest;
 import com.universal.reconciliation.domain.dto.admin.AdminIngestionBatchDto;
 import com.universal.reconciliation.domain.dto.admin.AdminIngestionRequest;
@@ -23,6 +25,7 @@ import com.universal.reconciliation.domain.dto.admin.AdminSourceRequest;
 import com.universal.reconciliation.domain.entity.AccessControlEntry;
 import com.universal.reconciliation.domain.entity.CanonicalField;
 import com.universal.reconciliation.domain.entity.CanonicalFieldMapping;
+import com.universal.reconciliation.domain.entity.CanonicalFieldTransformation;
 import com.universal.reconciliation.domain.entity.ReconciliationDefinition;
 import com.universal.reconciliation.domain.entity.ReconciliationSource;
 import com.universal.reconciliation.domain.entity.ReportColumn;
@@ -34,6 +37,8 @@ import com.universal.reconciliation.repository.ReconciliationDefinitionRepositor
 import com.universal.reconciliation.service.SystemActivityService;
 import com.universal.reconciliation.service.ingestion.IngestionAdapterRequest;
 import com.universal.reconciliation.service.ingestion.SourceIngestionService;
+import com.universal.reconciliation.service.transform.DataTransformationService;
+import com.universal.reconciliation.service.transform.TransformationEvaluationException;
 import jakarta.transaction.Transactional;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -66,16 +71,19 @@ public class AdminReconciliationService {
     private final SystemActivityService systemActivityService;
     private final AdminReconciliationValidator validator;
     private final SourceIngestionService sourceIngestionService;
+    private final DataTransformationService transformationService;
 
     public AdminReconciliationService(
             ReconciliationDefinitionRepository definitionRepository,
             SystemActivityService systemActivityService,
             AdminReconciliationValidator validator,
-            SourceIngestionService sourceIngestionService) {
+            SourceIngestionService sourceIngestionService,
+            DataTransformationService transformationService) {
         this.definitionRepository = definitionRepository;
         this.systemActivityService = systemActivityService;
         this.validator = validator;
         this.sourceIngestionService = sourceIngestionService;
+        this.transformationService = transformationService;
     }
 
     @Transactional(Transactional.TxType.SUPPORTS)
@@ -261,7 +269,16 @@ public class AdminReconciliationService {
                                         mapping.getTransformationExpression(),
                                         mapping.getDefaultValue(),
                                         mapping.getOrdinalPosition(),
-                                        mapping.isRequired()))
+                                        mapping.isRequired(),
+                                        mapping.getTransformations().stream()
+                                                .map(transformation -> new AdminReconciliationSchemaDto.SchemaFieldTransformationDto(
+                                                        transformation.getId(),
+                                                        transformation.getType().name(),
+                                                        transformation.getExpression(),
+                                                        transformation.getConfiguration(),
+                                                        transformation.getDisplayOrder(),
+                                                        transformation.isActive()))
+                                                .toList()))
                                 .toList()))
                 .toList();
         return new AdminReconciliationSchemaDto(definition.getId(), definition.getCode(), definition.getName(), sources, fields);
@@ -428,9 +445,36 @@ public class AdminReconciliationService {
             mapping.setDefaultValue(request.defaultValue());
             mapping.setOrdinalPosition(request.ordinalPosition());
             mapping.setRequired(request.required());
+            syncTransformations(mapping, request.transformations());
             mapping.touch();
             field.getMappings().add(mapping);
             source.getFieldMappings().add(mapping);
+        }
+    }
+
+    private void syncTransformations(
+            CanonicalFieldMapping mapping, List<AdminCanonicalFieldTransformationRequest> transformationRequests) {
+        mapping.getTransformations().clear();
+        if (transformationRequests == null || transformationRequests.isEmpty()) {
+            return;
+        }
+
+        int orderFallback = 0;
+        for (AdminCanonicalFieldTransformationRequest request : transformationRequests) {
+            CanonicalFieldTransformation transformation = new CanonicalFieldTransformation();
+            transformation.setMapping(mapping);
+            transformation.setType(request.type());
+            transformation.setExpression(trimToNull(request.expression()));
+            transformation.setConfiguration(trimToNull(request.configuration()));
+            transformation.setDisplayOrder(request.displayOrder() != null ? request.displayOrder() : orderFallback++);
+            transformation.setActive(request.active() == null || request.active());
+            transformation.touch();
+            try {
+                transformationService.validate(transformation);
+            } catch (TransformationEvaluationException ex) {
+                throw new IllegalArgumentException("Invalid transformation: " + ex.getMessage(), ex);
+            }
+            mapping.getTransformations().add(transformation);
         }
     }
 
@@ -582,7 +626,16 @@ public class AdminReconciliationService {
                                         mapping.getTransformationExpression(),
                                         mapping.getDefaultValue(),
                                         mapping.getOrdinalPosition(),
-                                        mapping.isRequired()))
+                                        mapping.isRequired(),
+                                        mapping.getTransformations().stream()
+                                                .map(transformation -> new AdminCanonicalFieldTransformationDto(
+                                                        transformation.getId(),
+                                                        transformation.getType(),
+                                                        transformation.getExpression(),
+                                                        transformation.getConfiguration(),
+                                                        transformation.getDisplayOrder(),
+                                                        transformation.isActive()))
+                                                .toList()))
                                 .toList()))
                 .toList();
 
@@ -709,4 +762,3 @@ public class AdminReconciliationService {
         return trimmed.isEmpty() ? null : trimmed;
     }
 }
-

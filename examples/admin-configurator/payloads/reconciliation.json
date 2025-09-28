@@ -60,7 +60,17 @@
           "transformationExpression": null,
           "defaultValue": null,
           "ordinalPosition": 0,
-          "required": true
+          "required": true,
+          "transformations": [
+            {
+              "id": null,
+              "type": "FUNCTION_PIPELINE",
+              "expression": null,
+              "configuration": "{\"steps\":[{\"function\":\"TRIM\"},{\"function\":\"TO_UPPERCASE\"}]}",
+              "displayOrder": 0,
+              "active": true
+            }
+          ]
         },
         {
           "id": null,
@@ -69,7 +79,17 @@
           "transformationExpression": null,
           "defaultValue": null,
           "ordinalPosition": 0,
-          "required": true
+          "required": true,
+          "transformations": [
+            {
+              "id": null,
+              "type": "GROOVY_SCRIPT",
+              "expression": "return value ? value.toString().trim() : null",
+              "configuration": null,
+              "displayOrder": 0,
+              "active": true
+            }
+          ]
         }
       ]
     },
@@ -93,7 +113,17 @@
           "transformationExpression": null,
           "defaultValue": null,
           "ordinalPosition": 0,
-          "required": true
+          "required": true,
+          "transformations": [
+            {
+              "id": null,
+              "type": "EXCEL_FORMULA",
+              "expression": "=VALUE * 1",
+              "configuration": null,
+              "displayOrder": 0,
+              "active": true
+            }
+          ]
         },
         {
           "id": null,
@@ -102,7 +132,17 @@
           "transformationExpression": null,
           "defaultValue": null,
           "ordinalPosition": 0,
-          "required": true
+          "required": true,
+          "transformations": [
+            {
+              "id": null,
+              "type": "FUNCTION_PIPELINE",
+              "expression": null,
+              "configuration": "{\"steps\":[{\"function\":\"TRIM\"}]}",
+              "displayOrder": 0,
+              "active": true
+            }
+          ]
         }
       ]
     },
@@ -126,7 +166,17 @@
           "transformationExpression": null,
           "defaultValue": null,
           "ordinalPosition": 0,
-          "required": true
+          "required": true,
+          "transformations": [
+            {
+              "id": null,
+              "type": "FUNCTION_PIPELINE",
+              "expression": null,
+              "configuration": "{\"steps\":[{\"function\":\"TRIM\"},{\"function\":\"TO_UPPERCASE\"}]}",
+              "displayOrder": 0,
+              "active": true
+            }
+          ]
         },
         {
           "id": null,
@@ -135,7 +185,17 @@
           "transformationExpression": null,
           "defaultValue": null,
           "ordinalPosition": 0,
-          "required": true
+          "required": true,
+          "transformations": [
+            {
+              "id": null,
+              "type": "FUNCTION_PIPELINE",
+              "expression": null,
+              "configuration": "{\"steps\":[{\"function\":\"TRIM\"}]}",
+              "displayOrder": 0,
+              "active": true
+            }
+          ]
         }
       ]
     }

@@ -363,6 +363,15 @@ _Response `200 OK`_
 | `/api/admin/reconciliations/{id}` | DELETE | Soft-retire a reconciliation definition and hide it from analyst views. |
 | `/api/admin/reconciliations/{id}/schema` | GET | Export canonical schema metadata for ETL teams and automation scripts. |
 | `/api/admin/reconciliations/{id}/sources/{code}/batches` | POST | Upload a source data batch via multipart form-data. Accepts file payload plus adapter metadata. |
+| `/api/admin/transformations/validate` | POST | Validate a single transformation definition (Groovy, Excel formula, or function pipeline) without persisting changes. |
+| `/api/admin/transformations/preview` | POST | Apply one or more transformations to sample data and return the transformed value for UI previews. |
+
+**Transformation helper endpoints**
+
+Use the helper endpoints while authoring transformations in the admin workspace:
+
+- `POST /api/admin/transformations/validate` — body accepts `{ "type": "GROOVY_SCRIPT" | "EXCEL_FORMULA" | "FUNCTION_PIPELINE", "expression": "...", "configuration": "..." }` and returns `{ "valid": true/false, "message": "..." }`.
+- `POST /api/admin/transformations/preview` — body accepts `{ "value": "sample", "rawRecord": { "column": "value" }, "transformations": [{ ... }] }` and responds with `{ "result": "transformed" }`.
 
 **Sample: List reconciliation definitions**
 
@@ -494,8 +503,40 @@ _Response `201 Created`_
       "role": "KEY",
       "formattingHint": null,
       "mappings": [
-        {"sourceCode": "CUSTODY_FEED", "sourceColumn": "trade_id"},
-        {"sourceCode": "GL_LEDGER", "sourceColumn": "trade_id"}
+        {
+          "sourceCode": "CUSTODY_FEED",
+          "sourceColumn": "trade_id",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": [
+            {
+              "id": 5001,
+              "type": "FUNCTION_PIPELINE",
+              "expression": null,
+              "configuration": "{\"steps\":[{\"function\":\"TRIM\"},{\"function\":\"TO_UPPERCASE\"}]}",
+              "displayOrder": 0,
+              "active": true
+            }
+          ]
+        },
+        {
+          "sourceCode": "GL_LEDGER",
+          "sourceColumn": "trade_id",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": [
+            {
+              "id": 5002,
+              "type": "GROOVY_SCRIPT",
+              "expression": "return value?.trim()",
+              "configuration": null,
+              "displayOrder": 0,
+              "active": true
+            }
+          ]
+        }
       ]
     }
   ]

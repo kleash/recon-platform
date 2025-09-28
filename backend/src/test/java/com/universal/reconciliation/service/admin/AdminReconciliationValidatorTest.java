@@ -104,7 +104,8 @@ class AdminReconciliationValidatorTest {
                 null,
                 2,
                 true,
-                List.of(new AdminCanonicalFieldMappingRequest(null, "CUSTODY", "net_amount", null, null, 1, true)));
+                List.of(new AdminCanonicalFieldMappingRequest(
+                        null, "CUSTODY", "net_amount", null, null, 1, true, List.of())));
 
         AdminReconciliationRequest request = buildRequest(
                 List.of(
@@ -141,7 +142,8 @@ class AdminReconciliationValidatorTest {
                 null,
                 1,
                 true,
-                List.of(new AdminCanonicalFieldMappingRequest(null, "UNKNOWN", "trade_id", null, null, 1, true)));
+                List.of(new AdminCanonicalFieldMappingRequest(
+                        null, "UNKNOWN", "trade_id", null, null, 1, true, List.of())));
 
         AdminReconciliationRequest request = buildRequest(
                 List.of(
@@ -178,7 +180,8 @@ class AdminReconciliationValidatorTest {
                 null,
                 2,
                 true,
-                List.of(new AdminCanonicalFieldMappingRequest(null, "CUSTODY", "net_amount", null, null, 1, true)));
+                List.of(new AdminCanonicalFieldMappingRequest(
+                        null, "CUSTODY", "net_amount", null, null, 1, true, List.of())));
 
         AdminReconciliationRequest request = buildRequest(
                 List.of(
@@ -328,7 +331,7 @@ class AdminReconciliationValidatorTest {
                 true,
                 List.of(
                         new AdminCanonicalFieldMappingRequest(
-                                null, "CUSTODY", "trade_id", null, null, 1, true)));
+                                null, "CUSTODY", "trade_id", null, null, 1, true, List.of())));
     }
 
     private AdminReconciliationRequest buildRequest(
@@ -361,4 +364,3 @@ class AdminReconciliationValidatorTest {
                         null)));
     }
 }
-

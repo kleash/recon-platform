@@ -1,3 +1,5 @@
+@import '@angular/material/prebuilt-themes/indigo-pink.css';
+
 body {
   margin: 0;
   background: #e2e8f0;
@@ -10,7 +12,7 @@ body {
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.1);
 }
 
-button {
+button:not(.mat-mdc-button-base) {
   cursor: pointer;
   border: none;
   background: #2563eb;
@@ -20,11 +22,11 @@ button {
   transition: background 0.2s ease;
 }
 
-button:disabled {
+button:not(.mat-mdc-button-base):disabled {
   background: #94a3b8;
   cursor: not-allowed;
 }
 
-button:not(:disabled):hover {
+button:not(.mat-mdc-button-base):not(:disabled):hover {
   background: #1d4ed8;
 }

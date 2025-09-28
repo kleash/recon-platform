@@ -1,53 +1,78 @@
 <section class="break-detail" *ngIf="breakItem as active; else noBreak">
-  <h3>Break {{ active.id }}</h3>
+  <header class="detail-header">
+    <div class="title-group">
+      <h3>Break {{ active.id }}</h3>
+      <p class="detected">Detected {{ active.detectedAt | date: 'short' }}</p>
+    </div>
+    <div class="status-group">
+      <span class="status-chip status-{{ active.status | lowercase }}">{{ active.status }}</span>
+      <span class="type-chip">{{ active.breakType }}</span>
+    </div>
+  </header>
+
   <div class="workflow-summary" *ngIf="workflowSummary">
     {{ workflowSummary }}
   </div>
-  <div class="break-meta">
-    <span class="meta-chip" *ngFor="let entry of classificationEntries">
-      <strong>{{ formatClassificationKey(entry.key) }}:</strong> {{ entry.value || '—' }}
-    </span>
-    <span class="meta-chip" *ngIf="classificationEntries.length === 0">
-      <strong>Classifications:</strong> Not available
-    </span>
-    <span class="meta-chip"><strong>Break type:</strong> {{ active.breakType }}</span>
-    <span class="meta-chip"><strong>Status:</strong> {{ active.status }}</span>
-    <span class="meta-chip"><strong>Detected:</strong> {{ active.detectedAt | date: 'short' }}</span>
-    <span class="meta-chip" *ngIf="active.submittedByDn">
-      <strong>Submitted by:</strong> {{ active.submittedByDn }}
-      <ng-container *ngIf="active.submittedAt"> on {{ active.submittedAt | date: 'short' }}</ng-container>
-      <ng-container *ngIf="active.submittedByGroup"> via {{ active.submittedByGroup }}</ng-container>
-    </span>
-  </div>
 
-  <p class="missing-sources" *ngIf="active.missingSources?.length">
-    Missing data from: {{ active.missingSources.join(', ') }}
-  </p>
+  <section class="section-card meta-section">
+    <h4>Classifications & details</h4>
+    <div class="meta-grid">
+      <div class="meta-item" *ngFor="let entry of classificationEntries">
+        <span class="meta-label">{{ formatClassificationKey(entry.key) }}</span>
+        <span class="meta-value">{{ entry.value || '—' }}</span>
+      </div>
+      <div class="meta-item" *ngIf="classificationEntries.length === 0">
+        <span class="meta-label">Classifications</span>
+        <span class="meta-value">Not available</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Submitted by</span>
+        <span class="meta-value">
+          <ng-container *ngIf="active.submittedByDn; else notSubmitted">
+            {{ active.submittedByDn }}
+            <ng-container *ngIf="active.submittedAt"> on {{ active.submittedAt | date: 'short' }}</ng-container>
+            <ng-container *ngIf="active.submittedByGroup"> via {{ active.submittedByGroup }}</ng-container>
+          </ng-container>
+          <ng-template #notSubmitted>—</ng-template>
+        </span>
+      </div>
+    </div>
+  </section>
 
-  <table class="source-table" *ngIf="fieldKeys.length > 0 && sourceKeys.length > 0; else noFields">
-    <thead>
-      <tr>
-        <th>Field</th>
-        <th *ngFor="let source of sourceKeys">{{ formatSourceLabel(source) }}</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let key of fieldKeys">
-        <td>{{ key }}</td>
-        <td
-          *ngFor="let source of sourceKeys"
-          [class.different]="isDifferent(key)"
-        >
-          {{ displayValue(valueFor(source, key)) }}
-        </td>
-      </tr>
-    </tbody>
-  </table>
+  <section class="section-card source-comparison">
+    <div class="section-header">
+      <h4>Source comparison</h4>
+      <p class="missing-sources" *ngIf="active.missingSources?.length">
+        Missing data from: {{ active.missingSources.join(', ') }}
+      </p>
+    </div>
+    <div class="source-table-wrapper" *ngIf="fieldKeys.length > 0 && sourceKeys.length > 0; else noFields">
+      <table class="source-table">
+        <thead>
+          <tr>
+            <th>Field</th>
+            <th *ngFor="let source of sourceKeys">{{ formatSourceLabel(source) }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let key of fieldKeys">
+            <td>{{ key }}</td>
+            <td
+              *ngFor="let source of sourceKeys"
+              [class.different]="isDifferent(key)"
+            >
+              {{ displayValue(valueFor(source, key)) }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
   <ng-template #noFields>
     <p class="empty-source">No field level detail available for the selected break.</p>
   </ng-template>
 
-  <section class="workflow-history">
+  <section class="workflow-history section-card">
     <h4>Workflow history</h4>
     <ul>
       <li *ngFor="let entry of active.history">
@@ -62,7 +87,7 @@
     </ul>
   </section>
 
-  <section class="commentary">
+  <section class="commentary section-card">
     <h4>Commentary</h4>
     <ul>
       <li *ngFor="let comment of active.comments">
@@ -87,7 +112,7 @@
     <p class="no-actions" *ngIf="!canComment">You do not have permission to add comments on this break.</p>
   </section>
 
-  <section class="workflow-actions" *ngIf="statusOptions.length > 0">
+  <section class="workflow-actions section-card" *ngIf="statusOptions.length > 0">
     <h4>Maker-checker actions</h4>
     <p class="hint">Provide context for your action. Approvals and rejections require a comment.</p>
     <textarea

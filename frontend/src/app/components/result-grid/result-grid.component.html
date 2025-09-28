@@ -1,56 +1,211 @@
 <div class="result-grid">
   <div class="grid-toolbar">
     <div class="selection">
-      <button type="button" (click)="toggleSelectPage()">Toggle Page</button>
-      <button type="button" (click)="selectLoaded()">Select Loaded</button>
-      <button type="button" (click)="requestFilteredSelection()">Select Filtered</button>
-      <span>{{ selectedCount }} selected</span>
+      <button mat-stroked-button color="primary" (click)="toggleSelectPage()" [disabled]="currentPageRows.length === 0">
+        {{ isPageFullySelected ? 'Deselect page' : 'Select page' }}
+      </button>
+      <button mat-stroked-button color="primary" (click)="selectLoaded()" [disabled]="filteredRows.length === 0">
+        Select loaded
+      </button>
+      <button mat-stroked-button color="primary" (click)="requestFilteredSelection()" [disabled]="filteredRows.length === 0">
+        Select filtered
+      </button>
+      <span class="selected-count">{{ selectedCount }} selected</span>
     </div>
-    <div class="summary" *ngIf="total !== null">
-      <span>Total records: {{ total }}</span>
+
+    <mat-form-field appearance="outline" class="filter-field">
+      <mat-label>Quick filter</mat-label>
+      <input
+        matInput
+        type="search"
+        placeholder="Search results"
+        [(ngModel)]="filterText"
+        (input)="handleFilterChange()"
+      />
+      <button mat-icon-button matSuffix *ngIf="filterText" (click)="clearFilter()" aria-label="Clear quick filter">
+        <mat-icon>close</mat-icon>
+      </button>
+    </mat-form-field>
+
+    <div class="summary" *ngIf="total !== null; else loadedCount">
+      Total records: {{ total }}
     </div>
-    <div class="summary" *ngIf="total === null">
-      <span>Records shown: {{ rows.length }}</span>
-    </div>
+    <ng-template #loadedCount>
+      <div class="summary">Records shown: {{ filteredRows.length }}</div>
+    </ng-template>
   </div>
 
-  <div class="table-wrapper">
-    <div class="table-content">
-      <div class="header-row" [style.--column-count]="baseColumns.length + columns.length">
-        <div class="cell checkbox">&nbsp;</div>
-        <div class="cell" *ngFor="let column of baseColumns">{{ column.label }}</div>
-        <div class="cell" *ngFor="let column of columns">{{ column.label }}</div>
-      </div>
+  <div class="table-container">
+    <div class="loading-overlay" *ngIf="loading">
+      <mat-progress-spinner mode="indeterminate" diameter="36"></mat-progress-spinner>
+    </div>
 
-      <cdk-virtual-scroll-viewport
-        class="viewport"
-        [itemSize]="48"
-        (scrolledIndexChange)="onScrolledIndexChange($event)"
-      >
-        <div
-          class="data-row"
-          *cdkVirtualFor="let row of rows"
-          [class.active]="row.breakId === selectedRowId"
-          [style.--column-count]="baseColumns.length + columns.length"
-          (click)="select(row)"
-        >
-          <div class="cell checkbox" (click)="$event.stopPropagation()">
-            <input
-              type="checkbox"
+    <table
+      mat-table
+      [dataSource]="tableData"
+      matSort
+      (matSortChange)="handleSort($event)"
+      multiTemplateDataRows
+      class="grid-table mat-elevation-z2"
+    >
+      <ng-container matColumnDef="select">
+        <th mat-header-cell *matHeaderCellDef>
+          <mat-checkbox
+            color="primary"
+            [checked]="isPageFullySelected"
+            [indeterminate]="isPagePartiallySelected"
+            [disabled]="currentPageRows.length === 0"
+            (change)="setPageSelection($event.checked)"
+            aria-label="Toggle page selection"
+          ></mat-checkbox>
+        </th>
+        <td mat-cell *matCellDef="let row" class="checkbox-cell">
+          <ng-container *ngIf="isBaseRow(row); else detailCheckbox">
+            <mat-checkbox
+              color="primary"
+              (click)="$event.stopPropagation()"
+              (change)="toggleSelection(row, $event.checked)"
               [checked]="isSelected(row)"
-              (change)="toggleSelection(row, $event.target.checked)"
-            />
+              [aria-label]="'Select break ' + row.breakId"
+            ></mat-checkbox>
+          </ng-container>
+          <ng-template #detailCheckbox>
+            <span class="checkbox-placeholder"></span>
+          </ng-template>
+        </td>
+      </ng-container>
+
+      <ng-container *ngFor="let column of baseColumns" matColumnDef="{{ column.key }}">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+          mat-sort-header="{{ column.key }}"
+          [disabled]="!isSortable(column.key)"
+        >
+          {{ column.label }}
+        </th>
+        <td mat-cell *matCellDef="let row" [class.detail-cell]="!isBaseRow(row)">
+          <ng-container *ngIf="isBaseRow(row); else detailValuePlaceholder">
+            {{ getBaseDisplay(row, column.key) }}
+          </ng-container>
+        </td>
+      </ng-container>
+
+      <ng-container *ngFor="let column of columns" matColumnDef="{{ column.key }}">
+        <th
+          mat-header-cell
+          *matHeaderCellDef
+          mat-sort-header="{{ column.key }}"
+          [disabled]="!column.sortable"
+        >
+          {{ column.label }}
+        </th>
+        <td mat-cell *matCellDef="let row" [class.detail-cell]="!isBaseRow(row)">
+          <ng-container *ngIf="isBaseRow(row); else detailValuePlaceholder">
+            {{ displayAttribute(row, column.key) }}
+          </ng-container>
+        </td>
+      </ng-container>
+
+      <ng-template #detailValuePlaceholder>
+        <span class="detail-placeholder">—</span>
+      </ng-template>
+
+      <ng-container matColumnDef="expand">
+        <th mat-header-cell *matHeaderCellDef></th>
+        <td mat-cell *matCellDef="let row" class="expand-cell">
+          <ng-container *ngIf="isBaseRow(row); else detailExpandPlaceholder">
+            <button
+              mat-icon-button
+              color="primary"
+              (click)="toggleExpandedRow(row); $event.stopPropagation()"
+              [attr.aria-label]="expandedRow === row ? 'Collapse details' : 'Expand details'"
+            >
+              <mat-icon>{{ expandedRow === row ? 'expand_less' : 'expand_more' }}</mat-icon>
+            </button>
+          </ng-container>
+        </td>
+      </ng-container>
+
+      <ng-template #detailExpandPlaceholder>
+        <span class="expand-placeholder"></span>
+      </ng-template>
+
+      <ng-container matColumnDef="expandedDetail">
+        <td mat-cell *matCellDef="let row" [attr.colspan]="columnsWithExpand.length" class="expanded-cell">
+          <div class="expanded-panel" [@detailExpand]="row.element === expandedRow ? 'expanded' : 'collapsed'">
+            <div class="expanded-grid">
+              <div class="expanded-column">
+                <h5>Break metadata</h5>
+                <dl>
+                  <div class="detail-pair">
+                    <dt>Break ID</dt>
+                    <dd>{{ row.element.breakId }}</dd>
+                  </div>
+                  <div class="detail-pair">
+                    <dt>Run ID</dt>
+                    <dd>{{ row.element.runId ?? '—' }}</dd>
+                  </div>
+                  <div class="detail-pair">
+                    <dt>Run time</dt>
+                    <dd>{{ row.element.runDateTime || '—' }}</dd>
+                  </div>
+                  <div class="detail-pair">
+                    <dt>Status</dt>
+                    <dd>{{ row.element.breakItem.status }}</dd>
+                  </div>
+                  <div class="detail-pair">
+                    <dt>Trigger</dt>
+                    <dd>{{ row.element.triggerType || '—' }}</dd>
+                  </div>
+                </dl>
+              </div>
+              <div class="expanded-column">
+                <h5>Attributes</h5>
+                <dl>
+                  <ng-container *ngFor="let column of columns">
+                    <ng-container *ngIf="displayAttribute(row.element, column.key) !== '—'">
+                      <div class="detail-pair">
+                        <dt>{{ column.label }}</dt>
+                        <dd>{{ displayAttribute(row.element, column.key) }}</dd>
+                      </div>
+                    </ng-container>
+                  </ng-container>
+                  <ng-container *ngIf="columns.length === 0">
+                    <div class="detail-pair">
+                      <dt>Attributes</dt>
+                      <dd>No additional attributes available.</dd>
+                    </div>
+                  </ng-container>
+                </dl>
+              </div>
+            </div>
           </div>
-          <div class="cell">{{ row.breakId }}</div>
-          <div class="cell">{{ row.runDateTime || '—' }}</div>
-          <div class="cell status">{{ row.breakItem.status }}</div>
-          <div class="cell">{{ row.breakItem.breakType }}</div>
-          <div class="cell">{{ row.triggerType || '—' }}</div>
-          <div class="cell" *ngFor="let column of columns">{{ displayAttribute(row, column.key) }}</div>
-        </div>
-      </cdk-virtual-scroll-viewport>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="columnsWithExpand"></tr>
+      <tr
+        mat-row
+        *matRowDef="let row; columns: columnsWithExpand"
+        class="data-row"
+        [class.active]="isBaseRow(row) && row.breakId === selectedRowId"
+        (click)="onRowClick(row)"
+      ></tr>
+      <tr mat-row *matRowDef="let row; columns: detailColumns; when: isExpansionDetailRow" class="detail-row"></tr>
+    </table>
+
+    <div class="empty-state" *ngIf="!loading && filteredRows.length === 0">
+      No results match the current filters.
     </div>
   </div>
 
-  <div class="loading" *ngIf="loading">Loading…</div>
+  <mat-paginator
+    [length]="paginatorLength"
+    [pageIndex]="pageIndex"
+    [pageSize]="pageSize"
+    [pageSizeOptions]="pageSizeOptions"
+    (page)="handlePage($event)"
+    aria-label="Result grid pagination"
+  ></mat-paginator>
 </div>

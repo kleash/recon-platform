@@ -346,47 +346,40 @@
   background: #fff;
 }
 
-.page-size-control {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  min-width: 140px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #1e293b;
+.page-size-field {
+  min-width: 160px;
+  --mdc-outlined-text-field-container-shape: 999px;
+  --mdc-outlined-text-field-container-padding: 0 0.75rem;
+  --mdc-outlined-text-field-outline-width: 1px;
+  --mdc-outlined-text-field-label-text-color: #475569;
+  --mdc-outlined-text-field-input-text-color: #0f172a;
+  --mdc-outlined-text-field-label-text-size: 0.7rem;
 }
 
-.page-size-label {
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  font-size: 0.7rem;
-  color: #475569;
+.page-size-field .mat-mdc-form-field-subscript-wrapper {
+  display: none;
 }
 
-.page-size-control select {
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  padding: 0.45rem 2.25rem 0.45rem 0.75rem;
-  border: 1px solid #cbd5f5;
-  border-radius: 999px;
-  background: #fff url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%232563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"%3E%3Cpolyline points="6 9 12 15 18 9"/%3E%3C/svg%3E')
-    no-repeat right 0.75rem center;
-  background-size: 0.85rem;
-  color: #0f172a;
+.page-size-field .mat-mdc-form-field-flex {
+  padding: 0.35rem 0;
+}
+
+.page-size-field .mat-mdc-select-trigger {
   font-size: 0.95rem;
-  cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  font-weight: 600;
 }
 
-.page-size-control select:focus {
-  outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+.page-size-field.mat-focused .mat-mdc-form-field-outline-thick {
+  color: #2563eb;
 }
 
-.page-size-control select:hover {
-  border-color: #94a3f3;
+.page-size-field .mat-mdc-form-field-outline {
+  color: #cbd5f5;
+}
+
+.page-size-field .mat-mdc-form-field-outline-end,
+.page-size-field .mat-mdc-form-field-outline-start {
+  border-radius: 999px;
 }
 
 mat-paginator {
@@ -401,7 +394,7 @@ mat-paginator {
     justify-content: space-between;
   }
 
-  .page-size-control {
+  .page-size-field {
     width: 100%;
   }
 }

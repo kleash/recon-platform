@@ -8,7 +8,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSortModule, Sort } from '@angular/material/sort';
+import { MatSelectModule } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { BreakResultRow, GridColumn } from '../../models/api-models';
 
 interface DetailRow {
@@ -30,7 +32,9 @@ type TableRow = BreakResultRow | DetailRow;
     MatPaginatorModule,
     MatProgressSpinnerModule,
     MatSortModule,
-    MatTableModule
+    MatSelectModule,
+    MatTableModule,
+    MatFormFieldModule
   ],
   templateUrl: './result-grid.component.html',
   styleUrls: ['./result-grid.component.css'],

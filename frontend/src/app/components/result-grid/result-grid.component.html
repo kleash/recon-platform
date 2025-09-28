@@ -210,12 +210,21 @@
   </div>
 
   <div class="paginator-row">
-    <mat-form-field appearance="outline" floatLabel="always" class="page-size-field">
-      <mat-label>Items per page</mat-label>
-      <mat-select [value]="pageSize" (selectionChange)="updatePageSize($event.value)">
-        <mat-option *ngFor="let option of pageSizeOptions" [value]="option">{{ option }}</mat-option>
-      </mat-select>
-    </mat-form-field>
+    <div class="page-size-selector" role="group" aria-label="Items per page">
+      <span class="page-size-label">Items per page</span>
+      <div class="page-size-options">
+        <button
+          type="button"
+          class="page-size-option"
+          *ngFor="let option of pageSizeOptions"
+          [class.active]="pageSize === option"
+          (click)="updatePageSize(option)"
+          [attr.aria-pressed]="pageSize === option"
+        >
+          {{ option }}
+        </button>
+      </div>
+    </div>
 
     <mat-paginator
       [length]="paginatorLength"

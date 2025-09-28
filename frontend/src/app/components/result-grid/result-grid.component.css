@@ -346,39 +346,64 @@
   background: #fff;
 }
 
-.page-size-field {
-  min-width: 160px;
-  --mdc-outlined-text-field-container-shape: 999px;
-  --mdc-outlined-text-field-container-padding: 0 0.75rem;
-  --mdc-outlined-text-field-outline-width: 1px;
-  --mdc-outlined-text-field-label-text-color: #475569;
-  --mdc-outlined-text-field-input-text-color: #0f172a;
-  --mdc-outlined-text-field-label-text-size: 0.7rem;
+.page-size-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
-.page-size-field .mat-mdc-form-field-subscript-wrapper {
-  display: none;
-}
-
-.page-size-field .mat-mdc-form-field-flex {
-  padding: 0.35rem 0;
-}
-
-.page-size-field .mat-mdc-select-trigger {
-  font-size: 0.95rem;
+.page-size-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #475569;
   font-weight: 600;
 }
 
-.page-size-field.mat-focused .mat-mdc-form-field-outline-thick {
-  color: #2563eb;
+.page-size-options {
+  display: inline-flex;
+  border: 1px solid #cbd5f5;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #f8fafc;
 }
 
-.page-size-field .mat-mdc-form-field-outline {
-  color: #cbd5f5;
+.page-size-option {
+  border: none;
+  background: transparent;
+  color: #1d4ed8;
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
-.page-size-field .mat-mdc-form-field-outline-end,
-.page-size-field .mat-mdc-form-field-outline-start {
+.page-size-option + .page-size-option {
+  border-left: 1px solid #cbd5f5;
+}
+
+.page-size-option:hover,
+.page-size-option:focus-visible {
+  background: #e0ecff;
+  color: #1e3a8a;
+  outline: none;
+}
+
+.page-size-option.active {
+  background: #1d4ed8;
+  color: #fff;
+}
+
+.page-size-option.active:hover,
+.page-size-option.active:focus-visible {
+  background: #1e40af;
+}
+
+.page-size-option:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.45);
+  outline-offset: 2px;
   border-radius: 999px;
 }
 
@@ -394,8 +419,19 @@ mat-paginator {
     justify-content: space-between;
   }
 
-  .page-size-field {
+  .page-size-selector {
     width: 100%;
+    justify-content: space-between;
+  }
+
+  .page-size-options {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .page-size-option {
+    flex: 1 1 auto;
+    text-align: center;
   }
 }
 

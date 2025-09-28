@@ -288,3 +288,12 @@
     </section>
   </main>
 </div>
+
+<ng-container *ngIf="activeBreakId !== null">
+  <ng-container *ngIf="selectedBreak$ | async as accessibleBreak">
+    <section class="break-detail sr-only-break" aria-live="polite">
+      <p>Break {{ accessibleBreak.id }}</p>
+      <p>Status: {{ accessibleBreak.status }}</p>
+    </section>
+  </ng-container>
+</ng-container>

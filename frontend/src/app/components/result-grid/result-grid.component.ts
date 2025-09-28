@@ -120,6 +120,16 @@ export class ResultGridComponent implements OnChanges {
       this.selectedIds = new Set(incoming);
     }
 
+    if (changes['selectedRowId']) {
+      const nextId: number | null = changes['selectedRowId'].currentValue ?? null;
+      if (nextId == null) {
+        this.expandedRow = null;
+      } else {
+        const match = this.rows.find((row) => row.breakId === nextId) ?? null;
+        this.expandedRow = match;
+      }
+    }
+
     if (changes['rows'] && !changes['rows'].firstChange) {
       const existingIds = new Set(this.rows.map((row) => row.breakId));
       let removed = false;

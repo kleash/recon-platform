@@ -1,11 +1,15 @@
-<section class="break-detail" *ngIf="breakItem as active; else noBreak" [class.compact]="compact">
+<section class="break-detail-view" *ngIf="breakItem as active; else noBreak" [class.compact]="compact">
   <header class="detail-header">
     <div class="title-group">
       <h3>Break {{ active.id }}</h3>
       <p class="detected">Detected {{ active.detectedAt | date: 'short' }}</p>
     </div>
-    <div class="status-group">
-      <span class="status-chip status-{{ active.status | lowercase }}">{{ active.status }}</span>
+    <div class="status-group" role="status" aria-live="polite">
+      <span class="status-chip status-{{ active.status | lowercase }}">
+        <span class="status-label">Status:&nbsp;</span>
+        <span class="status-value">{{ active.status }}</span>
+      </span>
+      <span class="status-readable">Status: {{ active.status }}</span>
       <span class="type-chip">{{ active.breakType }}</span>
     </div>
   </header>

@@ -87,6 +87,8 @@ export class AnalystWorkspaceComponent implements OnInit, OnDestroy {
 
   selectedBreakIds: number[] = [];
   selectedRow: BreakResultRow | null = null;
+  activeBreakId: number | null = null;
+  hasInlineDetail = false;
 
   private readonly destroy$ = new Subject<void>();
 
@@ -108,6 +110,8 @@ export class AnalystWorkspaceComponent implements OnInit, OnDestroy {
           this.applyFilters();
         } else {
           this.selectedBreakIds = [];
+          this.selectedRow = null;
+          this.activeBreakId = null;
         }
       });
 
@@ -129,6 +133,32 @@ export class AnalystWorkspaceComponent implements OnInit, OnDestroy {
         this.columnFilters = this.columnFilters
           .filter((row) => validKeys.has(row.columnKey))
           .map((row) => this.ensureOperator(row));
+      });
+
+    this.rows$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((rows) => {
+        if (!rows) {
+          this.hasInlineDetail = false;
+          return;
+        }
+        if (this.activeBreakId != null) {
+          const match = rows.find((row) => row.breakId === this.activeBreakId) ?? null;
+          this.selectedRow = match;
+          this.hasInlineDetail = !!match;
+        } else {
+          this.hasInlineDetail = false;
+        }
+      });
+
+    this.selectedBreak$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((selected) => {
+        this.activeBreakId = selected?.id ?? null;
+        if (!selected) {
+          this.hasInlineDetail = false;
+          this.selectedRow = null;
+        }
       });
   }
 
@@ -300,6 +330,8 @@ export class AnalystWorkspaceComponent implements OnInit, OnDestroy {
 
   handleRowSelect(row: BreakResultRow): void {
     this.selectedRow = row;
+    this.activeBreakId = row.breakId;
+    this.hasInlineDetail = true;
     this.state.selectBreak(row.breakItem);
   }
 

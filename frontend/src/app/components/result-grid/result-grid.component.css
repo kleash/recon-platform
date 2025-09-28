@@ -153,12 +153,13 @@
   align-self: center;
 }
 
+
 .table-container {
   position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 0 1rem 1rem;
+  padding: 0 1rem 0.5rem;
   overflow: hidden;
   width: 100%;
   min-width: 0;
@@ -335,9 +336,39 @@
   font-style: italic;
 }
 
-mat-paginator {
+.paginator-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
   border-top: 1px solid #e2e8f0;
-  padding: 0.25rem 0.5rem;
+  background: #fff;
+}
+
+.page-size-field {
+  width: 160px;
+}
+
+.page-size-field .mat-mdc-form-field-subscript-wrapper {
+  display: none;
+}
+
+mat-paginator {
+  flex: 1;
+  border-top: none;
+  padding: 0;
+  min-width: 0;
+}
+
+@media (max-width: 600px) {
+  .page-size-field {
+    width: 100%;
+  }
+
+  .paginator-row {
+    justify-content: space-between;
+  }
 }
 
 @media (max-width: 960px) {

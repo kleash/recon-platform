@@ -209,12 +209,21 @@
     </div>
   </div>
 
-  <mat-paginator
-    [length]="paginatorLength"
-    [pageIndex]="pageIndex"
-    [pageSize]="pageSize"
-    [pageSizeOptions]="pageSizeOptions"
-    (page)="handlePage($event)"
-    aria-label="Result grid pagination"
-  ></mat-paginator>
+  <div class="paginator-row">
+    <mat-form-field appearance="outline" class="page-size-field">
+      <mat-label>Items per page</mat-label>
+      <mat-select [value]="pageSize" (selectionChange)="updatePageSize($event.value)">
+        <mat-option *ngFor="let option of pageSizeOptions" [value]="option">{{ option }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-paginator
+      [length]="paginatorLength"
+      [pageIndex]="pageIndex"
+      [pageSize]="pageSize"
+      (page)="handlePage($event)"
+      [hidePageSize]="true"
+      aria-label="Result grid pagination"
+    ></mat-paginator>
+  </div>
 </div>

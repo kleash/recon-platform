@@ -1,16 +1,17 @@
 import { animate, state, style, transition, trigger } from '@angular/animations';
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatIconModule } from '@angular/material/icon';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatPaginator, MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSortModule, Sort } from '@angular/material/sort';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatOptionModule } from '@angular/material/core';
 import { BreakResultRow, GridColumn } from '../../models/api-models';
 
 interface DetailRow {
@@ -34,7 +35,8 @@ type TableRow = BreakResultRow | DetailRow;
     MatSortModule,
     MatSelectModule,
     MatTableModule,
-    MatFormFieldModule
+    MatFormFieldModule,
+    MatOptionModule
   ],
   templateUrl: './result-grid.component.html',
   styleUrls: ['./result-grid.component.css'],
@@ -81,6 +83,8 @@ export class ResultGridComponent implements OnChanges {
   readonly pageSizeOptions = [25, 50, 100];
   sortState: Sort = { active: '', direction: '' };
   expandedRow: BreakResultRow | null = null;
+
+  @ViewChild(MatPaginator) paginator?: MatPaginator;
 
   private selectedIds = new Set<number>();
   get selectedCount(): number {
@@ -196,10 +200,29 @@ export class ResultGridComponent implements OnChanges {
     }
 
     if (!this.filterText.trim()) {
-      this.maybeRequestMore(event);
+      this.maybeRequestMoreFor(event.pageIndex, event.pageSize);
     }
 
     this.processData();
+  }
+
+  updatePageSize(size: number): void {
+    if (this.pageSize === size) {
+      return;
+    }
+
+    this.pageSize = size;
+    this.pageIndex = 0;
+
+    if (!this.filterText.trim()) {
+      this.maybeRequestMoreFor(0, size);
+    }
+
+    this.processData();
+
+    if (this.paginator) {
+      this.paginator.firstPage();
+    }
   }
 
   onRowClick(row: TableRow): void {
@@ -327,9 +350,9 @@ export class ResultGridComponent implements OnChanges {
     this.tableData = data;
   }
 
-  private maybeRequestMore(event: PageEvent): void {
+  private maybeRequestMoreFor(pageIndex: number, pageSize: number): void {
     const loaded = this.rows.length;
-    const required = (event.pageIndex + 1) * event.pageSize;
+    const required = (pageIndex + 1) * pageSize;
     const total = this.total ?? loaded;
     if (required > loaded && loaded < total) {
       this.requestMore.emit();

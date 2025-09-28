@@ -1,16 +1,23 @@
 .workspace {
   display: grid;
-  grid-template-columns: 320px 1fr 360px;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) minmax(280px, 360px);
   gap: 1.5rem;
   padding: 1.5rem;
   min-height: calc(100vh - 3rem);
   box-sizing: border-box;
+  max-width: 100%;
 }
 
 .sidebar {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+
+.sidebar,
+.main,
+.detail-panel {
+  min-width: 0;
 }
 
 .saved-views {
@@ -197,6 +204,47 @@
 .grid-section {
   flex: 1;
   min-height: 420px;
+}
+
+@media (max-width: 1440px) {
+  .workspace {
+    grid-template-columns: minmax(240px, 300px) minmax(0, 1fr) minmax(240px, 320px);
+  }
+}
+
+@media (max-width: 1200px) {
+  .workspace {
+    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  }
+
+  .detail-panel {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 992px) {
+  .workspace {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .sidebar,
+  .main,
+  .detail-panel {
+    grid-column: 1 / -1;
+  }
+
+  .detail-panel {
+    order: 3;
+  }
+
+  .main {
+    order: 2;
+  }
+
+  .sidebar {
+    order: 1;
+  }
 }
 
 .bulk-actions {

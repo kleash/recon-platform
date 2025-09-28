@@ -15,35 +15,41 @@
   </div>
 
   <div class="table-wrapper">
-    <div class="header-row" [style.--column-count]="baseColumns.length + columns.length">
-      <div class="cell checkbox">&nbsp;</div>
-      <div class="cell" *ngFor="let column of baseColumns">{{ column.label }}</div>
-      <div class="cell" *ngFor="let column of columns">{{ column.label }}</div>
-    </div>
-
-    <cdk-virtual-scroll-viewport
-      class="viewport"
-      [itemSize]="48"
-      (scrolledIndexChange)="onScrolledIndexChange($event)"
-    >
-      <div
-        class="data-row"
-        *cdkVirtualFor="let row of rows"
-        [class.active]="row.breakId === selectedRowId"
-        [style.--column-count]="baseColumns.length + columns.length"
-        (click)="select(row)"
-      >
-        <div class="cell checkbox" (click)="$event.stopPropagation()">
-          <input type="checkbox" [checked]="isSelected(row)" (change)="toggleSelection(row, $event.target.checked)" />
-        </div>
-        <div class="cell">{{ row.breakId }}</div>
-        <div class="cell">{{ row.runDateTime || '—' }}</div>
-        <div class="cell status">{{ row.breakItem.status }}</div>
-        <div class="cell">{{ row.breakItem.breakType }}</div>
-        <div class="cell">{{ row.triggerType || '—' }}</div>
-        <div class="cell" *ngFor="let column of columns">{{ displayAttribute(row, column.key) }}</div>
+    <div class="table-content">
+      <div class="header-row" [style.--column-count]="baseColumns.length + columns.length">
+        <div class="cell checkbox">&nbsp;</div>
+        <div class="cell" *ngFor="let column of baseColumns">{{ column.label }}</div>
+        <div class="cell" *ngFor="let column of columns">{{ column.label }}</div>
       </div>
-    </cdk-virtual-scroll-viewport>
+
+      <cdk-virtual-scroll-viewport
+        class="viewport"
+        [itemSize]="48"
+        (scrolledIndexChange)="onScrolledIndexChange($event)"
+      >
+        <div
+          class="data-row"
+          *cdkVirtualFor="let row of rows"
+          [class.active]="row.breakId === selectedRowId"
+          [style.--column-count]="baseColumns.length + columns.length"
+          (click)="select(row)"
+        >
+          <div class="cell checkbox" (click)="$event.stopPropagation()">
+            <input
+              type="checkbox"
+              [checked]="isSelected(row)"
+              (change)="toggleSelection(row, $event.target.checked)"
+            />
+          </div>
+          <div class="cell">{{ row.breakId }}</div>
+          <div class="cell">{{ row.runDateTime || '—' }}</div>
+          <div class="cell status">{{ row.breakItem.status }}</div>
+          <div class="cell">{{ row.breakItem.breakType }}</div>
+          <div class="cell">{{ row.triggerType || '—' }}</div>
+          <div class="cell" *ngFor="let column of columns">{{ displayAttribute(row, column.key) }}</div>
+        </div>
+      </cdk-virtual-scroll-viewport>
+    </div>
   </div>
 
   <div class="loading" *ngIf="loading">Loading…</div>

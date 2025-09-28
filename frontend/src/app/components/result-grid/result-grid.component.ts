@@ -107,7 +107,22 @@ export class ResultGridComponent implements OnChanges {
   }
 
   displayAttribute(row: BreakResultRow, columnKey: string): string {
-    return row.attributes[columnKey] ?? row.breakItem.classifications[columnKey] ?? '';
+    const direct = this.valueOrNull(row.attributes?.[columnKey]);
+    if (direct) {
+      return direct;
+    }
+
+    const classification = this.valueOrNull(row.breakItem?.classifications?.[columnKey]);
+    if (classification) {
+      return classification;
+    }
+
+    const sourced = this.lookupSourceValue(row, columnKey);
+    if (sourced) {
+      return sourced;
+    }
+
+    return '—';
   }
 
   select(row: BreakResultRow): void {
@@ -120,5 +135,47 @@ export class ResultGridComponent implements OnChanges {
 
   private emitSelection(): void {
     this.selectionChange.emit(Array.from(this.selectedIds));
+  }
+
+  private valueOrNull(value: string | undefined | null): string | null {
+    if (value === undefined || value === null) {
+      return null;
+    }
+    const trimmed = value.toString().trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+
+  private lookupSourceValue(row: BreakResultRow, columnKey: string): string | null {
+    const sources = row.breakItem?.sources;
+    if (!sources) {
+      return null;
+    }
+    for (const source of Object.values(sources)) {
+      if (!source) {
+        continue;
+      }
+      const candidate = this.formatSourceValue(source[columnKey]);
+      if (candidate) {
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  private formatSourceValue(value: unknown): string | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : null;
+    }
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return String(value);
+    }
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+    return JSON.stringify(value);
   }
 }

@@ -171,23 +171,28 @@
       </div>
     </section>
 
-    <section class="grid-section" *ngIf="isActiveTab('runs')">
-      <ng-container *ngIf="rows$ | async as rows">
-        <ng-container *ngIf="columns$ | async as columns">
-          <urp-result-grid
-            [rows]="rows"
-            [columns]="columns"
-            [loading]="loading$ | async"
-            [total]="total$ | async"
-            [selectedRowId]="selectedRow?.breakId || null"
-            [selectedBreakIds]="selectedBreakIds"
-            (selectRow)="handleRowSelect($event)"
-            (requestMore)="loadMore()"
-            (selectionChange)="handleSelectionChange($event)"
-            (selectFiltered)="selectFiltered()"
-          ></urp-result-grid>
+    <section class="result-layout" *ngIf="isActiveTab('runs')">
+      <section class="grid-section">
+        <ng-container *ngIf="rows$ | async as rows">
+          <ng-container *ngIf="columns$ | async as columns">
+            <urp-result-grid
+              [rows]="rows"
+              [columns]="columns"
+              [loading]="loading$ | async"
+              [total]="total$ | async"
+              [selectedRowId]="selectedRow?.breakId || null"
+              [selectedBreakIds]="selectedBreakIds"
+              (selectRow)="handleRowSelect($event)"
+              (requestMore)="loadMore()"
+              (selectionChange)="handleSelectionChange($event)"
+              (selectFiltered)="selectFiltered()"
+            ></urp-result-grid>
+          </ng-container>
         </ng-container>
-      </ng-container>
+      </section>
+      <section class="activity" *ngIf="activity$ | async as activity">
+        <urp-system-activity [entries]="activity"></urp-system-activity>
+      </section>
     </section>
 
     <section class="bulk-actions" *ngIf="isActiveTab('runs') && selectedBreakIds.length > 0">
@@ -275,17 +280,19 @@
       </table>
     </section>
 
-    <section class="activity" *ngIf="activity$ | async as activity">
+    <section class="activity" *ngIf="!isActiveTab('runs') && activity$ | async as activity">
       <urp-system-activity [entries]="activity"></urp-system-activity>
     </section>
   </main>
 
   <aside class="detail-panel" *ngIf="isActiveTab('runs') || isActiveTab('breaks')">
+    <div class="detail-scroll">
       <urp-break-detail
         [breakItem]="selectedBreak$ | async"
         [workflowSummary]="workflowSummary$ | async"
         (addComment)="state.addComment($event.breakId, $event.comment, $event.action)"
         (updateStatus)="state.updateStatus($event.breakId, { status: $event.status, comment: $event.comment })"
       ></urp-break-detail>
+    </div>
   </aside>
 </div>

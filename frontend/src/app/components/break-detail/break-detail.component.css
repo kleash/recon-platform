@@ -1,53 +1,197 @@
 :host {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-width: 100%;
 }
 
 .break-detail {
-  margin-top: 1.5rem;
-  border-top: 1px solid #e2e8f0;
-  padding-top: 1.5rem;
-}
-
-.break-meta {
+  flex: 1;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
-  font-size: 0.9rem;
-  color: #475569;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding-bottom: 1rem;
+  min-height: 0;
+  color: #0f172a;
 }
 
-.meta-chip {
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.title-group h3 {
+  margin: 0;
+  font-size: 1.4rem;
+  color: #1e293b;
+}
+
+.title-group .detected {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+.status-group {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.5rem;
+}
+
+.status-chip,
+.type-chip {
+  display: inline-flex;
+  align-items: center;
   padding: 0.35rem 0.75rem;
-  border-radius: 9999px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  letter-spacing: 0.01em;
+}
+
+.status-chip {
+  background: #e2e8f0;
+  color: #0f172a;
+  border: 1px solid #cbd5f5;
+}
+
+.status-chip.status-open,
+.status-chip.status-pending,
+.status-chip.status-pendingapproval {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fcd34d;
+}
+
+.status-chip.status-closed {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #bbf7d0;
+}
+
+.status-chip.status-rejected {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.type-chip {
   background: #eef2ff;
+  color: #3730a3;
   border: 1px solid #c7d2fe;
 }
 
-.meta-chip strong {
-  margin-right: 0.25rem;
+.workflow-summary {
+  background: #f8fafc;
+  border-left: 4px solid #2563eb;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  color: #334155;
+  font-size: 0.95rem;
+}
+
+.section-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.section-card h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: #0f172a;
+}
+
+.meta-section {
+  gap: 1rem;
+}
+
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.85rem;
+}
+
+.meta-item {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.meta-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: #64748b;
+  letter-spacing: 0.04em;
+}
+
+.meta-value {
+  font-size: 0.95rem;
+  color: #1f2937;
+  word-break: break-word;
+}
+
+.source-comparison {
+  gap: 1rem;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.missing-sources {
+  margin: 0;
+  color: #b45309;
+  font-size: 0.9rem;
+}
+
+.source-table-wrapper {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow-x: auto;
+  background: #fff;
 }
 
 .source-table {
   width: 100%;
+  min-width: 520px;
   border-collapse: collapse;
-  margin-bottom: 1rem;
 }
 
 .source-table thead th {
   background: #f1f5f9;
   font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
 }
 
 .source-table th,
 .source-table td {
-  padding: 0.6rem;
+  padding: 0.65rem 0.75rem;
   border-bottom: 1px solid #e2e8f0;
   text-align: left;
   font-size: 0.9rem;
+  color: #1e293b;
+  word-break: break-word;
+  white-space: normal;
 }
 
 .source-table td.different {
@@ -55,35 +199,49 @@
   font-weight: 600;
 }
 
-.missing-sources {
-  margin-bottom: 0.75rem;
-  color: #b45309;
-  font-size: 0.9rem;
-}
-
 .empty-source {
-  padding: 0.75rem;
+  margin: 0;
+  padding: 0.9rem 1rem;
   background: #f8fafc;
-  border-radius: 6px;
+  border-radius: 8px;
   color: #64748b;
 }
 
+.workflow-history ul,
 .commentary ul {
   list-style: none;
   padding: 0;
-  margin: 1rem 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
+.workflow-history li,
 .commentary li {
-  border-left: 3px solid #3b82f6;
-  margin-bottom: 0.75rem;
+  border-left: 3px solid #2563eb;
   padding-left: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
+.workflow-history .timestamp,
 .commentary .timestamp {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: #64748b;
-  margin-right: 0.5rem;
+}
+
+.workflow-history .role {
+  align-self: flex-start;
+  margin-left: 0;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: #0f172a;
+  background: #e0f2fe;
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  letter-spacing: 0.05em;
 }
 
 .comment-form {
@@ -96,50 +254,11 @@
   resize: vertical;
 }
 
-.workflow-history {
-  margin: 1.5rem 0;
-}
-
-.workflow-history ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.workflow-history li {
-  border-left: 3px solid #0f172a;
-  padding-left: 0.75rem;
-  margin-bottom: 0.75rem;
-}
-
-.workflow-history .role {
-  margin-left: 0.5rem;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  color: #0f172a;
-  background: #e0f2fe;
-  border-radius: 999px;
-  padding: 0.1rem 0.5rem;
-}
-
 .status-buttons {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
-  margin-top: 1rem;
-}
-
-.status-buttons button {
-  padding: 0.5rem 0.9rem;
-  border: none;
-  background: #2563eb;
-  color: #fff;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.status-buttons button:hover {
-  background: #1d4ed8;
+  margin-top: 0.75rem;
 }
 
 .workflow-actions textarea {
@@ -149,6 +268,7 @@
   border-radius: 6px;
   border: 1px solid #cbd5f5;
   padding: 0.6rem;
+  font-size: 0.95rem;
 }
 
 .workflow-actions .hint {
@@ -162,7 +282,7 @@
 }
 
 .no-actions {
-  margin-top: 0.75rem;
+  margin: 0.5rem 0 0;
   color: #64748b;
   font-style: italic;
 }
@@ -170,4 +290,19 @@
 .empty-state {
   color: #475569;
   font-style: italic;
+}
+
+@media (max-width: 768px) {
+  .detail-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .status-group {
+    align-self: flex-start;
+  }
+
+  .source-table {
+    min-width: 420px;
+  }
 }

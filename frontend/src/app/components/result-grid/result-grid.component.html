@@ -142,52 +142,16 @@
       <ng-container matColumnDef="expandedDetail">
         <td mat-cell *matCellDef="let row" [attr.colspan]="columnsWithExpand.length" class="expanded-cell">
           <div class="expanded-panel" [@detailExpand]="row.element === expandedRow ? 'expanded' : 'collapsed'">
-            <div class="expanded-grid">
-              <div class="expanded-column">
-                <h5>Break metadata</h5>
-                <dl>
-                  <div class="detail-pair">
-                    <dt>Break ID</dt>
-                    <dd>{{ row.element.breakId }}</dd>
-                  </div>
-                  <div class="detail-pair">
-                    <dt>Run ID</dt>
-                    <dd>{{ row.element.runId ?? '—' }}</dd>
-                  </div>
-                  <div class="detail-pair">
-                    <dt>Run time</dt>
-                    <dd>{{ row.element.runDateTime || '—' }}</dd>
-                  </div>
-                  <div class="detail-pair">
-                    <dt>Status</dt>
-                    <dd>{{ row.element.breakItem.status }}</dd>
-                  </div>
-                  <div class="detail-pair">
-                    <dt>Trigger</dt>
-                    <dd>{{ row.element.triggerType || '—' }}</dd>
-                  </div>
-                </dl>
-              </div>
-              <div class="expanded-column">
-                <h5>Attributes</h5>
-                <dl>
-                  <ng-container *ngFor="let column of columns">
-                    <ng-container *ngIf="displayAttribute(row.element, column.key) !== '—'">
-                      <div class="detail-pair">
-                        <dt>{{ column.label }}</dt>
-                        <dd>{{ displayAttribute(row.element, column.key) }}</dd>
-                      </div>
-                    </ng-container>
-                  </ng-container>
-                  <ng-container *ngIf="columns.length === 0">
-                    <div class="detail-pair">
-                      <dt>Attributes</dt>
-                      <dd>No additional attributes available.</dd>
-                    </div>
-                  </ng-container>
-                </dl>
-              </div>
-            </div>
+            <ng-container *ngIf="row.element === expandedRow">
+              <urp-break-detail
+                class="inline-break-detail"
+                [breakItem]="row.element.breakItem"
+                [workflowSummary]="workflowSummary"
+                [compact]="true"
+                (addComment)="handleAddComment($event)"
+                (updateStatus)="handleUpdateStatus($event)"
+              ></urp-break-detail>
+            </ng-container>
           </div>
         </td>
       </ng-container>

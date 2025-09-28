@@ -1,4 +1,4 @@
-<section class="break-detail" *ngIf="breakItem as active; else noBreak">
+<section class="break-detail" *ngIf="breakItem as active; else noBreak" [class.compact]="compact">
   <header class="detail-header">
     <div class="title-group">
       <h3>Break {{ active.id }}</h3>
@@ -14,7 +14,7 @@
     {{ workflowSummary }}
   </div>
 
-  <section class="section-card meta-section">
+  <section class="section-card meta-section" *ngIf="!compact">
     <h4>Classifications & details</h4>
     <div class="meta-grid">
       <div class="meta-item" *ngFor="let entry of classificationEntries">

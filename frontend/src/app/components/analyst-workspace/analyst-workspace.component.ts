@@ -15,7 +15,6 @@ import {
   TriggerRunPayload
 } from '../../models/api-models';
 import { ReconciliationListComponent } from '../reconciliation-list/reconciliation-list.component';
-import { BreakDetailComponent } from '../break-detail/break-detail.component';
 import { SystemActivityComponent } from '../system-activity/system-activity.component';
 import { ResultGridComponent } from '../result-grid/result-grid.component';
 import { RunDetailComponent } from '../run-detail/run-detail.component';
@@ -42,7 +41,6 @@ interface ColumnFilterRow {
     FormsModule,
     AsyncPipe,
     ReconciliationListComponent,
-    BreakDetailComponent,
     SystemActivityComponent,
     ResultGridComponent,
     RunDetailComponent,
@@ -61,7 +59,6 @@ export class AnalystWorkspaceComponent implements OnInit, OnDestroy {
   readonly savedViews$ = this.resultState.savedViews$;
   readonly exportJobs$ = this.resultState.exportJobs$;
   readonly activeView$ = this.resultState.activeView$;
-  readonly selectedBreak$ = this.state.selectedBreak$;
   readonly activity$ = this.state.activity$;
   readonly runDetail$ = this.state.runDetail$;
   readonly filterMetadata$ = this.state.filterMetadata$;
@@ -320,6 +317,18 @@ export class AnalystWorkspaceComponent implements OnInit, OnDestroy {
 
   loadMore(): void {
     this.resultState.loadMore();
+  }
+
+  handleAddComment(event: { breakId: number; comment: string; action: string }): void {
+    this.state.addComment(event.breakId, event.comment, event.action);
+  }
+
+  handleUpdateStatus(event: { breakId: number; status: BreakStatus; comment?: string; correlationId?: string }): void {
+    this.state.updateStatus(event.breakId, {
+      status: event.status,
+      comment: event.comment,
+      correlationId: event.correlationId
+    });
   }
 
   handleApplySavedView(view: SavedView): void {

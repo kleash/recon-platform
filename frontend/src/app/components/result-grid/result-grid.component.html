@@ -1,31 +1,38 @@
 <div class="result-grid">
   <div class="grid-toolbar">
     <div class="selection">
-      <button mat-stroked-button color="primary" (click)="toggleSelectPage()" [disabled]="currentPageRows.length === 0">
+      <button type="button" class="pill-button" (click)="toggleSelectPage()" [disabled]="currentPageRows.length === 0">
         {{ isPageFullySelected ? 'Deselect page' : 'Select page' }}
       </button>
-      <button mat-stroked-button color="primary" (click)="selectLoaded()" [disabled]="filteredRows.length === 0">
+      <button type="button" class="pill-button" (click)="selectLoaded()" [disabled]="filteredRows.length === 0">
         Select loaded
       </button>
-      <button mat-stroked-button color="primary" (click)="requestFilteredSelection()" [disabled]="filteredRows.length === 0">
+      <button
+        type="button"
+        class="pill-button"
+        (click)="requestFilteredSelection()"
+        [disabled]="filteredRows.length === 0"
+      >
         Select filtered
       </button>
       <span class="selected-count">{{ selectedCount }} selected</span>
     </div>
 
-    <mat-form-field appearance="outline" class="filter-field">
-      <mat-label>Quick filter</mat-label>
-      <input
-        matInput
-        type="search"
-        placeholder="Search results"
-        [(ngModel)]="filterText"
-        (input)="handleFilterChange()"
-      />
-      <button mat-icon-button matSuffix *ngIf="filterText" (click)="clearFilter()" aria-label="Clear quick filter">
-        <mat-icon>close</mat-icon>
-      </button>
-    </mat-form-field>
+    <div class="quick-filter">
+      <label class="quick-filter-label" for="quick-filter-input">Quick filter</label>
+      <div class="quick-filter-input">
+        <input
+          id="quick-filter-input"
+          type="search"
+          placeholder="Search results"
+          [(ngModel)]="filterText"
+          (input)="handleFilterChange()"
+        />
+        <button type="button" class="clear-button" *ngIf="filterText" (click)="clearFilter()" aria-label="Clear quick filter">
+          ×
+        </button>
+      </div>
+    </div>
 
     <div class="summary" *ngIf="total !== null; else loadedCount">
       Total records: {{ total }}
@@ -40,16 +47,17 @@
       <mat-progress-spinner mode="indeterminate" diameter="36"></mat-progress-spinner>
     </div>
 
-    <table
-      mat-table
-      [dataSource]="tableData"
-      matSort
-      (matSortChange)="handleSort($event)"
-      multiTemplateDataRows
-      class="grid-table mat-elevation-z2"
-    >
+    <div class="table-scroll">
+      <table
+        mat-table
+        [dataSource]="tableData"
+        matSort
+        (matSortChange)="handleSort($event)"
+        multiTemplateDataRows
+        class="grid-table mat-elevation-z2"
+      >
       <ng-container matColumnDef="select">
-        <th mat-header-cell *matHeaderCellDef>
+        <th mat-header-cell *matHeaderCellDef class="checkbox-header">
           <mat-checkbox
             color="primary"
             [checked]="isPageFullySelected"
@@ -112,7 +120,7 @@
       </ng-template>
 
       <ng-container matColumnDef="expand">
-        <th mat-header-cell *matHeaderCellDef></th>
+        <th mat-header-cell *matHeaderCellDef class="expand-header"></th>
         <td mat-cell *matCellDef="let row" class="expand-cell">
           <ng-container *ngIf="isBaseRow(row); else detailExpandPlaceholder">
             <button
@@ -193,7 +201,8 @@
         (click)="onRowClick(row)"
       ></tr>
       <tr mat-row *matRowDef="let row; columns: detailColumns; when: isExpansionDetailRow" class="detail-row"></tr>
-    </table>
+      </table>
+    </div>
 
     <div class="empty-state" *ngIf="!loading && filteredRows.length === 0">
       No results match the current filters.

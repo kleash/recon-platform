@@ -190,6 +190,8 @@
   text-align: left;
   font-size: 0.9rem;
   color: #1e293b;
+  word-break: break-word;
+  white-space: normal;
 }
 
 .source-table td.different {

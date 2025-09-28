@@ -17,11 +17,46 @@
 .grid-toolbar {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
+  align-items: stretch;
+  gap: 0.75rem 1rem;
   padding: 0.75rem 1rem;
   background: #f8fafc;
   border-bottom: 1px solid #e2e8f0;
+}
+
+.pill-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.45rem 1rem;
+  border-radius: 999px;
+  border: 1px solid #2563eb;
+  background: #fff;
+  color: #1d4ed8;
+  font-weight: 600;
+  font-size: 0.85rem;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pill-button:hover:not(:disabled) {
+  background: #eff6ff;
+  box-shadow: 0 2px 6px rgba(29, 78, 216, 0.15);
+}
+
+.pill-button:focus-visible {
+  outline: 3px solid rgba(59, 130, 246, 0.35);
+  outline-offset: 2px;
+}
+
+.pill-button:disabled {
+  cursor: not-allowed;
+  border-color: #cbd5f5;
+  color: #94a3b8;
+  background: #f1f5f9;
+  box-shadow: none;
 }
 
 .selection {
@@ -36,15 +71,81 @@
   color: #1e293b;
 }
 
-.filter-field {
+.quick-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  width: min(320px, 100%);
   margin-left: auto;
-  min-width: min(320px, 100%);
+}
+
+.quick-filter-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #475569;
+}
+
+.quick-filter-input {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.35rem 0.2rem 0.75rem;
+  border: 1px solid #cbd5f5;
+  border-radius: 999px;
+  background: #fff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.quick-filter-input:focus-within {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.quick-filter-input input[type='search'] {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font-size: 0.95rem;
+  padding: 0.4rem 0.2rem;
+  color: #0f172a;
+}
+
+.quick-filter-input input[type='search']::placeholder {
+  color: #94a3b8;
+}
+
+.quick-filter-input input[type='search']:focus {
+  outline: none;
+}
+
+.clear-button {
+  border: none;
+  background: transparent;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: #94a3b8;
+  padding: 0.2rem 0.3rem;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.clear-button:hover,
+.clear-button:focus-visible {
+  color: #1e293b;
+}
+
+.clear-button:focus-visible {
+  outline: 2px solid rgba(37, 99, 235, 0.4);
+  border-radius: 999px;
 }
 
 .summary {
   margin-left: auto;
   font-size: 0.95rem;
   color: #475569;
+  align-self: center;
 }
 
 .table-container {
@@ -52,27 +153,59 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
   padding: 0 1rem 1rem;
   overflow: hidden;
 }
 
+.table-scroll {
+  position: relative;
+  flex: 1;
+  overflow: auto;
+  border-radius: 10px;
+  background: #fff;
+}
+
 .grid-table {
   width: 100%;
+  min-width: max(900px, 100%);
   border-spacing: 0;
   background: transparent;
+  table-layout: auto;
 }
 
 .grid-table th.mat-mdc-header-cell {
   font-weight: 600;
   color: #0f172a;
   background: #fff;
+  white-space: normal;
+  line-height: 1.35;
 }
 
 .grid-table td.mat-mdc-cell,
 .grid-table th.mat-mdc-header-cell {
   padding: 0.75rem;
   border-bottom: 1px solid #edf1f5;
+  word-break: break-word;
+}
+
+.grid-table th.mat-mdc-header-cell:not(.checkbox-header):not(.expand-header),
+.grid-table td.mat-mdc-cell:not(.checkbox-cell):not(.expand-cell) {
+  min-width: 160px;
+}
+
+.grid-table .mat-sort-header-container,
+.grid-table .mat-sort-header-content {
+  white-space: normal;
+  align-items: flex-start;
+  line-height: 1.35;
+}
+
+.grid-table .mat-sort-header-container {
+  gap: 0.35rem;
+}
+
+.grid-table .mat-mdc-cell {
+  vertical-align: top;
 }
 
 .data-row {
@@ -93,6 +226,13 @@
   width: 48px;
   padding-right: 0.5rem;
   text-align: center;
+}
+
+.checkbox-header,
+.expand-header {
+  width: 48px;
+  text-align: center;
+  padding-right: 0.5rem;
 }
 
 .checkbox-placeholder,
@@ -195,7 +335,7 @@ mat-paginator {
     align-items: flex-start;
   }
 
-  .filter-field,
+  .quick-filter,
   .summary {
     margin-left: 0;
     width: 100%;

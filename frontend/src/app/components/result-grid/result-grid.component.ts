@@ -4,9 +4,7 @@ import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSortModule, Sort } from '@angular/material/sort';
@@ -28,9 +26,7 @@ type TableRow = BreakResultRow | DetailRow;
     FormsModule,
     MatButtonModule,
     MatCheckboxModule,
-    MatFormFieldModule,
     MatIconModule,
-    MatInputModule,
     MatPaginatorModule,
     MatProgressSpinnerModule,
     MatSortModule,
@@ -211,7 +207,12 @@ export class ResultGridComponent implements OnChanges {
   }
 
   toggleExpandedRow(row: BreakResultRow): void {
-    this.expandedRow = this.expandedRow === row ? null : row;
+    if (this.expandedRow && this.expandedRow.breakId === row.breakId) {
+      this.expandedRow = null;
+    } else {
+      this.expandedRow = row;
+    }
+    this.rebuildTableData();
   }
 
   select(row: BreakResultRow): void {
@@ -270,7 +271,13 @@ export class ResultGridComponent implements OnChanges {
 
     const start = this.pageIndex * this.pageSize;
     this.currentPageRows = sorted.slice(start, start + this.pageSize);
-    this.tableData = this.buildTableData(this.currentPageRows);
+
+    if (this.expandedRow) {
+      const match = this.currentPageRows.find((row) => row.breakId === this.expandedRow?.breakId);
+      this.expandedRow = match ?? null;
+    }
+
+    this.rebuildTableData();
   }
 
   private applyFilter(rows: BreakResultRow[]): BreakResultRow[] {
@@ -305,13 +312,15 @@ export class ResultGridComponent implements OnChanges {
     });
   }
 
-  private buildTableData(rows: BreakResultRow[]): TableRow[] {
+  private rebuildTableData(): void {
     const data: TableRow[] = [];
-    rows.forEach((row) => {
+    this.currentPageRows.forEach((row) => {
       data.push(row);
-      data.push({ detailRow: true, element: row });
+      if (this.expandedRow && row.breakId === this.expandedRow.breakId) {
+        data.push({ detailRow: true, element: row });
+      }
     });
-    return data;
+    this.tableData = data;
   }
 
   private maybeRequestMore(event: PageEvent): void {

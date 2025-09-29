@@ -13,6 +13,8 @@ a lightweight HTTP client that streams those batches through the admin ingestion
 - Utilities for turning JDBC queries, REST API responses, or classpath CSV fixtures into batches.
 - OkHttp-based HTTP client with built-in authentication, reconciliation discovery, and retry-on-401
   handling.
+- Tunable HTTP client timeouts (`connect`, `read`, and `write`) exposed via
+  `reconciliation.ingestion.*` properties.
 
 ## Quick start
 
@@ -32,7 +34,7 @@ a lightweight HTTP client that streams those batches through the admin ingestion
    </dependency>
    ```
 
-3. Configure credentials and the platform base URL via `application.yml` or command-line flags:
+3. Configure credentials and HTTP client settings via `application.yml` or command-line flags:
 
    ```yaml
    reconciliation:
@@ -40,6 +42,9 @@ a lightweight HTTP client that streams those batches through the admin ingestion
        base-url: http://localhost:8080
        username: admin1
        password: password
+       connect-timeout: 10s # optional, defaults to 30s
+       read-timeout: 30s    # optional, defaults to 60s
+       write-timeout: 30s   # optional, defaults to 60s
    ```
 
 4. Inject `IngestionPipeline` into a `CommandLineRunner` and use the batch builders to stream data:
@@ -50,10 +55,12 @@ a lightweight HTTP client that streams those batches through the admin ingestion
 
        private final IngestionPipeline pipeline;
        private final JdbcTemplate jdbcTemplate;
+       private final RestTemplate restTemplate;
 
-       CashVsGlRunner(IngestionPipeline pipeline, JdbcTemplate jdbcTemplate) {
+       CashVsGlRunner(IngestionPipeline pipeline, JdbcTemplate jdbcTemplate, RestTemplate restTemplate) {
            this.pipeline = pipeline;
            this.jdbcTemplate = jdbcTemplate;
+           this.restTemplate = restTemplate;
        }
 
        @Override
@@ -67,10 +74,20 @@ a lightweight HTTP client that streams those batches through the admin ingestion
                    List.of("transactionId", "amount", "currency"),
                    Map.of());
 
+           RestApiCsvBatchBuilder api = new RestApiCsvBatchBuilder(restTemplate);
+           IngestionBatch glBatch = api.get(
+                   "GL",
+                   "general-ledger",
+                   URI.create("https://example.org/api/gl"),
+                   List.of("transactionId", "amount", "currency", "tradeDate"),
+                   Map.of(),
+                   "payload.entries");
+
            IngestionScenario scenario = IngestionScenario.builder("cash-vs-gl")
                    .reconciliationCode("CASH_VS_GL_SIMPLE")
                    .description("Cash ledger vs GL daily load")
                    .addBatch(cashBatch)
+                   .addBatch(glBatch)
                    .build();
 
            pipeline.run(scenario);
@@ -80,6 +97,28 @@ a lightweight HTTP client that streams those batches through the admin ingestion
 
 See [`examples/ingestion-sdk-example`](../../examples/ingestion-sdk-example/README.md) for a
 complete runnable sample that combines JDBC and REST sources.
+
+### Advanced REST extraction
+
+`RestApiCsvBatchBuilder` supports nested responses and custom pagination flows. Point it at a nested
+array using JSON Pointer syntax (`"payload.entries"` or `"/payload/entries"`), or supply a
+`Function<JsonNode, Iterable<JsonNode>>` when the records span multiple fields/pages:
+
+```java
+RestApiCsvBatchBuilder api = new RestApiCsvBatchBuilder(restTemplate);
+IngestionBatch glBatch = api.get(
+        "GL",
+        "general-ledger",
+        URI.create("https://example.org/api/gl"),
+        List.of("transactionId", "amount"),
+        Map.of(),
+        root -> {
+            List<JsonNode> combined = new ArrayList<>();
+            root.path("payload").path("entries").forEach(combined::add);
+            root.path("payload").path("adjustments").forEach(combined::add);
+            return combined;
+        });
+```
 
 ## Build & test
 

@@ -11,7 +11,7 @@ transform the results into CSV batches, and stream them to the platform using a 
 | `ReconciliationIngestionClient` | Authenticates with the platform, discovers reconciliation IDs, and uploads batches. |
 | `IngestionPipeline` | Convenience orchestrator for running scenarios composed of multiple batches. |
 | `JdbcCsvBatchBuilder` | Turns SQL query results into CSV payloads. |
-| `RestApiCsvBatchBuilder` | Converts JSON arrays returned by REST endpoints into CSV payloads. |
+| `RestApiCsvBatchBuilder` | Converts JSON arrays returned by REST endpoints into CSV payloads, supporting nested paths and custom extractors. |
 | `ClasspathCsvBatchLoader` | Loads static CSV fixtures from the classpath (useful for smoke tests). |
 
 Auto-configuration registers the client and pipeline when the dependency is present. Provide the
@@ -33,6 +33,9 @@ credentials and base URL through `reconciliation.ingestion.*` properties.
        base-url: http://localhost:8080
        username: admin1
        password: password
+       connect-timeout: 10s # optional, defaults to 30s
+       read-timeout: 30s    # optional, defaults to 60s
+       write-timeout: 30s   # optional, defaults to 60s
    ```
 
 3. **Build batches** using the provided builders:
@@ -53,7 +56,8 @@ credentials and base URL through `reconciliation.ingestion.*` properties.
        "general-ledger",
        URI.create("https://example.org/api/gl"),
        List.of("transactionId", "amount", "currency", "tradeDate"),
-       Map.of());
+       Map.of(),
+       "payload.entries");
 
    IngestionScenario scenario = IngestionScenario.builder("cash-vs-gl")
        .reconciliationCode("CASH_VS_GL_SIMPLE")
@@ -66,6 +70,27 @@ credentials and base URL through `reconciliation.ingestion.*` properties.
 
 4. **Run the jar** from an operations perspective. The SDK handles authentication, multipart upload,
    and reconciliation discovery so implementers only focus on extraction logic.
+
+### Advanced REST extraction
+
+For wrapped or paginated APIs, supply either a JSON Pointer (e.g. `"/payload/entries"`) or a custom
+extractor. The extractor receives the root `JsonNode` and returns the iterable of records to render:
+
+```java
+RestApiCsvBatchBuilder api = new RestApiCsvBatchBuilder(restTemplate);
+IngestionBatch glBatch = api.get(
+        "GL",
+        "general-ledger",
+        URI.create("https://example.org/api/gl"),
+        List.of("transactionId", "amount"),
+        Map.of(),
+        root -> {
+            List<JsonNode> combined = new ArrayList<>();
+            root.path("payload").path("entries").forEach(combined::add);
+            root.path("payload").path("adjustments").forEach(combined::add);
+            return combined;
+        });
+```
 
 ## Example application
 

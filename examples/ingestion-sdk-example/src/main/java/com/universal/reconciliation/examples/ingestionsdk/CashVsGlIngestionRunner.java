@@ -87,7 +87,8 @@ class CashVsGlIngestionRunner implements CommandLineRunner {
                     "general-ledger",
                     server.url("/api/gl").uri(),
                     CANONICAL_COLUMNS,
-                    Map.of());
+                    Map.of(),
+                    "payload.entries");
         }
     }
 }

@@ -19,8 +19,12 @@ public class IngestionSdkAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public OkHttpClient ingestionOkHttpClient() {
-        return new OkHttpClient();
+    public OkHttpClient ingestionOkHttpClient(ReconciliationIngestionProperties properties) {
+        return new OkHttpClient.Builder()
+                .connectTimeout(properties.getConnectTimeout())
+                .readTimeout(properties.getReadTimeout())
+                .writeTimeout(properties.getWriteTimeout())
+                .build();
     }
 
     @Bean

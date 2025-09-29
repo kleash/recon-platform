@@ -894,11 +894,19 @@ test('reconciliation authoring to maker-checker workflow', async ({ page }) => {
   const primaryBreakLabel = String(primaryBreakId);
 
   const gridRows = page.locator('urp-result-grid .data-row');
-  const primaryGridRow = gridRows.filter({ hasText: primaryBreakLabel }).first();
+  const breakIdMatcher = page.locator('.mat-column-breakId', {
+    hasText: new RegExp(`^\\s*${primaryBreakLabel}\\s*$`)
+  });
+  const primaryGridRow = gridRows.filter({ has: breakIdMatcher }).first();
   await expect(primaryGridRow).toBeVisible({ timeout: 60000 });
+  await primaryGridRow.scrollIntoViewIfNeeded();
 
   await primaryGridRow.click();
-  let detailSection = page.locator('.break-detail');
+  const primaryExpandButton = primaryGridRow.locator('button[aria-label*="details"]');
+  if (await primaryExpandButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await primaryExpandButton.click();
+  }
+  let detailSection = page.locator('urp-result-grid .inline-break-detail .break-detail-view').first();
   await expect(detailSection).toContainText(`Break ${primaryBreakLabel}`);
   await expect(detailSection).toContainText('OPEN', { timeout: 30000 });
 
@@ -927,7 +935,9 @@ test('reconciliation authoring to maker-checker workflow', async ({ page }) => {
       `Maker bulk submission failed (${bulkMakerResponse.status()} ${bulkMakerResponse.statusText()}): ${parsed}`
     );
   }
-  await expect(primaryGridRow).toContainText('PENDING_APPROVAL', { timeout: 30000 });
+  await expect(primaryGridRow.locator('.mat-column-status')).toContainText('PENDING_APPROVAL', {
+    timeout: 30000
+  });
 
   await logout(page);
 
@@ -961,11 +971,17 @@ test('reconciliation authoring to maker-checker workflow', async ({ page }) => {
   await checkerReconListItem.click();
 
   const checkerGridRows = page.locator('urp-result-grid .data-row');
-  const checkerPrimaryRow = checkerGridRows.filter({ hasText: primaryBreakLabel }).first();
+  const checkerPrimaryRow = checkerGridRows.filter({ has: breakIdMatcher }).first();
   await expect(checkerPrimaryRow).toBeVisible({ timeout: 30000 });
-  await expect(checkerPrimaryRow).toContainText('PENDING_APPROVAL', { timeout: 30000 });
+  await expect(checkerPrimaryRow.locator('.mat-column-status')).toContainText('PENDING_APPROVAL', {
+    timeout: 30000
+  });
   await checkerPrimaryRow.click();
-  detailSection = page.locator('.break-detail');
+  const checkerExpandButton = checkerPrimaryRow.locator('button[aria-label*="details"]');
+  if (await checkerExpandButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await checkerExpandButton.click();
+  }
+  detailSection = page.locator('urp-result-grid .inline-break-detail .break-detail-view').first();
   await expect(detailSection).toContainText(`Break ${primaryBreakLabel}`);
   await expect(detailSection).toContainText(/pending[_ ]approval/i, { timeout: 30000 });
 
@@ -1006,12 +1022,16 @@ test('reconciliation authoring to maker-checker workflow', async ({ page }) => {
   await closedReconListItem.click();
 
   const refreshedGridRows = page.locator('urp-result-grid .data-row');
-  const refreshedPrimaryRow = refreshedGridRows.filter({ hasText: primaryBreakLabel }).first();
+  const refreshedPrimaryRow = refreshedGridRows.filter({ has: breakIdMatcher }).first();
   await expect(refreshedPrimaryRow).toBeVisible({ timeout: 30000 });
   await refreshedPrimaryRow.click();
   const reloadedCheckerQueue = page.locator('.checker-queue');
   await expect(reloadedCheckerQueue.locator('tbody tr')).toHaveCount(0, { timeout: 30000 });
-  detailSection = page.locator('.break-detail');
+  const refreshedExpandButton = refreshedPrimaryRow.locator('button[aria-label*="details"]');
+  if (await refreshedExpandButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await refreshedExpandButton.click();
+  }
+  detailSection = page.locator('urp-result-grid .inline-break-detail .break-detail-view').first();
   await expect(detailSection).toContainText(`Break ${primaryBreakLabel}`);
   await expect(detailSection).toContainText(/closed/i, { timeout: 30000 });
 
@@ -1362,10 +1382,18 @@ if (value) {
   });
 
   const gridRows = page.locator('urp-result-grid .data-row');
-  const targetRow = gridRows.filter({ hasText: ` ${targetBreakId} ` }).first();
+  const groovyBreakMatcher = page.locator('.mat-column-breakId', {
+    hasText: new RegExp(`^\\s*${targetBreakId}\\s*$`)
+  });
+  const targetRow = gridRows.filter({ has: groovyBreakMatcher }).first();
   await expect(targetRow).toBeVisible({ timeout: 60000 });
+  await targetRow.scrollIntoViewIfNeeded();
   await targetRow.click();
-  const detailSection = page.locator('.break-detail');
+  const expandButton = targetRow.locator('button[aria-label*="details"]');
+  if (await expandButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await expandButton.click();
+  }
+  const detailSection = page.locator('urp-result-grid .inline-break-detail .break-detail-view').first();
   await expect(detailSection).toContainText('Break');
   const makerComment = 'Submitting single break for approval via Groovy scenario.';
   await detailSection.locator('textarea[placeholder="Add justification for your action"]').fill(makerComment);
@@ -1452,12 +1480,21 @@ if (value) {
   expect(pendingConfirmed).toBeTruthy();
 
   await page.reload();
+  const groovyReconListItem = page.getByRole('listitem').filter({ hasText: reconName });
+  await expect(groovyReconListItem).toBeVisible({ timeout: 60000 });
+  await groovyReconListItem.click();
   const refreshedRows = page.locator('urp-result-grid .data-row');
-  const refreshedRow = refreshedRows.filter({ hasText: ` ${targetBreakId} ` }).first();
+  const refreshedRow = refreshedRows.filter({ has: groovyBreakMatcher }).first();
   await expect(refreshedRow).toBeVisible({ timeout: 60000 });
-  await expect(refreshedRow).toContainText('PENDING_APPROVAL', { timeout: 60000 });
+  await expect(refreshedRow.locator('.mat-column-status')).toContainText('PENDING_APPROVAL', {
+    timeout: 60000
+  });
   await refreshedRow.click();
-  const refreshedDetailSection = page.locator('.break-detail');
+  const refreshedExpandButton = refreshedRow.locator('button[aria-label*="details"]');
+  if (await refreshedExpandButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await refreshedExpandButton.click();
+  }
+  const refreshedDetailSection = page.locator('urp-result-grid .inline-break-detail .break-detail-view').first();
   await expect(refreshedDetailSection.locator('.status-chip')).toContainText('PENDING_APPROVAL', { timeout: 60000 });
 
   const groovyMakerSubmitScreenshot = 'groovy-step-05.png';
@@ -1486,6 +1523,9 @@ if (value) {
     { token: checkerToken }
   );
   await page.reload();
+  const checkerReconItem = page.getByRole('listitem').filter({ hasText: reconName });
+  await expect(checkerReconItem).toBeVisible({ timeout: 60000 });
+  await checkerReconItem.click();
 
   await page.getByRole('button', { name: 'Approvals' }).click();
   const approvalsTable = page.locator('.checker-queue tbody tr');
@@ -1518,9 +1558,10 @@ if (value) {
   await login(page, 'ops1', 'password');
   await expect(page.getByRole('heading', { name: 'Reconciliations' })).toBeVisible();
   await page.getByRole('listitem').filter({ hasText: reconName }).click();
-  const selectAllButton = page.getByRole('button', { name: 'Select all' });
-  await expect(selectAllButton).toBeVisible({ timeout: 60000 });
-  await selectAllButton.click();
+  const selectLoadedButton = page.getByRole('button', { name: 'Select loaded' });
+  await expect(selectLoadedButton).toBeVisible({ timeout: 60000 });
+  await expect(selectLoadedButton).toBeEnabled({ timeout: 60000 });
+  await selectLoadedButton.click();
   const bulkArea = page.locator('.bulk-actions');
   await expect(bulkArea).toBeVisible();
   await bulkArea.locator('textarea[name="bulkComment"]').fill('Bulk submission for remaining Groovy breaks.');
@@ -1557,6 +1598,9 @@ if (value) {
     { token: finalCheckerToken }
   );
   await page.reload();
+  const finalCheckerReconItem = page.getByRole('listitem').filter({ hasText: reconName });
+  await expect(finalCheckerReconItem).toBeVisible({ timeout: 60000 });
+  await finalCheckerReconItem.click();
   await page.getByRole('button', { name: 'Approvals' }).click();
   const pendingRows = page.locator('.checker-queue tbody tr');
   await expect(pendingRows.first()).toBeVisible({ timeout: 30000 });

@@ -676,20 +676,11 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     if (!column) {
       return undefined;
     }
-    if (Object.prototype.hasOwnProperty.call(rawRecord, column)) {
-      return rawRecord[column];
-    }
-    const lower = column.toLowerCase();
-    if (Object.prototype.hasOwnProperty.call(rawRecord, lower)) {
-      return rawRecord[lower];
-    }
-    const upper = column.toUpperCase();
-    if (Object.prototype.hasOwnProperty.call(rawRecord, upper)) {
-      return rawRecord[upper];
-    }
     const normalisedColumn = column.replace(/\s+/g, '').toLowerCase();
-    const matchedEntry = Object.entries(rawRecord).find(([key]) => key.replace(/\s+/g, '').toLowerCase() === normalisedColumn);
-    return matchedEntry ? matchedEntry[1] : undefined;
+    const matchedKey = Object.keys(rawRecord).find(
+      (key) => key.replace(/\s+/g, '').toLowerCase() === normalisedColumn
+    );
+    return matchedKey ? rawRecord[matchedKey] : undefined;
   }
 
   private stringifyResult(value: unknown): string {

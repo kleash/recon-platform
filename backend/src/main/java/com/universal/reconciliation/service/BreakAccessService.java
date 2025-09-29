@@ -12,6 +12,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
@@ -20,6 +22,8 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class BreakAccessService {
+
+    private static final Logger log = LoggerFactory.getLogger(BreakAccessService.class);
 
     private final AccessControlEntryRepository accessControlEntryRepository;
 
@@ -32,11 +36,17 @@ public class BreakAccessService {
             throw new AccessDeniedException("User is not associated with any security group");
         }
         List<AccessControlEntry> entries = accessControlEntryRepository.findByDefinitionAndLdapGroupDnIn(definition, groups);
-        System.out.println("DEBUG breakAccess findEntries: definition=" + definition.getCode()
-                + " groups=" + groups + " entries=" + entries.stream()
-                        .map(entry -> entry.getLdapGroupDn() + ":" + entry.getRole() + "[" + valueOr(entry.getProduct())
-                                + "/" + valueOr(entry.getSubProduct()) + "/" + valueOr(entry.getEntityName()) + "]")
-                        .toList());
+        if (log.isDebugEnabled()) {
+            log.debug(
+                    "breakAccess findEntries: definition={} groups={} entries={}",
+                    definition.getCode(),
+                    groups,
+                    entries.stream()
+                            .map(entry -> entry.getLdapGroupDn() + ":" + entry.getRole() + "["
+                                    + valueOr(entry.getProduct()) + "/" + valueOr(entry.getSubProduct()) + "/"
+                                    + valueOr(entry.getEntityName()) + "]")
+                            .toList());
+        }
         return entries;
     }
 

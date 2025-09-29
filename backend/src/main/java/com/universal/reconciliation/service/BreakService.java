@@ -24,6 +24,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +35,8 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class BreakService {
+
+    private static final Logger log = LoggerFactory.getLogger(BreakService.class);
 
     private final BreakItemRepository breakItemRepository;
     private final BreakCommentRepository breakCommentRepository;
@@ -102,11 +106,15 @@ public class BreakService {
                     actorDn,
                     true);
         } catch (AccessDeniedException ex) {
-            System.out.println("DEBUG status transition denied: breakId=" + breakId
-                    + " user=" + username
-                    + " groups=" + userContext.getGroups()
-                    + " targetStatus=" + request.status()
-                    + " message=" + ex.getMessage());
+            if (log.isDebugEnabled()) {
+                log.debug(
+                        "Status transition denied: breakId={} user={} groups={} targetStatus={} message={}",
+                        breakId,
+                        username,
+                        userContext.getGroups(),
+                        request.status(),
+                        ex.getMessage());
+            }
             throw ex;
         }
 
@@ -257,16 +265,21 @@ public class BreakService {
                 .orElseThrow(() -> new IllegalArgumentException("Break not found"));
         ReconciliationDefinition definition = item.getRun().getDefinition();
         List<AccessControlEntry> entries = breakAccessService.findEntries(definition, userContext.getGroups());
-        System.out.println("DEBUG breakAccess load: id=" + id
-                + " user=" + userContext.getUsername()
-                + " groups=" + userContext.getGroups()
-                + " product=" + item.getProduct()
-                + " subProduct=" + item.getSubProduct()
-                + " entity=" + item.getEntityName()
-                + " entries=" + entries.stream()
-                        .map(entry -> entry.getLdapGroupDn() + ":" + entry.getRole() + "[" + entry.getProduct() + "/"
-                                + entry.getSubProduct() + "/" + entry.getEntityName() + "]")
-                        .toList());
+        if (log.isDebugEnabled()) {
+            log.debug(
+                    "breakAccess load: id={} user={} groups={} product={} subProduct={} entity={} entries={}",
+                    id,
+                    userContext.getUsername(),
+                    userContext.getGroups(),
+                    item.getProduct(),
+                    item.getSubProduct(),
+                    item.getEntityName(),
+                    entries.stream()
+                            .map(entry -> entry.getLdapGroupDn() + ":" + entry.getRole() + "["
+                                    + entry.getProduct() + "/" + entry.getSubProduct() + "/" + entry.getEntityName()
+                                    + "]")
+                            .toList());
+        }
         breakAccessService.assertCanView(item, entries);
         return new BreakContext(item, definition, entries);
     }

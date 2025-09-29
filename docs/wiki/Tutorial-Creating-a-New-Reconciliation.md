@@ -1,247 +1,305 @@
 # Tutorial: Creating a New Reconciliation
 
-This tutorial walks you through the process of adding a new reconciliation to the platform. We will build a simple reconciliation from scratch, explaining each step along the way.
+This tutorial walks through the modern, metadata-driven workflow for launching a new reconciliation on the Universal
+Reconciliation Platform. You will:
 
-To create a new reconciliation, you will create a single Java class that extends `AbstractSampleEtlPipeline`. This class will be responsible for:
-1.  Defining the reconciliation and its fields.
-2.  Configuring reports and access control.
-3.  Loading the source data from CSV files.
+1. Author a reconciliation definition with canonical fields and access control via the admin API.
+2. Upload sample source data using the ingestion endpoint.
+3. Trigger the matching engine and review run outcomes.
+4. Explore analyst tooling (break search, saved views, bulk actions).
 
-Let's get started.
+The steps below assume you have a valid admin JWT token and `curl` (or any REST client) available. Replace sample IDs with the
+values returned by your environment.
 
-## Step 1: Create the Pipeline Class
+## Prerequisites
+- Backend service running locally or in a sandbox environment.
+- Admin credentials mapped to the `RECON_ADMIN` LDAP group.
+- Sample CSV data for both sources (see examples below).
+- `BASE_URL` shell variable pointing at the backend (e.g., `http://localhost:8080`).
+- `TOKEN` shell variable holding a valid JWT (`export TOKEN=...`).
 
-First, create a new Java class in the `src/main/java/com/universal/reconciliation/etl/` directory. Let's call it `TradingFeeEtlPipeline.java`.
+## Step 1: Create the Reconciliation Definition
+Use the admin authoring endpoint to declare sources, canonical fields, report templates, and access control in a single payload.
 
-This class must:
-*   Extend `AbstractSampleEtlPipeline`.
-*   Be annotated with `@Component` to be detected by Spring.
-*   Be annotated with `@Order` to control the execution sequence if you have multiple pipelines.
-
-```java
-package com.universal.reconciliation.etl;
-
-import com.universal.reconciliation.domain.entity.*;
-import com.universal.reconciliation.domain.enums.*;
-import com.universal.reconciliation.repository.*;
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Map;
-import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
-
-@Component
-@Order(20) // Use a higher order to run after the simple GL example
-public class TradingFeeEtlPipeline extends AbstractSampleEtlPipeline {
-
-    private static final String DEFINITION_CODE = "TRADING_FEE_BROKER";
-
-    public TradingFeeEtlPipeline(
-            ReconciliationDefinitionRepository definitionRepository,
-            AccessControlEntryRepository accessControlEntryRepository,
-            SourceRecordARepository sourceRecordARepository,
-            SourceRecordBRepository sourceRecordBRepository) {
-        super(definitionRepository, accessControlEntryRepository, sourceRecordARepository, sourceRecordBRepository);
+```bash
+curl -X POST "$BASE_URL/api/admin/reconciliations" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d @- <<'JSON'
+{
+  "code": "TRADING_FEE",
+  "name": "Trading Fee vs Broker Statement",
+  "description": "Compares internal trading fee accruals against broker statements",
+  "owner": "Capital Markets Ops",
+  "makerCheckerEnabled": true,
+  "notes": "Pilot scoped to equities desk",
+  "status": "PUBLISHED",
+  "autoTriggerEnabled": false,
+  "sources": [
+    {
+      "code": "INTERNAL",
+      "displayName": "Internal Fee Accruals",
+      "adapterType": "CSV",
+      "anchor": true,
+      "adapterOptions": "{\"delimiter\":\",\"}"
+    },
+    {
+      "code": "BROKER",
+      "displayName": "Broker Statement",
+      "adapterType": "CSV",
+      "anchor": false,
+      "adapterOptions": "{\"delimiter\":\",\"}"
     }
-
-    @Override
-    public String name() {
-        return "Trading Fee vs Broker Statement";
+  ],
+  "canonicalFields": [
+    {
+      "canonicalName": "tradeId",
+      "displayName": "Trade ID",
+      "role": "KEY",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "required": true,
+      "mappings": [
+        { "sourceCode": "INTERNAL", "sourceColumn": "tradeId", "required": true },
+        { "sourceCode": "BROKER", "sourceColumn": "tradeId", "required": true }
+      ]
+    },
+    {
+      "canonicalName": "settlementDate",
+      "displayName": "Settlement Date",
+      "role": "KEY",
+      "dataType": "DATE",
+      "comparisonLogic": "DATE_ONLY",
+      "required": true,
+      "mappings": [
+        { "sourceCode": "INTERNAL", "sourceColumn": "settlementDate" },
+        { "sourceCode": "BROKER", "sourceColumn": "settlementDate" }
+      ]
+    },
+    {
+      "canonicalName": "feeAmount",
+      "displayName": "Fee Amount",
+      "role": "COMPARE",
+      "dataType": "DECIMAL",
+      "comparisonLogic": "NUMERIC_THRESHOLD",
+      "thresholdPercentage": 1.0,
+      "required": true,
+      "mappings": [
+        { "sourceCode": "INTERNAL", "sourceColumn": "feeAmount" },
+        { "sourceCode": "BROKER", "sourceColumn": "feeAmount" }
+      ]
+    },
+    {
+      "canonicalName": "product",
+      "displayName": "Product",
+      "role": "PRODUCT",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "required": true,
+      "mappings": [
+        { "sourceCode": "INTERNAL", "sourceColumn": "product" },
+        { "sourceCode": "BROKER", "sourceColumn": "product" }
+      ]
+    },
+    {
+      "canonicalName": "desk",
+      "displayName": "Desk",
+      "role": "SUB_PRODUCT",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "required": false,
+      "mappings": [
+        { "sourceCode": "INTERNAL", "sourceColumn": "desk" },
+        { "sourceCode": "BROKER", "sourceColumn": "desk" }
+      ]
+    },
+    {
+      "canonicalName": "legalEntity",
+      "displayName": "Legal Entity",
+      "role": "ENTITY",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "required": false,
+      "mappings": [
+        { "sourceCode": "INTERNAL", "sourceColumn": "legalEntity" },
+        { "sourceCode": "BROKER", "sourceColumn": "legalEntity" }
+      ]
     }
-
-    @Override
-    @Transactional
-    public void run() {
-        // We will fill this in the next steps
+  ],
+  "reportTemplates": [
+    {
+      "name": "Trading Fee Exceptions",
+      "description": "Break-only export for approvals",
+      "includeMatched": false,
+      "includeMismatched": true,
+      "includeMissing": true,
+      "highlightDifferences": true,
+      "columns": [
+        { "header": "Trade ID", "source": "BREAK_METADATA", "sourceField": "tradeId", "displayOrder": 1, "highlightDifferences": false },
+        { "header": "Internal Fee", "source": "SOURCE_A", "sourceField": "feeAmount", "displayOrder": 2, "highlightDifferences": true },
+        { "header": "Broker Fee", "source": "SOURCE_B", "sourceField": "feeAmount", "displayOrder": 3, "highlightDifferences": true },
+        { "header": "Status", "source": "BREAK_METADATA", "sourceField": "status", "displayOrder": 4, "highlightDifferences": false }
+      ]
     }
-}
-```
-
-## Step 2: Implement the `run()` Method
-
-The `run()` method is the entry point for your pipeline. It orchestrates all the steps for creating and loading the reconciliation.
-
-Copy the following structure into your `run()` method. It includes a check to prevent creating the reconciliation if it already exists, which is useful for development.
-
-```java
-@Override
-@Transactional
-public void run() {
-    if (definitionExists(DEFINITION_CODE)) {
-        log.debug("Skipping {} ETL because the definition already exists", DEFINITION_CODE);
-        return;
+  ],
+  "accessControlEntries": [
+    {
+      "ldapGroupDn": "CN=RECON_MAKERS,OU=Groups,DC=corp,DC=example",
+      "role": "MAKER",
+      "product": "Equities",
+      "subProduct": "Cash Desk",
+      "notifyOnPublish": true,
+      "notifyOnIngestionFailure": true,
+      "notificationChannel": "teams://ops-alerts"
+    },
+    {
+      "ldapGroupDn": "CN=RECON_CHECKERS,OU=Groups,DC=corp,DC=example",
+      "role": "CHECKER"
+    },
+    {
+      "ldapGroupDn": "CN=RECON_VIEWERS,OU=Groups,DC=corp,DC=example",
+      "role": "VIEWER"
     }
-
-    // 1. Create the Definition
-    ReconciliationDefinition definition = definition(
-            DEFINITION_CODE,
-            name(),
-            "A sample reconciliation for matching internal trading fee calculations against external broker statements.",
-            true); // Maker-checker enabled
-
-    // 2. Register Fields
-    registerFields(definition);
-
-    // 3. Configure Reports
-    configureReportTemplate(definition);
-
-    // 4. Save the Definition
-    definitionRepository.save(definition);
-
-    // 5. Set Up Access Control
-    List<AccessControlEntry> entries = List.of(
-            entry(definition, "recon-makers", AccessRole.MAKER, "Equities", "Commission", "US"),
-            entry(definition, "recon-checkers", AccessRole.CHECKER, "Equities", "Commission", "US"));
-    accessControlEntryRepository.saveAll(entries);
-
-    // 6. Load Source Data
-    // (We will add this in a later step)
-
-    log.info("Successfully seeded reconciliation: {}", DEFINITION_CODE);
+  ]
 }
+JSON
 ```
 
-## Step 3: Define the Reconciliation Fields
+Record the returned `id`; the examples below assume the API created definition **ID 101**.
 
-This is the most important step. You need to define the fields that the matching engine will use. The `AbstractSampleEtlPipeline` provides a helper method `addField()` that makes this easy.
+## Step 2: Upload Source Batches
+Create two CSV files (`internal_trading_fee.csv` and `broker_trading_fee.csv`) with aligned columns. Example:
 
-Add the following `registerFields` method to your class.
-
-```java
-private void registerFields(ReconciliationDefinition definition) {
-    // --- Matching Keys ---
-    // The engine will group records from both sources using these fields.
-    addField(definition, "tradeId", "Trade ID", FieldRole.KEY, FieldDataType.STRING, ComparisonLogic.EXACT_MATCH, null);
-    addField(definition, "settlementDate", "Settlement Date", FieldRole.KEY, FieldDataType.DATE, ComparisonLogic.DATE_ONLY, null);
-
-    // --- Comparison Fields ---
-    // After grouping by keys, the engine will compare these fields. A mismatch here creates a break.
-    addField(definition, "feeAmount", "Fee Amount", FieldRole.COMPARE, FieldDataType.DECIMAL, ComparisonLogic.NUMERIC_THRESHOLD, new BigDecimal("1.5")); // 1.5% tolerance
-    addField(definition, "currency", "Currency", FieldRole.COMPARE, FieldDataType.STRING, ComparisonLogic.CASE_INSENSITIVE, null);
-
-    // --- Dimensional / Access Control Fields ---
-    // These fields are used to filter data for users.
-    addField(definition, "product", "Product", FieldRole.PRODUCT, FieldDataType.STRING, ComparisonLogic.EXACT_MATCH, null);
-    addField(definition, "subProduct", "Sub Product", FieldRole.SUB_PRODUCT, FieldDataType.STRING, ComparisonLogic.EXACT_MATCH, null);
-    addField(definition, "entityName", "Entity", FieldRole.ENTITY, FieldDataType.STRING, ComparisonLogic.EXACT_MATCH, null);
-
-    // --- Display-Only Fields ---
-    // These fields are shown in the UI but not used for matching.
-    addField(definition, "executingBroker", "Executing Broker", FieldRole.DISPLAY, FieldDataType.STRING, null, null);
-}
+```
+tradeId,settlementDate,feeAmount,product,desk,legalEntity
+TX-101,2024-09-20,150.25,Equities,Cash Desk,US Fund
+TX-102,2024-09-20,200.00,Equities,Cash Desk,US Fund
 ```
 
-**Field Roles Explained:**
-*   `KEY`: Used to pair records from Source A and Source B.
-*   `COMPARE`: Used to check for differences between paired records.
-*   `PRODUCT`, `SUB_PRODUCT`, `ENTITY`: Used for data entitlement and filtering in the UI.
-*   `DISPLAY`: Shown in the UI but not used for matching logic.
+Upload each file against its source using multipart requests:
 
-## Step 4: Configure the Excel Report
+```bash
+curl -X POST "$BASE_URL/api/admin/reconciliations/101/sources/INTERNAL/batches" \
+  -H "Authorization: Bearer $TOKEN" \
+  -F 'metadata={"adapterType":"CSV","label":"2024-09-20","options":{"delimiter":","}};type=application/json' \
+  -F "file=@internal_trading_fee.csv;type=text/csv"
 
-You can define the layout for Excel exports. The helper methods `template()` and `column()` make this straightforward.
-
-Add the following `configureReportTemplate` method to your class:
-
-```java
-private void configureReportTemplate(ReconciliationDefinition definition) {
-    ReportTemplate template = template(
-            definition,
-            "Default Trading Fee Export",
-            "Standard template for exporting trading fee breaks.",
-            true, true, true, true); // Include matched, mismatched, missing, and highlight differences
-    definition.getReportTemplates().add(template);
-
-    // Add columns in the desired order
-    template.getColumns().add(column(template, "Trade ID (Internal)", ReportColumnSource.SOURCE_A, "tradeId", 1, true));
-    template.getColumns().add(column(template, "Trade ID (Broker)", ReportColumnSource.SOURCE_B, "tradeId", 2, true));
-    template.getColumns().add(column(template, "Fee (Internal)", ReportColumnSource.SOURCE_A, "feeAmount", 3, true));
-    template.getColumns().add(column(template, "Fee (Broker)", ReportColumnSource.SOURCE_B, "feeAmount", 4, true));
-    template.getColumns().add(column(template, "Currency", ReportColumnSource.SOURCE_A, "currency", 5, true));
-    template.getColumns().add(column(template, "Break Status", ReportColumnSource.BREAK_METADATA, "status", 6, false));
-}
+curl -X POST "$BASE_URL/api/admin/reconciliations/101/sources/BROKER/batches" \
+  -H "Authorization: Bearer $TOKEN" \
+  -F 'metadata={"adapterType":"CSV","label":"2024-09-20","options":{"delimiter":","}};type=application/json' \
+  -F "file=@broker_trading_fee.csv;type=text/csv"
 ```
 
-## Step 5: Prepare and Load the Data
+Monitor the ingestion status via the activity feed (`GET /api/activity`) or by polling the admin UI.
 
-The final step is to load the data from CSV files.
+## Step 3: Trigger a Run
+Once both batches are available, execute the reconciliation. Makers or admins can invoke the standard analyst endpoint:
 
-First, create two new CSV files:
-1.  `backend/src/main/resources/etl/trading/trading_fee_source_a.csv`
-2.  `backend/src/main/resources/etl/trading/trading_fee_source_b.csv`
-
-**`trading_fee_source_a.csv` (Internal System):**
-```csv
-tradeId,settlementDate,feeAmount,currency,product,subProduct,entityName,executingBroker
-TX-101,2025-09-20,150.25,USD,Equities,Commission,US,BROKER-X
-TX-102,2025-09-20,200.00,USD,Equities,Commission,US,BROKER-Y
+```bash
+curl -X POST "$BASE_URL/api/reconciliations/101/run" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "triggerType": "MANUAL_API",
+        "correlationId": "TRADING-FEE-UAT-001",
+        "comments": "Pilot dry run"
+      }'
 ```
 
-**`trading_fee_source_b.csv` (Broker Statement):**
-```csv
-tradeId,settlementDate,feeAmount,currency,product,subProduct,entityName,executingBroker
-TX-101,2025-09-20,150.50,usd,Equities,Commission,US,BROKER-X
-TX-102,2025-09-21,200.00,USD,Equities,Commission,US,BROKER-Y
+The response includes a `runId`. Use it to fetch detailed analytics and break rows:
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "$BASE_URL/api/reconciliations/runs/{runId}?status=OPEN&status=PENDING_APPROVAL"
 ```
 
-Now, add the data loading logic to your `run()` method and create the required mapping methods.
+## Step 4: Investigate Breaks & Save Analyst Views
+Analysts consume break data through the `/api/reconciliations/{id}/results` endpoint. Example query for open breaks detected on
+20 September:
 
-```java
-// In run() method, replace the "// 6. Load Source Data" comment with this:
-List<SourceRecordA> sourceARecords = readCsv("etl/trading/trading_fee_source_a.csv").stream()
-        .map(row -> mapSourceA(definition, row))
-        .toList();
-sourceRecordARepository.saveAll(sourceARecords);
-
-List<SourceRecordB> sourceBRecords = readCsv("etl/trading/trading_fee_source_b.csv").stream()
-        .map(row -> mapSourceB(definition, row))
-        .toList();
-sourceRecordBRepository.saveAll(sourceBRecords);
-
-log.info(
-        "Seeded {} with {} source A and {} source B records",
-        DEFINITION_CODE,
-        sourceARecords.size(),
-        sourceBRecords.size());
-
-// Add these mapping methods to your class:
-private SourceRecordA mapSourceA(ReconciliationDefinition definition, Map<String, String> row) {
-    SourceRecordA record = new SourceRecordA();
-    record.setDefinition(definition);
-    record.setTradeId(row.get("tradeId"));
-    record.setSettlementDate(date(row.get("settlementDate")));
-    record.setFeeAmount(decimal(row.get("feeAmount")));
-    record.setCurrency(row.get("currency"));
-    record.setProduct(row.get("product"));
-    record.setSubProduct(row.get("subProduct"));
-    record.setEntityName(row.get("entityName"));
-    record.setExecutingBroker(row.get("executingBroker"));
-    return record;
-}
-
-private SourceRecordB mapSourceB(ReconciliationDefinition definition, Map<String, String> row) {
-    SourceRecordB record = new SourceRecordB();
-    record.setDefinition(definition);
-    record.setTradeId(row.get("tradeId"));
-    record.setSettlementDate(date(row.get("settlementDate")));
-    record.setFeeAmount(decimal(row.get("feeAmount")));
-    record.setCurrency(row.get("currency"));
-    record.setProduct(row.get("product"));
-    record.setSubProduct(row.get("subProduct"));
-    record.setEntityName(row.get("entityName"));
-    record.setExecutingBroker(row.get("executingBroker"));
-    return record;
-}
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "$BASE_URL/api/reconciliations/101/results?fromDate=2024-09-20&toDate=2024-09-20&status=OPEN"
 ```
-**Note:** The fields in `SourceRecordA` and `SourceRecordB` (e.g., `setTradeId`, `setFeeAmount`) are generic. You must add any new fields you need to these classes if they don't already exist. For this tutorial, we assume they are already present.
 
-## Conclusion
+Use the `columns` metadata in the response to build a grid layout. Persist personalised filters or column order by POSTing a
+saved view:
 
-That's it! When you restart the application, the `TradingFeeEtlPipeline` will run, and your new "Trading Fee vs Broker Statement" reconciliation will appear in the UI, ready for use.
+```bash
+curl -X POST "$BASE_URL/api/reconciliations/101/saved-views" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "name": "FX Desk Exceptions",
+        "description": "Filters to open breaks for the FX desk",
+        "settingsJson": "{\"filters\":{\"product\":[\"Equities\"],\"desk\":[\"Cash Desk\"],\"status\":[\"OPEN\"]}}",
+        "shared": true,
+        "defaultView": false
+      }'
+```
 
-You have successfully:
-- Defined a new reconciliation with matching keys and comparison rules.
-- Configured a custom Excel report.
-- Mapped user access to the new reconciliation.
-- Created a data loading pipeline from CSV files.
+Share the generated token (`GET /api/reconciliations/101/saved-views`) with teammates or set it as the default view using the
+`/default` endpoint.
+
+## Step 5: Action Breaks & Export Evidence
+Makers can comment and request approval directly from the API:
+
+```bash
+curl -X POST "$BASE_URL/api/breaks/5012/comments" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"comment":"Validated fee difference with broker","action":"COMMENT"}'
+
+curl -X PATCH "$BASE_URL/api/breaks/5012/status" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"status":"PENDING_APPROVAL","comment":"Ready for checker sign-off"}'
+```
+
+For large volumes, collect break IDs using `/results/ids` and submit a bulk request:
+
+```bash
+curl -X POST "$BASE_URL/api/breaks/bulk" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "breakIds": [5012, 5013, 5014],
+        "status": "PENDING_APPROVAL",
+        "comment": "Batch close-out",
+        "correlationId": "TRADING-FEE-UAT-BULK-1"
+      }'
+```
+
+When approvals complete, queue an asynchronous export for audit evidence:
+
+```bash
+curl -X POST "$BASE_URL/api/reconciliations/101/export-jobs" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "format": "XLSX",
+        "filters": {
+          "status": ["CLOSED"],
+          "filter.product": ["Equities"]
+        },
+        "fileNamePrefix": "trading-fee-uplift",
+        "includeMetadata": true
+      }'
+```
+
+Poll `/api/export-jobs/{jobId}` until the status is `COMPLETED`, then download the file via `/download`.
+
+## Step 6: Validate Activity & Monitor SLAs
+Use `/api/activity` to confirm run execution, bulk operations, and exports are recorded. Operations teams typically
+surface this feed in dashboards to monitor SLA adherence and investigate anomalies.
+
+## Troubleshooting Tips
+| Symptom | Suggested Checks |
+| --- | --- |
+| `403 Forbidden` when calling analyst endpoints | Ensure your JWT contains an LDAP group mapped in `access_control_entries` with the appropriate role. |
+| Missing breaks after ingestion | Confirm both source batches completed successfully and the canonical keys align (e.g., `tradeId`, `settlementDate`). |
+| Export job stuck in `PROCESSING` | Review backend logs for transformation errors; payload metadata is stored in `export_jobs.error_message`. |
+| Approval queue empty for checkers | Verify at least one access entry grants the `CHECKER` role and that makers submitted breaks for approval. |
+
+By following these steps you can stand up a new reconciliation end-to-end using the current platform APIs without writing
+custom Java pipelines.

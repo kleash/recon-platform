@@ -66,7 +66,9 @@ public class OpenAiProperties {
     }
 
     public void setDefaultTemperature(double defaultTemperature) {
-        this.defaultTemperature = defaultTemperature;
+        if (defaultTemperature >= 0.0d) {
+            this.defaultTemperature = defaultTemperature;
+        }
     }
 
     public int getDefaultMaxOutputTokens() {
@@ -74,7 +76,9 @@ public class OpenAiProperties {
     }
 
     public void setDefaultMaxOutputTokens(int defaultMaxOutputTokens) {
-        this.defaultMaxOutputTokens = defaultMaxOutputTokens;
+        if (defaultMaxOutputTokens > 0) {
+            this.defaultMaxOutputTokens = defaultMaxOutputTokens;
+        }
     }
 
     public int getDocumentCharacterLimit() {

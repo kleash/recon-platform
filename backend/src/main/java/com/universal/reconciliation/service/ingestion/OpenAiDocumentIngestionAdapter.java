@@ -6,19 +6,18 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.universal.reconciliation.config.OpenAiProperties;
 import com.universal.reconciliation.domain.enums.IngestionAdapterType;
+import com.universal.reconciliation.service.ai.JsonNodePath;
 import com.universal.reconciliation.service.ai.OpenAiClient;
 import com.universal.reconciliation.service.ai.OpenAiClientException;
 import com.universal.reconciliation.service.ai.OpenAiPromptRequest;
+import com.universal.reconciliation.service.ai.PromptTemplateRenderer;
 import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.parser.AutoDetectParser;
 import org.apache.tika.parser.ParseContext;
@@ -37,7 +36,6 @@ import org.xml.sax.SAXException;
 @Component
 public class OpenAiDocumentIngestionAdapter implements IngestionAdapter {
 
-    private static final Pattern TEMPLATE_TOKEN = Pattern.compile("\\{\\{\\s*([a-zA-Z0-9_.]+)\\s*\\}}", Pattern.MULTILINE);
     private static final TypeReference<List<Map<String, Object>>> LIST_OF_MAPS =
             new TypeReference<>() {};
     private static final TypeReference<Map<String, Object>> MAP_TYPE_REFERENCE =
@@ -133,7 +131,7 @@ public class OpenAiDocumentIngestionAdapter implements IngestionAdapter {
         Map<String, String> substitutions = new LinkedHashMap<>();
         substitutions.put("document", truncatedDocument);
         substitutions.put("schema", options.schema() != null ? toPrettyJson(options.schema()) : "(not provided)");
-        return applyTemplate(options.promptTemplate(), substitutions);
+        return PromptTemplateRenderer.render(options.promptTemplate(), substitutions);
     }
 
     private List<Map<String, Object>> convertNodeToRecords(JsonNode node) throws JsonProcessingException {
@@ -142,7 +140,7 @@ public class OpenAiDocumentIngestionAdapter implements IngestionAdapter {
         }
         if (node.isObject()) {
             Map<String, Object> asMap = objectMapper.convertValue(node, MAP_TYPE_REFERENCE);
-            return new ArrayList<>(List.of(asMap));
+            return List.of(asMap);
         }
         if (node.isTextual()) {
             JsonNode parsed = objectMapper.readTree(node.asText());
@@ -167,15 +165,7 @@ public class OpenAiDocumentIngestionAdapter implements IngestionAdapter {
         if (!StringUtils.hasText(recordPath)) {
             return root;
         }
-        JsonNode current = root;
-        String[] segments = recordPath.split("\\.");
-        for (String segment : segments) {
-            if (current == null) {
-                return null;
-            }
-            current = current.get(segment);
-        }
-        return current;
+        return JsonNodePath.navigate(root, recordPath);
     }
 
     private Map<String, Object> parseSchema(Object rawSchema) {
@@ -233,21 +223,6 @@ public class OpenAiDocumentIngestionAdapter implements IngestionAdapter {
                 throw new IllegalArgumentException("maxOutputTokens must be numeric", ex);
             }
         });
-    }
-
-    private String applyTemplate(String template, Map<String, String> substitutions) {
-        if (!StringUtils.hasText(template)) {
-            return "";
-        }
-        Matcher matcher = TEMPLATE_TOKEN.matcher(template);
-        StringBuffer buffer = new StringBuffer();
-        while (matcher.find()) {
-            String key = matcher.group(1);
-            String replacement = substitutions.getOrDefault(key, "");
-            matcher.appendReplacement(buffer, Matcher.quoteReplacement(replacement));
-        }
-        matcher.appendTail(buffer);
-        return buffer.toString();
     }
 
     private String truncate(String text, int maxCharacters) {

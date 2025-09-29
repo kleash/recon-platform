@@ -28,8 +28,7 @@ public class DefaultOpenAiClient implements OpenAiClient {
 
     public DefaultOpenAiClient(OpenAiProperties properties, RestClient.Builder builder) {
         this.properties = properties;
-        String baseUrl = properties.getBaseUrl();
-        this.restClient = builder.baseUrl(baseUrl != null ? baseUrl : "https://api.openai.com/v1").build();
+        this.restClient = builder.baseUrl(properties.getBaseUrl()).build();
     }
 
     @Override

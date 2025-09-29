@@ -4,13 +4,13 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.universal.reconciliation.domain.entity.CanonicalFieldTransformation;
+import com.universal.reconciliation.service.ai.JsonNodePath;
 import com.universal.reconciliation.service.ai.OpenAiClient;
 import com.universal.reconciliation.service.ai.OpenAiClientException;
 import com.universal.reconciliation.service.ai.OpenAiPromptRequest;
+import com.universal.reconciliation.service.ai.PromptTemplateRenderer;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -20,8 +20,6 @@ import org.springframework.util.StringUtils;
  */
 @Component
 class OpenAiTransformationEvaluator {
-
-    private static final Pattern TEMPLATE_TOKEN = Pattern.compile("\\{\\{\\s*([a-zA-Z0-9_.]+)\\s*\\}}", Pattern.MULTILINE);
 
     private final OpenAiClient openAiClient;
     private final ObjectMapper objectMapper;
@@ -42,7 +40,7 @@ class OpenAiTransformationEvaluator {
         substitutions.put("rawRecord", config.includeRawRecord() ? toJson(rawRecord) : "{}");
         substitutions.put("schema", config.jsonSchema() != null ? toJson(config.jsonSchema()) : "{}");
 
-        String prompt = applyTemplate(promptTemplate, substitutions);
+        String prompt = PromptTemplateRenderer.render(promptTemplate, substitutions);
         Map<String, Object> schema = config.jsonSchema();
         String response;
         try {
@@ -54,7 +52,7 @@ class OpenAiTransformationEvaluator {
 
         try {
             JsonNode root = objectMapper.readTree(response);
-            JsonNode target = navigate(root, config.resultPath());
+            JsonNode target = JsonNodePath.navigate(root, config.resultPath());
             if (target == null || target.isMissingNode()) {
                 throw new TransformationEvaluationException(
                         "LLM response did not contain the configured result path: " + config.resultPath());
@@ -109,37 +107,11 @@ class OpenAiTransformationEvaluator {
         }
     }
 
-    private JsonNode navigate(JsonNode root, String path) {
-        if (!StringUtils.hasText(path)) {
-            return root;
-        }
-        JsonNode current = root;
-        for (String segment : path.split("\\.")) {
-            if (current == null) {
-                return null;
-            }
-            current = current.get(segment);
-        }
-        return current;
-    }
-
-    private String applyTemplate(String template, Map<String, String> substitutions) {
-        Matcher matcher = TEMPLATE_TOKEN.matcher(template);
-        StringBuffer buffer = new StringBuffer();
-        while (matcher.find()) {
-            String key = matcher.group(1);
-            String replacement = substitutions.getOrDefault(key, "");
-            matcher.appendReplacement(buffer, Matcher.quoteReplacement(replacement));
-        }
-        matcher.appendTail(buffer);
-        return buffer.toString();
-    }
-
     private String toJson(Object value) {
         try {
             return objectMapper.writeValueAsString(value == null ? Map.of() : value);
         } catch (JsonProcessingException ex) {
-            return String.valueOf(value);
+            throw new TransformationEvaluationException("Failed to serialize value to JSON", ex);
         }
     }
 

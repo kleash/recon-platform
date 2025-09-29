@@ -34,10 +34,13 @@ The **New reconciliation** action launches a six-step wizard:
    comparison logic, tolerances, and formatting hints, then map each field to source columns. The
    backend enforces at least one anchor source, unique field names, and key-field presence.
    - **Transformation rules:** Each mapping can chain transformation rules before values hit the
-     canonical layer. Choose between Groovy scripts (executed in a sandbox), Excel-style formulas, or
-     the function pipeline builder (trim, case conversions, replacements, date formatting, and more).
-     Use the inline validation button to compile scripts and formulas before saving, and leverage the
-     preview panel with sample rows to confirm the final output.
+     canonical layer. Choose between Groovy scripts (now supporting multi-statement workflows),
+     Excel-style formulas, or the function pipeline builder (trim, case conversions, replacements,
+     date formatting, and more). Use the inline validation button to compile scripts and formulas
+     before saving.
+   - **Groovy tester:** After ingesting data, use *Load sample rows* to hydrate the Groovy editor with
+     live source payloads, then execute the script inside the wizard to verify the transformed result
+     without leaving the configurator.
 4. **Reports** – Optional templates for downstream exports. Define column order, highlight settings,
    and whether to include matched/mismatched records.
 5. **Access** – Assign LDAP groups with maker/checker/viewer roles, notification preferences, and

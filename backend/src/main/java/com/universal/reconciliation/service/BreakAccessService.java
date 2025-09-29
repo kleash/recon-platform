@@ -11,6 +11,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
@@ -30,12 +31,33 @@ public class BreakAccessService {
         if (groups.isEmpty()) {
             throw new AccessDeniedException("User is not associated with any security group");
         }
-        return accessControlEntryRepository.findByDefinitionAndLdapGroupDnIn(definition, groups);
+        List<AccessControlEntry> entries = accessControlEntryRepository.findByDefinitionAndLdapGroupDnIn(definition, groups);
+        System.out.println("DEBUG breakAccess findEntries: definition=" + definition.getCode()
+                + " groups=" + groups + " entries=" + entries.stream()
+                        .map(entry -> entry.getLdapGroupDn() + ":" + entry.getRole() + "[" + valueOr(entry.getProduct())
+                                + "/" + valueOr(entry.getSubProduct()) + "/" + valueOr(entry.getEntityName()) + "]")
+                        .toList());
+        return entries;
     }
 
     public void assertCanView(BreakItem breakItem, List<AccessControlEntry> entries) {
         if (!canView(breakItem, entries)) {
-            throw new AccessDeniedException("User lacks permissions for this break");
+            String entrySummary = entries.stream()
+                    .map(entry -> String.format(
+                            "%s:%s[%s/%s/%s]",
+                            entry.getLdapGroupDn(),
+                            entry.getRole(),
+                            valueOr(entry.getProduct()),
+                            valueOr(entry.getSubProduct()),
+                            valueOr(entry.getEntityName())))
+                    .collect(Collectors.joining(", "));
+            throw new AccessDeniedException(String.format(
+                    "User lacks permissions for this break (breakId=%d, product=%s, subProduct=%s, entity=%s, entries=%s)",
+                    breakItem.getId(),
+                    valueOr(breakItem.getProduct()),
+                    valueOr(breakItem.getSubProduct()),
+                    valueOr(breakItem.getEntityName()),
+                    entrySummary.isEmpty() ? "<none>" : entrySummary));
         }
     }
 
@@ -151,5 +173,8 @@ public class BreakAccessService {
     private boolean matches(String entryValue, String breakValue) {
         return entryValue == null || Objects.equals(entryValue, breakValue);
     }
-}
 
+    private String valueOr(String value) {
+        return value == null || value.isBlank() ? "<null>" : value;
+    }
+}

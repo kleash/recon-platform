@@ -3,6 +3,7 @@ package com.universal.reconciliation.service.transform;
 import com.universal.reconciliation.domain.entity.CanonicalFieldTransformation;
 import groovy.lang.Binding;
 import groovy.lang.GroovyClassLoader;
+import groovy.lang.MissingPropertyException;
 import groovy.lang.Script;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Map;
@@ -41,7 +42,18 @@ class GroovyTransformationEvaluator {
             binding.setVariable("raw", rawRecord);
             script.setBinding(binding);
             Object result = script.run();
-            return result != null ? result : currentValue;
+            if (result != null) {
+                return result;
+            }
+            try {
+                Object mutated = binding.getVariable("value");
+                if (!Objects.equals(mutated, currentValue)) {
+                    return mutated;
+                }
+            } catch (MissingPropertyException ignored) {
+                // Script did not reference the bound value variable; fall back to original input.
+            }
+            return currentValue;
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException ex) {
             throw new TransformationEvaluationException("Failed to execute Groovy transformation", ex);
         } catch (TransformationEvaluationException ex) {

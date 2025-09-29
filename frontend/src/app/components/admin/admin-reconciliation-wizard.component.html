@@ -173,6 +173,55 @@
                   <ng-container [ngSwitch]="transformationGroup.get('type')?.value">
                     <div *ngSwitchCase="'GROOVY_SCRIPT'" class="transformation-editor">
                       <label>Groovy script<textarea formControlName="expression" rows="4" placeholder="return value"></textarea></label>
+                      <div class="groovy-tools">
+                        <div class="groovy-actions">
+                          <button
+                            type="button"
+                            class="secondary"
+                            (click)="loadSampleRows(i, m)"
+                            [disabled]="mode === 'create'"
+                          >
+                            Load sample rows
+                          </button>
+                          <button
+                            type="button"
+                            class="secondary"
+                            (click)="runGroovyTest(i, m, t)"
+                            [disabled]="getGroovyTestState(i, m, t).running"
+                          >
+                            Run Groovy test
+                          </button>
+                        </div>
+                        <div class="groovy-samples" *ngIf="transformationSamples[previewKey(i, m)]?.length">
+                          <label>
+                            Sample row
+                            <select
+                              [value]="selectedSampleIndex[previewKey(i, m)] ?? 0"
+                              (change)="onSampleChange(i, m, $any($event.target).value)"
+                            >
+                              <option
+                                *ngFor="let sample of transformationSamples[previewKey(i, m)]; let idx = index"
+                                [value]="idx"
+                              >
+                                {{ sample.externalReference || sample.canonicalKey }} ·
+                                {{ sample.ingestedAt | date: 'short' }}
+                              </option>
+                            </select>
+                          </label>
+                        </div>
+                        <div class="groovy-feedback">
+                          <p class="hint" *ngIf="mode === 'create'">
+                            Save the reconciliation and ingest source data to enable Groovy testing.
+                          </p>
+                          <p class="hint" *ngIf="getGroovyTestState(i, m, t).running">Running Groovy test…</p>
+                          <p class="success" *ngIf="getGroovyTestState(i, m, t).result && !getGroovyTestState(i, m, t).error">
+                            Test result: {{ getGroovyTestState(i, m, t).result }}
+                          </p>
+                          <p class="error" *ngIf="getGroovyTestState(i, m, t).error">
+                            {{ getGroovyTestState(i, m, t).error }}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                     <div *ngSwitchCase="'EXCEL_FORMULA'" class="transformation-editor">
                       <label>Excel formula<input type="text" formControlName="expression" placeholder="=VALUE" /></label>

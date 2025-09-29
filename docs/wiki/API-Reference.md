@@ -365,6 +365,8 @@ _Response `200 OK`_
 | `/api/admin/reconciliations/{id}/sources/{code}/batches` | POST | Upload a source data batch via multipart form-data. Accepts file payload plus adapter metadata. |
 | `/api/admin/transformations/validate` | POST | Validate a single transformation definition (Groovy, Excel formula, or function pipeline) without persisting changes. |
 | `/api/admin/transformations/preview` | POST | Apply one or more transformations to sample data and return the transformed value for UI previews. |
+| `/api/admin/transformations/samples` | GET | Retrieve the most recent raw and canonical payloads for a source (query params: `definitionId`, `sourceCode`, `limit`). |
+| `/api/admin/transformations/groovy/test` | POST | Execute a Groovy script against an ad-hoc sample (`{ script, value, rawRecord }`) and return the computed result. |
 
 **Transformation helper endpoints**
 
@@ -372,6 +374,8 @@ Use the helper endpoints while authoring transformations in the admin workspace:
 
 - `POST /api/admin/transformations/validate` — body accepts `{ "type": "GROOVY_SCRIPT" | "EXCEL_FORMULA" | "FUNCTION_PIPELINE", "expression": "...", "configuration": "..." }` and returns `{ "valid": true/false, "message": "..." }`.
 - `POST /api/admin/transformations/preview` — body accepts `{ "value": "sample", "rawRecord": { "column": "value" }, "transformations": [{ ... }] }` and responds with `{ "result": "transformed" }`.
+- `GET /api/admin/transformations/samples` — query with `definitionId`, `sourceCode`, and optional `limit` to hydrate the UI tester with the latest raw rows.
+- `POST /api/admin/transformations/groovy/test` — pass `{ "script": "...", "value": any, "rawRecord": { ... } }` to run a Groovy script in the sandbox and receive `{ "result": any }`.
 
 **Sample: List reconciliation definitions**
 

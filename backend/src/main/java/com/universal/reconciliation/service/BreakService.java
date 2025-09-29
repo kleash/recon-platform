@@ -92,13 +92,23 @@ public class BreakService {
         BreakContext context = loadBreakContext(breakId);
         String username = userContext.getUsername();
         String actorDn = userDirectoryService.personDn(username);
-        StatusTransitionResult result = applyStatusTransition(
-                context,
-                request.status(),
-                request.comment(),
-                request.correlationId(),
-                actorDn,
-                true);
+        StatusTransitionResult result;
+        try {
+            result = applyStatusTransition(
+                    context,
+                    request.status(),
+                    request.comment(),
+                    request.correlationId(),
+                    actorDn,
+                    true);
+        } catch (AccessDeniedException ex) {
+            System.out.println("DEBUG status transition denied: breakId=" + breakId
+                    + " user=" + username
+                    + " groups=" + userContext.getGroups()
+                    + " targetStatus=" + request.status()
+                    + " message=" + ex.getMessage());
+            throw ex;
+        }
 
         breakItemRepository.save(result.breakItem());
         if (result.audit() != null) {
@@ -247,6 +257,16 @@ public class BreakService {
                 .orElseThrow(() -> new IllegalArgumentException("Break not found"));
         ReconciliationDefinition definition = item.getRun().getDefinition();
         List<AccessControlEntry> entries = breakAccessService.findEntries(definition, userContext.getGroups());
+        System.out.println("DEBUG breakAccess load: id=" + id
+                + " user=" + userContext.getUsername()
+                + " groups=" + userContext.getGroups()
+                + " product=" + item.getProduct()
+                + " subProduct=" + item.getSubProduct()
+                + " entity=" + item.getEntityName()
+                + " entries=" + entries.stream()
+                        .map(entry -> entry.getLdapGroupDn() + ":" + entry.getRole() + "[" + entry.getProduct() + "/"
+                                + entry.getSubProduct() + "/" + entry.getEntityName() + "]")
+                        .toList());
         breakAccessService.assertCanView(item, entries);
         return new BreakContext(item, definition, entries);
     }
@@ -354,4 +374,3 @@ public class BreakService {
 
     private record BulkContext(Map<Long, BreakContext> contexts, List<Long> missingIds) {}
 }
-

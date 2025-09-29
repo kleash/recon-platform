@@ -29,6 +29,8 @@ import {
   ReconciliationLifecycleStatus,
   TransformationPreviewRequest,
   TransformationPreviewResponse,
+  TransformationSampleRow,
+  GroovyScriptTestRequest,
   TransformationType,
   TransformationValidationRequest,
   TransformationValidationResponse
@@ -126,6 +128,9 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
   optimisticLockError: string | null = null;
   isSaving = false;
   previewState: Record<string, { value: string; raw: string; result?: string; error?: string }> = {};
+  transformationSamples: Record<string, TransformationSampleRow[]> = {};
+  selectedSampleIndex: Record<string, number> = {};
+  groovyTestState: Record<string, { running: boolean; result?: string; error?: string }> = {};
 
   private readonly destroy$ = new Subject<void>();
   private patchedFromDetail = false;
@@ -459,6 +464,115 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       });
   }
 
+  loadSampleRows(fieldIndex: number, mappingIndex: number): void {
+    const key = this.previewKey(fieldIndex, mappingIndex);
+    this.ensurePreviewState(fieldIndex, mappingIndex);
+
+    this.transformationSamples[key] = [];
+    this.selectedSampleIndex[key] = 0;
+
+    if (!this.definitionId) {
+      this.previewState[key] = {
+        ...this.previewState[key],
+        error: 'Save the reconciliation before loading source samples.'
+      };
+      return;
+    }
+
+    const mappingGroup = this.sourceMappings(fieldIndex).at(mappingIndex) as FormGroup;
+    const sourceCode = this.normalize(mappingGroup.get('sourceCode')?.value) ?? '';
+    if (!sourceCode) {
+      this.previewState[key] = {
+        ...this.previewState[key],
+        error: 'Provide a source code before loading samples.'
+      };
+      return;
+    }
+
+    this.state
+      .fetchTransformationSamples(this.definitionId, sourceCode)
+      .pipe(take(1))
+      .subscribe({
+        next: (response) => {
+          this.transformationSamples[key] = response.rows ?? [];
+          if ((response.rows ?? []).length === 0) {
+            this.previewState[key] = {
+              ...this.previewState[key],
+              error: 'No sample rows found for this source. Ingest data and try again.'
+            };
+            return;
+          }
+          this.selectedSampleIndex[key] = 0;
+          this.applySampleToPreview(fieldIndex, mappingIndex, 0);
+        },
+        error: () => {
+          // errors are surfaced by the state service via notifications
+        }
+      });
+  }
+
+  onSampleChange(fieldIndex: number, mappingIndex: number, sampleIndexValue: string): void {
+    const index = Number(sampleIndexValue);
+    if (Number.isNaN(index)) {
+      return;
+    }
+    this.applySampleToPreview(fieldIndex, mappingIndex, index);
+  }
+
+  runGroovyTest(fieldIndex: number, mappingIndex: number, transformationIndex: number): void {
+    const transformationGroup = this.mappingTransformations(fieldIndex, mappingIndex).at(transformationIndex) as FormGroup;
+    const script = this.normalize(transformationGroup.get('expression')?.value);
+    if (!script) {
+      transformationGroup.get('validationMessage')?.setValue('Script is required before running a test.');
+      return;
+    }
+
+    const preview = this.previewState[this.previewKey(fieldIndex, mappingIndex)];
+    if (!preview) {
+      return;
+    }
+
+    let rawRecord: Record<string, unknown> = {};
+    if (preview.raw) {
+      try {
+        rawRecord = preview.raw.trim().length === 0 ? {} : (JSON.parse(preview.raw) as Record<string, unknown>);
+      } catch (error) {
+        this.setGroovyTestState(fieldIndex, mappingIndex, transformationIndex, {
+          running: false,
+          error: 'Sample row must be valid JSON to run the Groovy test.'
+        });
+        return;
+      }
+    }
+
+    const request: GroovyScriptTestRequest = {
+      script,
+      value: preview.value ?? null,
+      rawRecord
+    };
+
+    this.setGroovyTestState(fieldIndex, mappingIndex, transformationIndex, { running: true });
+
+    this.state
+      .testGroovyScript(request)
+      .pipe(take(1))
+      .subscribe({
+        next: (response) => {
+          this.setGroovyTestState(fieldIndex, mappingIndex, transformationIndex, {
+            running: false,
+            result: this.stringifyResult(response.result)
+          });
+        },
+        error: (error) => {
+          const message = error?.error?.details ?? error?.error ?? 'Execution failed.';
+          this.setGroovyTestState(fieldIndex, mappingIndex, transformationIndex, {
+            running: false,
+            error: message
+          });
+        }
+      });
+  }
+
   updatePreviewValue(
     fieldIndex: number,
     mappingIndex: number,
@@ -471,6 +585,18 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       ...this.previewState[key],
       [property]: newValue
     };
+  }
+
+  getGroovyTestState(fieldIndex: number, mappingIndex: number, transformationIndex: number): {
+    running: boolean;
+    result?: string;
+    error?: string;
+  } {
+    return (
+      this.groovyTestState[this.transformationKey(fieldIndex, mappingIndex, transformationIndex)] ?? {
+        running: false
+      }
+    );
   }
 
   handlePreviewInput(
@@ -509,6 +635,75 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       });
     });
     this.previewState = next;
+  }
+
+  private applySampleToPreview(fieldIndex: number, mappingIndex: number, sampleIndex: number): void {
+    const key = this.previewKey(fieldIndex, mappingIndex);
+    const samples = this.transformationSamples[key] ?? [];
+    const sample = samples[sampleIndex];
+    if (!sample) {
+      return;
+    }
+    this.ensurePreviewState(fieldIndex, mappingIndex);
+    const mappingGroup = this.sourceMappings(fieldIndex).at(mappingIndex) as FormGroup;
+    const column = this.normalize(mappingGroup.get('sourceColumn')?.value) ?? '';
+    const rawRecord = sample.rawRecord ?? {};
+    const rawJson = JSON.stringify(rawRecord, null, 2);
+    const value = column ? this.extractColumnValue(rawRecord, column) : undefined;
+    this.previewState[key] = {
+      value: value === undefined || value === null ? '' : String(value),
+      raw: rawJson,
+      result: undefined,
+      error: undefined
+    };
+    this.selectedSampleIndex[key] = sampleIndex;
+  }
+
+  private setGroovyTestState(
+    fieldIndex: number,
+    mappingIndex: number,
+    transformationIndex: number,
+    state: { running: boolean; result?: string; error?: string }
+  ): void {
+    this.groovyTestState[this.transformationKey(fieldIndex, mappingIndex, transformationIndex)] = state;
+  }
+
+  private transformationKey(fieldIndex: number, mappingIndex: number, transformationIndex: number): string {
+    return `${fieldIndex}:${mappingIndex}:${transformationIndex}`;
+  }
+
+  private extractColumnValue(rawRecord: Record<string, unknown>, column: string): unknown {
+    if (!column) {
+      return undefined;
+    }
+    if (Object.prototype.hasOwnProperty.call(rawRecord, column)) {
+      return rawRecord[column];
+    }
+    const lower = column.toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(rawRecord, lower)) {
+      return rawRecord[lower];
+    }
+    const upper = column.toUpperCase();
+    if (Object.prototype.hasOwnProperty.call(rawRecord, upper)) {
+      return rawRecord[upper];
+    }
+    const normalisedColumn = column.replace(/\s+/g, '').toLowerCase();
+    const matchedEntry = Object.entries(rawRecord).find(([key]) => key.replace(/\s+/g, '').toLowerCase() === normalisedColumn);
+    return matchedEntry ? matchedEntry[1] : undefined;
+  }
+
+  private stringifyResult(value: unknown): string {
+    if (value === null || value === undefined) {
+      return 'null';
+    }
+    if (typeof value === 'object') {
+      try {
+        return JSON.stringify(value);
+      } catch (error) {
+        return String(value);
+      }
+    }
+    return String(value);
   }
 
   save(): void {

@@ -1,0 +1,4 @@
+transactionId,amount,currency
+GROOVY-1,1000.00,USD
+GROOVY-2,500.25,USD
+GROOVY-3,215.00,EUR

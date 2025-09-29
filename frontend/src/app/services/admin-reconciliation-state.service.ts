@@ -12,7 +12,10 @@ import {
   TransformationValidationRequest,
   TransformationValidationResponse,
   TransformationPreviewRequest,
-  TransformationPreviewResponse
+  TransformationPreviewResponse,
+  TransformationSampleResponse,
+  GroovyScriptTestRequest,
+  GroovyScriptTestResponse
 } from '../models/admin-api-models';
 import { ApiService } from './api.service';
 import { NotificationService } from './notification.service';
@@ -245,7 +248,37 @@ export class AdminReconciliationStateService {
   previewTransformation(
     payload: TransformationPreviewRequest
   ): Observable<TransformationPreviewResponse> {
-    return this.api.previewTransformation(payload);
+    return this.api.previewTransformation(payload).pipe(
+      catchError((error) => {
+        console.error('Failed to preview transformation', error);
+        this.notifications.push('Unable to preview transformations.', 'error');
+        return throwError(() => error);
+      })
+    );
+  }
+
+  fetchTransformationSamples(
+    definitionId: number,
+    sourceCode: string,
+    limit = 5
+  ): Observable<TransformationSampleResponse> {
+    return this.api.fetchTransformationSamples(definitionId, sourceCode, limit).pipe(
+      catchError((error) => {
+        console.error('Failed to load transformation samples', error);
+        this.notifications.push('Unable to load sample source rows.', 'error');
+        return throwError(() => error);
+      })
+    );
+  }
+
+  testGroovyScript(payload: GroovyScriptTestRequest): Observable<GroovyScriptTestResponse> {
+    return this.api.testGroovyScript(payload).pipe(
+      catchError((error) => {
+        console.error('Groovy script execution failed', error);
+        this.notifications.push('Groovy test execution failed.', 'error');
+        return throwError(() => error);
+      })
+    );
   }
 
   private refreshSummaries(): void {

@@ -87,6 +87,30 @@ export interface AdminCanonicalFieldTransformation {
   active: boolean;
 }
 
+export interface TransformationSampleRow {
+  recordId: number;
+  batchLabel?: string | null;
+  ingestedAt?: string | null;
+  canonicalKey: string;
+  externalReference?: string | null;
+  rawRecord: Record<string, unknown>;
+  canonicalPayload: Record<string, unknown>;
+}
+
+export interface TransformationSampleResponse {
+  rows: TransformationSampleRow[];
+}
+
+export interface GroovyScriptTestRequest {
+  script: string;
+  value?: unknown;
+  rawRecord?: Record<string, unknown>;
+}
+
+export interface GroovyScriptTestResponse {
+  result: unknown;
+}
+
 export interface AdminCanonicalField {
   id?: number | null;
   canonicalName: string;

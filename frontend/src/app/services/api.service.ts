@@ -28,8 +28,11 @@ import {
   AdminReconciliationRequest,
   AdminReconciliationSchema,
   AdminReconciliationSummaryPage,
+  GroovyScriptTestRequest,
+  GroovyScriptTestResponse,
   TransformationPreviewRequest,
   TransformationPreviewResponse,
+  TransformationSampleResponse,
   TransformationValidationRequest,
   TransformationValidationResponse,
   ReconciliationLifecycleStatus
@@ -257,6 +260,22 @@ export class ApiService {
       `${BASE_URL}/admin/transformations/preview`,
       payload
     );
+  }
+
+  fetchTransformationSamples(
+    definitionId: number,
+    sourceCode: string,
+    limit = 5
+  ): Observable<TransformationSampleResponse> {
+    const params = new HttpParams()
+      .set('definitionId', String(definitionId))
+      .set('sourceCode', sourceCode)
+      .set('limit', String(limit));
+    return this.http.get<TransformationSampleResponse>(`${BASE_URL}/admin/transformations/samples`, { params });
+  }
+
+  testGroovyScript(payload: GroovyScriptTestRequest): Observable<GroovyScriptTestResponse> {
+    return this.http.post<GroovyScriptTestResponse>(`${BASE_URL}/admin/transformations/groovy/test`, payload);
   }
 
   private buildQueryParams(

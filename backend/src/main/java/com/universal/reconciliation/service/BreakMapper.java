@@ -51,16 +51,21 @@ public class BreakMapper {
                                 null,
                                 comment.getCreatedAt(),
                                 null)),
-                        item.getWorkflowAudits().stream().map(audit -> new BreakHistoryEntryDto(
-                                EntryType.WORKFLOW,
-                                audit.getActorDn(),
-                                audit.getActorRole(),
-                                audit.getNewStatus().name(),
-                                audit.getComment(),
-                                audit.getPreviousStatus(),
-                                audit.getNewStatus(),
-                                audit.getCreatedAt(),
-                                audit.getCorrelationId())))
+                        item.getWorkflowAudits().stream().map(audit -> {
+                            BreakStatus previous = audit.getPreviousStatus();
+                            BreakStatus next = audit.getNewStatus();
+                            String transition = next != null ? next.name() : "UNKNOWN";
+                            return new BreakHistoryEntryDto(
+                                    EntryType.WORKFLOW,
+                                    audit.getActorDn(),
+                                    audit.getActorRole(),
+                                    transition,
+                                    audit.getComment(),
+                                    previous,
+                                    next,
+                                    audit.getCreatedAt(),
+                                    audit.getCorrelationId());
+                        }))
                 .sorted(Comparator.comparing(BreakHistoryEntryDto::occurredAt))
                 .toList();
 

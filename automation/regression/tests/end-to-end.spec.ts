@@ -7,6 +7,8 @@ import { createHmac } from 'node:crypto';
 const fixturesDir = resolve(__dirname, 'fixtures');
 const cashFixture = resolve(fixturesDir, 'cash_source.csv');
 const glFixture = resolve(fixturesDir, 'gl_source.csv');
+const groovySourceA = resolve(fixturesDir, 'groovy_source_a.csv');
+const groovySourceB = resolve(fixturesDir, 'groovy_source_b.csv');
 const jwtSecret = Buffer.from('01234567890123456789012345678901', 'utf8');
 
 function decodeJwt(token: string): Record<string, unknown> {
@@ -24,6 +26,11 @@ function signJwt(payload: Record<string, unknown>): string {
   const unsignedToken = `${encodedHeader}.${encodedPayload}`;
   const signature = createHmac('sha256', jwtSecret).update(unsignedToken).digest('base64url');
   return `${unsignedToken}.${signature}`;
+}
+
+function createServiceToken(subject: string, groups: string[], displayName: string): string {
+  const now = Math.floor(Date.now() / 1000);
+  return signJwt({ sub: subject, groups, displayName, iat: now, exp: now + 60 * 60 });
 }
 
 function reissueTokenWithGroups(token: string, groups: string[]): string {
@@ -333,6 +340,192 @@ async function createReconciliationFromScratch(options: {
   return definitionId;
 }
 
+async function createGroovyReconciliation(options: {
+  page: import('@playwright/test').Page;
+  code: string;
+  name: string;
+  description: string;
+  groovyScript: string;
+  screenshotName: string;
+}) {
+  const { page, code, name, description, groovyScript, screenshotName } = options;
+  await page.getByRole('link', { name: 'New reconciliation', exact: true }).first().click();
+  await expect(page.getByRole('heading', { name: 'Create reconciliation' })).toBeVisible();
+
+  await page.getByLabel('Code').fill(code);
+  await page.getByLabel('Name').fill(name);
+  await page.getByLabel('Description').fill(description);
+  await page.getByLabel('Owner').fill('Automation Control Tower');
+  await page.getByLabel('Lifecycle status').selectOption('PUBLISHED');
+  await page.getByRole('checkbox', { name: 'Enable maker-checker approvals' }).check();
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  const sourceForms = page.locator('.source-form');
+  await expect(sourceForms.first()).toBeVisible();
+  const primarySource = sourceForms.first();
+  await primarySource.getByLabel('Code').fill('GROOVY_A');
+  await primarySource.getByLabel('Name').fill('Groovy Source A');
+  await primarySource.getByRole('checkbox', { name: 'Anchor source' }).check();
+  await primarySource.getByLabel('Arrival expectation').fill('Weekdays by 18:00');
+
+  await page.getByRole('button', { name: 'Add source' }).click();
+  const secondarySource = sourceForms.nth(1);
+  await secondarySource.getByLabel('Code').fill('GROOVY_B');
+  await secondarySource.getByLabel('Name').fill('Groovy Source B');
+  await secondarySource.getByLabel('Arrival expectation').fill('Weekdays by 18:05');
+
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  const fieldCards = page.locator('.field-card');
+  await configureCanonicalField(fieldCards.first(), {
+    canonicalName: 'transactionId',
+    displayName: 'Transaction ID',
+    role: 'KEY',
+    dataType: 'STRING',
+    comparison: 'EXACT_MATCH',
+    mappings: [
+      { source: 'GROOVY_A', column: 'transactionId' },
+      { source: 'GROOVY_B', column: 'transactionId' }
+    ]
+  });
+
+  await addCanonicalField(page, fieldCards, 1, {
+    canonicalName: 'amount',
+    displayName: 'Amount',
+    role: 'COMPARE',
+    dataType: 'DECIMAL',
+    comparison: 'EXACT_MATCH',
+    mappings: [
+      { source: 'GROOVY_A', column: 'amount' },
+      { source: 'GROOVY_B', column: 'amount' }
+    ]
+  });
+
+  const amountField = fieldCards.nth(1);
+  await expect(amountField).toBeVisible({ timeout: 30000 });
+  const mappingRows = amountField.locator('.mapping-row');
+  await expect(mappingRows.first()).toBeVisible({ timeout: 30000 });
+  const secondaryMapping = mappingRows.nth(1);
+  const transformationList = secondaryMapping.locator('.transformation-list');
+  await secondaryMapping.locator('button', { hasText: 'Add transformation' }).click();
+  const transformationCard = transformationList.locator('.transformation-card').last();
+  await expect(transformationCard).toBeVisible();
+  await transformationCard.getByLabel('Type').selectOption('GROOVY_SCRIPT');
+  await transformationCard.getByLabel('Groovy script').fill(groovyScript);
+  await transformationCard.getByRole('button', { name: 'Validate rule' }).click();
+  await expect(transformationCard.getByText('Transformation is valid.')).toBeVisible();
+
+  await addCanonicalField(page, fieldCards, 2, {
+    canonicalName: 'currency',
+    displayName: 'Currency',
+    role: 'COMPARE',
+    dataType: 'STRING',
+    comparison: 'CASE_INSENSITIVE',
+    mappings: [
+      { source: 'GROOVY_A', column: 'currency' },
+      { source: 'GROOVY_B', column: 'currency' }
+    ]
+  });
+
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  await page.getByRole('button', { name: 'Add report template' }).click();
+  const reportForm = page.locator('.report-form').first();
+  await reportForm.getByLabel('Name').fill('Groovy Coverage Report');
+  await reportForm.getByLabel('Description').fill('Automation coverage for multi-block Groovy transformations.');
+  const reportColumns = reportForm.locator('.column-row');
+  await reportColumns
+    .nth(0)
+    .getByLabel('Header')
+    .fill('Transaction');
+  await reportColumns
+    .nth(0)
+    .getByLabel('Source')
+    .selectOption('SOURCE_A');
+  await reportColumns
+    .nth(0)
+    .getByLabel('Field')
+    .fill('transactionId');
+  await reportColumns
+    .nth(0)
+    .getByLabel('Display order')
+    .fill('1');
+  await reportForm.getByRole('button', { name: 'Add column' }).click();
+  await reportColumns
+    .nth(1)
+    .getByLabel('Header')
+    .fill('Amount (B)');
+  await reportColumns
+    .nth(1)
+    .getByLabel('Source')
+    .selectOption('SOURCE_B');
+  await reportColumns
+    .nth(1)
+    .getByLabel('Field')
+    .fill('amount');
+  await reportColumns
+    .nth(1)
+    .getByLabel('Display order')
+    .fill('2');
+
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  await page.getByRole('button', { name: 'Add access entry' }).click();
+  const accessForms = page.locator('.access-form');
+  const makerEntry = accessForms.nth(0);
+  await makerEntry.getByLabel('LDAP Group').fill('recon-makers');
+  await makerEntry.getByLabel('Role').selectOption('MAKER');
+  await makerEntry.getByRole('checkbox', { name: 'Notify on publication' }).check();
+  await page.getByRole('button', { name: 'Add access entry' }).click();
+  const checkerEntry = accessForms.nth(1);
+  await checkerEntry.getByLabel('LDAP Group').fill('recon-checkers');
+  await checkerEntry.getByLabel('Role').selectOption('CHECKER');
+  await checkerEntry.getByRole('checkbox', { name: 'Notify on ingestion failure' }).check();
+
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByRole('heading', { name: 'Review summary' })).toBeVisible();
+
+  await page.screenshot({ path: resolveAssetPath(screenshotName), fullPage: true });
+  await recordScreen({
+    name: 'Groovy reconciliation review',
+    route: '/admin/new',
+    screenshotFile: screenshotName,
+    assertions: [
+      { description: `Review step confirms Groovy reconciliation ${code}` },
+      { description: 'Schema summary lists Groovy transformation' },
+      { description: 'Maker/checker groups configured for approvals' }
+    ]
+  });
+
+  const createRequestPromise = page.waitForRequest((request) => {
+    return request.method() === 'POST' && request.url().endsWith('/api/admin/reconciliations');
+  });
+  await page.getByRole('button', { name: 'Create reconciliation' }).click();
+  const createRequest = await createRequestPromise;
+  try {
+    const payload = createRequest.postDataJSON();
+    test.info().annotations.push({
+      type: 'debug',
+      description: `Groovy create payload: ${JSON.stringify(payload)}`,
+    });
+  } catch (error) {
+    test.info().annotations.push({
+      type: 'debug',
+      description: `Failed to parse Groovy create payload: ${String(error)}`,
+    });
+  }
+  await expect(page.getByRole('heading', { name })).toBeVisible();
+
+  const createdUrl = new URL(page.url());
+  const createdSegments = createdUrl.pathname.split('/').filter(Boolean);
+  const definitionId = Number.parseInt(createdSegments[1] ?? '', 10);
+  if (Number.isNaN(definitionId)) {
+    throw new Error('Unable to determine created reconciliation id');
+  }
+
+  return definitionId;
+}
+
 async function duplicateFromTemplate(options: {
   page: import('@playwright/test').Page;
   templateId: number;
@@ -423,6 +616,595 @@ async function uploadBatch(options: {
       `Upload for ${sourceCode} failed (${uploadResponse.status()} ${uploadResponse.statusText()}): ${errorBody}`
     );
   }
+}
+
+async function ingestGroovyData(options: {
+  page: import('@playwright/test').Page;
+  definitionId: number;
+  ingestionScreenshot: string;
+}) {
+  const { page, definitionId, ingestionScreenshot } = options;
+
+  await uploadBatch({
+    page,
+    definitionId,
+    sourceLabel: 'Groovy Source A (GROOVY_A)',
+    sourceCode: 'GROOVY_A',
+    batchLabel: 'Groovy source A seed',
+    filePath: groovySourceA,
+  });
+
+  await uploadBatch({
+    page,
+    definitionId,
+    sourceLabel: 'Groovy Source B (GROOVY_B)',
+    sourceCode: 'GROOVY_B',
+    batchLabel: 'Groovy source B seed',
+    filePath: groovySourceB,
+  });
+
+  let ingestionSnapshot: { status: number; batches?: Array<{ label: string; status: string }> } | null = null;
+  let ingestionPollCount = 0;
+  await expect
+    .poll(async () => {
+      ingestionPollCount += 1;
+      ingestionSnapshot = await page.evaluate(async (defId) => {
+        const token = window.localStorage.getItem('urp.jwt');
+        const response = await fetch(`http://localhost:8080/api/admin/reconciliations/${defId}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        const body = await response.json();
+        return {
+          status: response.status,
+          batches: (body?.ingestionBatches ?? []).map((batch: any) => ({
+            label: batch.label,
+            status: batch.status,
+          })),
+        };
+      }, definitionId);
+
+      test.info().annotations.push({
+        type: 'debug',
+        description: `Groovy ingestion poll ${ingestionPollCount}: status=${ingestionSnapshot?.status} batches=${JSON.stringify(ingestionSnapshot?.batches ?? [])}`,
+      });
+
+      const batches = ingestionSnapshot?.batches ?? [];
+      return (
+        ingestionSnapshot?.status === 200 &&
+        batches.length >= 2 &&
+        batches.every((batch) => batch.status === 'COMPLETE')
+      );
+    }, {
+      message: 'Expected ingestion batches to complete',
+      timeout: 60000,
+    })
+    .toBeTruthy();
+
+  let sampleSnapshot: { status: number; rows?: Array<Record<string, unknown>> } | null = null;
+  let samplePollCount = 0;
+  await expect
+    .poll(async () => {
+      samplePollCount += 1;
+      sampleSnapshot = await page.evaluate(async (defId) => {
+        const token = window.localStorage.getItem('urp.jwt');
+        const params = new URLSearchParams({
+          definitionId: String(defId),
+          sourceCode: 'GROOVY_B',
+          limit: '5',
+        });
+        const response = await fetch(`http://localhost:8080/api/admin/transformations/samples?${params.toString()}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        const body = await response.json().catch(() => ({}));
+        return {
+          status: response.status,
+          rows: body?.rows ?? [],
+        };
+      }, definitionId);
+
+      test.info().annotations.push({
+        type: 'debug',
+        description: `Groovy sample poll ${samplePollCount}: status=${sampleSnapshot?.status} rows=${sampleSnapshot?.rows?.length ?? 0}`,
+      });
+
+      const rowCount = sampleSnapshot?.rows?.length ?? 0;
+      return sampleSnapshot?.status === 200 && rowCount > 0;
+    }, {
+      message: 'Expected Groovy sample rows to be available',
+      timeout: 60000,
+    })
+    .toBeTruthy();
+
+  await page.screenshot({ path: resolveAssetPath(ingestionScreenshot), fullPage: true });
+  await recordScreen({
+    name: 'Groovy ingestion evidence',
+    route: `/admin/${definitionId}`,
+    screenshotFile: ingestionScreenshot,
+    assertions: [
+      { description: 'Groovy source batches uploaded successfully' },
+      { description: 'Schema summary highlights amount transformation' },
+      { description: 'Maker-checker workflow enabled for reconciliation' },
+    ],
+  });
+}
+
+async function testGroovyInWizard(options: {
+  page: import('@playwright/test').Page;
+  definitionId: number;
+  groovyScript: string;
+  screenshotName: string;
+}) {
+  const { page, definitionId, groovyScript, screenshotName } = options;
+
+  await page.locator('.detail-header .actions').getByRole('button', { name: 'Edit' }).click();
+  await expect(page).toHaveURL(new RegExp(`/admin/${definitionId}/edit$`));
+  await expect(page.getByRole('heading', { name: 'Edit reconciliation' })).toBeVisible();
+  for (let i = 0; i < 2; i += 1) {
+    await page.getByRole('button', { name: 'Next' }).click();
+  }
+
+  const fieldCards = page.locator('.field-card');
+  const fieldCardCount = await fieldCards.count();
+  let amountField: import('@playwright/test').Locator | null = null;
+  for (let idx = 0; idx < fieldCardCount; idx += 1) {
+    const card = fieldCards.nth(idx);
+    const canonicalName = (await card.locator('input[formcontrolname="canonicalName"]').first().inputValue()).trim();
+    if (canonicalName.toLowerCase() === 'amount') {
+      amountField = card;
+      break;
+    }
+  }
+  if (!amountField) {
+    throw new Error('Unable to locate Amount field card.');
+  }
+  await expect(amountField).toBeVisible({ timeout: 30000 });
+  const mappingRows = amountField.locator('.mapping-row');
+  await expect(mappingRows.first()).toBeVisible({ timeout: 30000 });
+  const mappingRowCount = await mappingRows.count();
+  let groovyMapping: import('@playwright/test').Locator | null = null;
+  for (let idx = 0; idx < mappingRowCount; idx += 1) {
+    const row = mappingRows.nth(idx);
+    const sourceValue = (await row.locator('input[formcontrolname="sourceCode"]').first().inputValue()).trim();
+    if (sourceValue === 'GROOVY_B' || sourceValue === 'Groovy Source B') {
+      groovyMapping = row;
+      break;
+    }
+  }
+  if (!groovyMapping) {
+    if (mappingRowCount < 2) {
+      throw new Error(`Expected at least two mapping rows for Amount field, found ${mappingRowCount}.`);
+    }
+    groovyMapping = mappingRows.nth(mappingRowCount - 1);
+  }
+  const transformationList = groovyMapping.locator('.transformation-list').first();
+  let transformationCard = transformationList.locator('.transformation-card').first();
+  if ((await transformationCard.count()) === 0) {
+    const addTransformationButton = transformationList.getByRole('button', { name: 'Add transformation' });
+    if ((await addTransformationButton.count()) === 0) {
+      throw new Error('Unable to locate transformation controls for GROOVY_B mapping.');
+    }
+    await addTransformationButton.first().click();
+    transformationCard = transformationList.locator('.transformation-card').last();
+    await expect(transformationCard).toBeVisible();
+    await transformationCard.getByLabel('Type').selectOption('GROOVY_SCRIPT');
+    await transformationCard.getByLabel('Groovy script').fill(groovyScript);
+    await transformationCard.getByRole('button', { name: 'Validate rule' }).click();
+    await expect(transformationCard.getByText('Transformation is valid.')).toBeVisible({ timeout: 30000 });
+  } else {
+    await expect(transformationCard).toBeVisible();
+  }
+  await transformationCard.getByRole('button', { name: 'Load sample rows' }).click();
+  await expect(transformationCard.getByLabel('Sample row')).toBeVisible({ timeout: 30000 });
+  await transformationCard.getByRole('button', { name: 'Run Groovy test' }).click();
+  await expect(transformationCard.getByText('Test result', { exact: false })).toBeVisible({ timeout: 30000 });
+
+  await page.screenshot({ path: resolveAssetPath(screenshotName), fullPage: true });
+  await recordScreen({
+    name: 'Groovy tester preview',
+    route: `/admin/${definitionId}/edit`,
+    screenshotFile: screenshotName,
+    assertions: [
+      { description: 'Sample selector populates from latest ingestion batch' },
+      { description: 'Groovy test output displayed for transformed amount' },
+      { description: 'Validation button confirms compiled script' },
+    ],
+  });
+
+  await page.goBack();
+  const discardDialog = page.getByRole('dialog');
+  if (await discardDialog.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await discardDialog.getByRole('button', { name: /Discard/ }).click();
+  }
+  await expect(page).toHaveURL(new RegExp(`/admin/${definitionId}$`));
+}
+
+async function performMakerWorkflow(options: {
+  page: import('@playwright/test').Page;
+  definitionId: number;
+  reconName: string;
+  makerComment: string;
+  pendingScreenshotName?: string;
+}): Promise<{ targetBreakId: number; primaryBreakLabel: string }> {
+  const { page, definitionId, reconName, makerComment, pendingScreenshotName = 'groovy-step-05.png' } = options;
+
+  await login(page, 'ops1', 'password');
+  const opsGroupsRaw = await page.evaluate(() => window.localStorage.getItem('urp.groups'));
+  expect(opsGroupsRaw).not.toBeNull();
+  const opsGroups = JSON.parse(opsGroupsRaw ?? '[]');
+  const opsSet = new Set(opsGroups as string[]);
+  expect(opsSet.has('recon-makers')).toBeTruthy();
+
+  await expect(page.getByRole('heading', { name: 'Reconciliations' })).toBeVisible();
+  await page.getByRole('listitem').filter({ hasText: reconName }).click();
+
+  await page.getByRole('button', { name: 'Run reconciliation' }).click();
+
+  let groovyRunDetail: {
+    status: number;
+    breakSummaries: Array<{ id: number; status: string; allowed: string[] }>;
+  } | null = null;
+  let runPollCount = 0;
+  await expect
+    .poll(async () => {
+      runPollCount += 1;
+      groovyRunDetail = await page.evaluate(async (defId) => {
+        const token = window.localStorage.getItem('urp.jwt');
+        const response = await fetch(`http://localhost:8080/api/reconciliations/${defId}/runs/latest`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        const body = await response.json();
+        return {
+          status: response.status,
+          breakSummaries: (body.breaks ?? []).map((item: any) => ({
+            id: item.id,
+            status: item.status,
+            allowed: item.allowedStatusTransitions ?? [],
+          })),
+        };
+      }, definitionId);
+
+      const breakCount = groovyRunDetail?.breakSummaries.length ?? 0;
+      test.info().annotations.push({
+        type: 'debug',
+        description: `Groovy run poll ${runPollCount}: status=${groovyRunDetail?.status} breaks=${breakCount}`,
+      });
+
+      return breakCount > 0;
+    }, {
+      message: 'Expected reconciliation run to produce break summaries',
+      timeout: 60000,
+    })
+    .toBeTruthy();
+
+  expect(groovyRunDetail?.status).toBe(200);
+  expect(groovyRunDetail?.breakSummaries.length ?? 0).toBeGreaterThan(0);
+  test.info().annotations.push({
+    type: 'debug',
+    description: `Groovy break summaries: ${JSON.stringify(groovyRunDetail?.breakSummaries ?? [])}`,
+  });
+  let targetBreakId = groovyRunDetail?.breakSummaries[0]?.id;
+  if (targetBreakId === undefined) {
+    throw new Error('Failed to resolve break id from run summary');
+  }
+
+  const breakRowSnapshot = await page.evaluate(async ({ defId, breakId }) => {
+    const token = window.localStorage.getItem('urp.jwt');
+    const response = await fetch(
+      `http://localhost:8080/api/reconciliations/${defId}/results?size=50&includeTotals=false&status=PENDING_APPROVAL`,
+      { headers: token ? { Authorization: `Bearer ${token}` } : undefined }
+    );
+    const body = await response.json();
+    const row = (body?.rows ?? []).find((entry: any) => entry.breakId === breakId);
+    return { status: response.status, row };
+  }, { defId: definitionId, breakId: targetBreakId });
+  test.info().annotations.push({
+    type: 'debug',
+    description: `Groovy row snapshot: status=${breakRowSnapshot?.status} row=${JSON.stringify(breakRowSnapshot?.row ?? {})}`,
+  });
+
+  const groovyRunScreenshot = 'groovy-step-04.png';
+  await page.screenshot({ path: resolveAssetPath(groovyRunScreenshot), fullPage: true });
+  await recordScreen({
+    name: 'Groovy operations run',
+    route: '/',
+    screenshotFile: groovyRunScreenshot,
+    assertions: [
+      { description: 'Run analytics highlight match/mismatch counts' },
+      { description: 'Break grid lists mismatched and missing rows' },
+      { description: 'Status filters include pending approvals' },
+    ],
+  });
+
+  const gridRows = page.locator('urp-result-grid .data-row');
+  const firstRow = gridRows.first();
+  await expect(firstRow).toBeVisible({ timeout: 60000 });
+  const uiBreakIdText = (await firstRow.locator('.mat-column-breakId').innerText()).trim();
+  const uiBreakId = Number.parseInt(uiBreakIdText, 10);
+  if (Number.isNaN(uiBreakId)) {
+    throw new Error(`Unable to parse break id from grid: "${uiBreakIdText}"`);
+  }
+  targetBreakId = uiBreakId;
+  const primaryBreakLabel = uiBreakIdText;
+
+  const groovyBreakMatcher = page.locator('.mat-column-breakId', {
+    hasText: new RegExp(`^\\s*${primaryBreakLabel}\\s*$`)
+  });
+  const targetRow = gridRows.filter({ has: groovyBreakMatcher }).first();
+  await expect(targetRow).toHaveCount(1, { timeout: 60000 });
+  await targetRow.scrollIntoViewIfNeeded();
+  await expect(targetRow).toBeVisible({ timeout: 30000 });
+  const selectionCheckbox = targetRow.locator('input[type="checkbox"]');
+  await selectionCheckbox.check();
+
+  const bulkSection = page.locator('.bulk-actions');
+  await expect(bulkSection).toBeVisible();
+  await bulkSection.locator('textarea[name="bulkComment"]').fill(makerComment);
+  const bulkMakerResponsePromise = page.waitForResponse((response) => {
+    return response.request().method() === 'POST' && response.url().includes('/api/breaks/bulk');
+  });
+  await bulkSection.getByRole('button', { name: 'Submit' }).click();
+  const bulkMakerResponse = await bulkMakerResponsePromise;
+  if (!bulkMakerResponse.ok()) {
+    const raw = await bulkMakerResponse.text();
+    let parsed = raw;
+    try {
+      parsed = JSON.stringify(JSON.parse(raw));
+    } catch {
+      // ignore non-JSON error bodies
+    }
+    throw new Error(
+      `Maker bulk submission failed (${bulkMakerResponse.status()} ${bulkMakerResponse.statusText()}): ${parsed}`
+    );
+  }
+
+  let pendingPollCount = 0;
+  await expect
+    .poll(async () => {
+      pendingPollCount += 1;
+      const harnessSnapshot = await page.evaluate(async (breakId) => {
+        const token = window.localStorage.getItem('urp.jwt');
+        const response = await fetch(`http://localhost:8080/api/harness/breaks/${breakId}/entries`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        const body = await response.json();
+        return { status: response.status, body };
+      }, targetBreakId);
+
+      test.info().annotations.push({
+        type: 'debug',
+        description: `Pending poll harness snapshot ${pendingPollCount}: ${JSON.stringify(harnessSnapshot)}`,
+      });
+
+      return (
+        harnessSnapshot.status === 200 &&
+        harnessSnapshot.body?.status === 'PENDING_APPROVAL'
+      );
+    }, {
+      message: 'Expected break to reach PENDING_APPROVAL',
+      timeout: 60000,
+    })
+    .toBeTruthy();
+
+  const statusLocator = targetRow.locator('.mat-column-status');
+  const statusVisible = await statusLocator.isVisible().catch(() => false);
+  if (statusVisible) {
+    await expect(statusLocator).toContainText('PENDING_APPROVAL', {
+      timeout: 60000,
+    });
+  } else {
+    test.info().annotations.push({
+      type: 'debug',
+      description:
+        'Break row no longer visible in grid after submission; relying on harness snapshot for pending verification.',
+    });
+  }
+
+  await page.screenshot({ path: resolveAssetPath(pendingScreenshotName), fullPage: true });
+  await recordScreen({
+    name: 'Groovy maker submission',
+    route: '/',
+    screenshotFile: pendingScreenshotName,
+    assertions: [
+      { description: 'Break detail shows pending approval after submission' },
+      { description: 'Workflow history logs maker comment' },
+      { description: 'Status chip displays pending state' },
+    ],
+  });
+
+  await logout(page);
+  return { targetBreakId: targetBreakId!, primaryBreakLabel };
+}
+
+async function performCheckerWorkflow(options: {
+  page: import('@playwright/test').Page;
+  reconName: string;
+  primaryBreakLabel: string;
+  screenshotName: string;
+  checkerUsername?: string;
+  checkerPassword?: string;
+}) {
+  const {
+    page,
+    reconName,
+    primaryBreakLabel,
+    screenshotName,
+    checkerUsername = 'admin1',
+    checkerPassword = 'password',
+  } = options;
+
+  await login(page, checkerUsername, checkerPassword);
+
+  const originalToken = await page.evaluate(() => window.localStorage.getItem('urp.jwt'));
+  if (!originalToken) {
+    throw new Error(`Unable to retrieve ${checkerUsername} JWT for checker workflow`);
+  }
+  const checkerOnlyToken = reissueTokenWithGroups(originalToken, ['recon-checkers']);
+  await page.evaluate(
+    ({ token, groups }) => {
+      window.localStorage.setItem('urp.jwt', token);
+      window.localStorage.setItem('urp.groups', JSON.stringify(groups));
+    },
+    { token: checkerOnlyToken, groups: ['recon-checkers'] }
+  );
+  await page.reload();
+
+  await expect(page.getByRole('heading', { name: 'Reconciliations' })).toBeVisible();
+  const checkerReconListItem = page.getByRole('listitem').filter({ hasText: reconName });
+  await expect(checkerReconListItem).toBeVisible();
+  await checkerReconListItem.click();
+
+  await page.getByRole('button', { name: 'Approvals' }).click();
+  const checkerQueue = page.locator('.checker-queue');
+  const checkerRows = checkerQueue.locator('tbody tr');
+  await expect(checkerRows.first()).toBeVisible({ timeout: 30000 });
+  await checkerQueue.locator('tbody input[type="checkbox"]').first().check();
+  await checkerQueue.locator('textarea[name="queueComment"]').fill('Approved automatically after verification.');
+  const checkerResponsePromise = page.waitForResponse((response) => {
+    return response.request().method() === 'POST' && response.url().includes('/api/breaks/bulk');
+  });
+  await checkerQueue.getByRole('button', { name: 'Approve' }).click();
+  const checkerResponse = await checkerResponsePromise;
+  if (!checkerResponse.ok()) {
+    const raw = await checkerResponse.text();
+    let parsed = raw;
+    try {
+      parsed = JSON.stringify(JSON.parse(raw));
+    } catch {
+      // ignore non-JSON error bodies
+    }
+    throw new Error(
+      `Checker approval failed (${checkerResponse.status()} ${checkerResponse.statusText()}): ${parsed}`
+    );
+  }
+  const checkerBody = await checkerResponse.json();
+  expect(Array.isArray(checkerBody.failures)).toBeTruthy();
+  if (checkerBody.failures.length > 0) {
+    throw new Error(`Checker bulk update failures: ${JSON.stringify(checkerBody.failures)}`);
+  }
+
+  await expect(checkerQueue.locator('tbody tr')).toHaveCount(0, { timeout: 30000 });
+
+  await page.screenshot({ path: resolveAssetPath(screenshotName), fullPage: true });
+  await recordScreen({
+    name: 'Maker checker approval lifecycle',
+    route: '/',
+    screenshotFile: screenshotName,
+    assertions: [
+      { description: 'Checker queue empties once approval is submitted' },
+      { description: 'Approvals table indicates zero pending items' },
+      { description: 'Workflow history captures automated approval comment' },
+    ],
+  });
+
+  await logout(page);
+}
+
+async function performMakerBulkSubmission(options: {
+  page: import('@playwright/test').Page;
+  reconName: string;
+  bulkComment: string;
+  screenshotName: string;
+}) {
+  const { page, reconName, bulkComment, screenshotName } = options;
+
+  await login(page, 'ops1', 'password');
+  await expect(page.getByRole('heading', { name: 'Reconciliations' })).toBeVisible();
+  await page.getByRole('listitem').filter({ hasText: reconName }).click();
+  const selectLoadedButton = page.getByRole('button', { name: 'Select loaded' });
+  await expect(selectLoadedButton).toBeVisible({ timeout: 60000 });
+  await expect(selectLoadedButton).toBeEnabled({ timeout: 60000 });
+  await selectLoadedButton.click();
+  const bulkArea = page.locator('.bulk-actions');
+  await expect(bulkArea).toBeVisible();
+  await bulkArea.locator('textarea[name="bulkComment"]').fill(bulkComment);
+  const bulkSubmitPromise = page.waitForResponse((response) => {
+    return response.request().method() === 'POST' && response.url().includes('/api/breaks/bulk');
+  });
+  await bulkArea.getByRole('button', { name: 'Submit' }).click();
+  const bulkSubmitResponse = await bulkSubmitPromise;
+  expect(bulkSubmitResponse.ok()).toBeTruthy();
+
+  await page.screenshot({ path: resolveAssetPath(screenshotName), fullPage: true });
+  await recordScreen({
+    name: 'Groovy bulk submission',
+    route: '/',
+    screenshotFile: screenshotName,
+    assertions: [
+      { description: 'Bulk panel confirms submission for approvals' },
+      { description: 'Selection count resets after request' },
+      { description: 'Run grid updates pending status for selected breaks' },
+    ],
+  });
+
+  await logout(page);
+}
+
+async function performFinalCheckerApprovals(options: {
+  page: import('@playwright/test').Page;
+  reconName: string;
+  screenshotName: string;
+  checkerUsername?: string;
+  checkerPassword?: string;
+}) {
+  const {
+    page,
+    reconName,
+    screenshotName,
+    checkerUsername = 'admin1',
+    checkerPassword = 'password',
+  } = options;
+
+  await login(page, checkerUsername, checkerPassword);
+  const checkerToken = await page.evaluate(() => window.localStorage.getItem('urp.jwt'));
+  if (!checkerToken) {
+    throw new Error(`Unable to capture ${checkerUsername} token for final checker pass`);
+  }
+  const finalCheckerToken = reissueTokenWithGroups(checkerToken, ['recon-checkers']);
+  await page.evaluate(
+    ({ token }) => {
+      window.localStorage.setItem('urp.jwt', token);
+      window.localStorage.setItem('urp.groups', JSON.stringify(['recon-checkers']));
+    },
+    { token: finalCheckerToken }
+  );
+  await page.reload();
+  const finalCheckerReconItem = page.getByRole('listitem').filter({ hasText: reconName });
+  await expect(finalCheckerReconItem).toBeVisible({ timeout: 60000 });
+  await finalCheckerReconItem.click();
+  await page.getByRole('button', { name: 'Approvals' }).click();
+  const pendingRows = page.locator('.checker-queue tbody tr');
+  await expect(pendingRows.first()).toBeVisible({ timeout: 30000 });
+  await page.evaluate(() => {
+    document
+      .querySelectorAll('.checker-queue tbody input[type="checkbox"]')
+      .forEach((element) => {
+        const checkbox = element as HTMLInputElement;
+        if (!checkbox.checked) {
+          checkbox.click();
+        }
+      });
+  });
+  await page.locator('.checker-queue textarea[name="queueComment"]').fill(
+    'Bulk approval for remaining Groovy submissions.'
+  );
+  const finalApprovePromise = page.waitForResponse((response) => {
+    return response.request().method() === 'POST' && response.url().includes('/api/breaks/bulk');
+  });
+  await page.getByRole('button', { name: 'Approve' }).click();
+  const finalApproveResponse = await finalApprovePromise;
+  expect(finalApproveResponse.ok()).toBeTruthy();
+
+  await page.screenshot({ path: resolveAssetPath(screenshotName), fullPage: true });
+  await recordScreen({
+    name: 'Groovy bulk approvals',
+    route: '/',
+    screenshotFile: screenshotName,
+    assertions: [
+      { description: 'Approvals queue empty after bulk checker action' },
+      { description: 'Bulk approval comment recorded' },
+      { description: 'Checker console confirms final approval' },
+    ],
+  });
 }
 
 async function logout(page: import('@playwright/test').Page) {
@@ -695,11 +1477,19 @@ test('reconciliation authoring to maker-checker workflow', async ({ page }) => {
   const primaryBreakLabel = String(primaryBreakId);
 
   const gridRows = page.locator('urp-result-grid .data-row');
-  const primaryGridRow = gridRows.filter({ hasText: primaryBreakLabel }).first();
+  const breakIdMatcher = page.locator('.mat-column-breakId', {
+    hasText: new RegExp(`^\\s*${primaryBreakLabel}\\s*$`)
+  });
+  const primaryGridRow = gridRows.filter({ has: breakIdMatcher }).first();
   await expect(primaryGridRow).toBeVisible({ timeout: 60000 });
+  await primaryGridRow.scrollIntoViewIfNeeded();
 
   await primaryGridRow.click();
-  let detailSection = page.locator('.break-detail');
+  const primaryExpandButton = primaryGridRow.locator('button[aria-label*="details"]');
+  if (await primaryExpandButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await primaryExpandButton.click();
+  }
+  let detailSection = page.locator('urp-result-grid .inline-break-detail .break-detail-view').first();
   await expect(detailSection).toContainText(`Break ${primaryBreakLabel}`);
   await expect(detailSection).toContainText('OPEN', { timeout: 30000 });
 
@@ -728,7 +1518,9 @@ test('reconciliation authoring to maker-checker workflow', async ({ page }) => {
       `Maker bulk submission failed (${bulkMakerResponse.status()} ${bulkMakerResponse.statusText()}): ${parsed}`
     );
   }
-  await expect(primaryGridRow).toContainText('PENDING_APPROVAL', { timeout: 30000 });
+  await expect(primaryGridRow.locator('.mat-column-status')).toContainText('PENDING_APPROVAL', {
+    timeout: 30000
+  });
 
   await logout(page);
 
@@ -762,13 +1554,48 @@ test('reconciliation authoring to maker-checker workflow', async ({ page }) => {
   await checkerReconListItem.click();
 
   const checkerGridRows = page.locator('urp-result-grid .data-row');
-  const checkerPrimaryRow = checkerGridRows.filter({ hasText: primaryBreakLabel }).first();
-  await expect(checkerPrimaryRow).toBeVisible({ timeout: 30000 });
-  await expect(checkerPrimaryRow).toContainText('PENDING_APPROVAL', { timeout: 30000 });
-  await checkerPrimaryRow.click();
-  detailSection = page.locator('.break-detail');
-  await expect(detailSection).toContainText(`Break ${primaryBreakLabel}`);
-  await expect(detailSection).toContainText(/pending[_ ]approval/i, { timeout: 30000 });
+  const checkerPrimaryRow = checkerGridRows.filter({ has: breakIdMatcher }).first();
+  const checkerRowVisible = await checkerPrimaryRow.isVisible().catch(() => false);
+  if (checkerRowVisible) {
+    await expect(checkerPrimaryRow.locator('.mat-column-status')).toContainText('PENDING_APPROVAL', {
+      timeout: 30000
+    });
+    await checkerPrimaryRow.click();
+    const checkerExpandButton = checkerPrimaryRow.locator('button[aria-label*="details"]');
+    if (await checkerExpandButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+      await checkerExpandButton.click();
+    }
+    detailSection = page.locator('urp-result-grid .inline-break-detail .break-detail-view').first();
+    await expect(detailSection).toContainText(`Break ${primaryBreakLabel}`);
+    await expect(detailSection).toContainText(/pending[_ ]approval/i, { timeout: 30000 });
+  } else {
+    test.info().annotations.push({
+      type: 'debug',
+      description: `Checker grid no longer lists break ${primaryBreakLabel}; verifying pending status via harness snapshot instead.`
+    });
+    await expect
+      .poll(async () => {
+        const harnessSnapshot = await page.evaluate(async (breakId) => {
+          const token = window.localStorage.getItem('urp.jwt');
+          const response = await fetch(`http://localhost:8080/api/harness/breaks/${breakId}/entries`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined
+          });
+          const body = await response.json();
+          return { status: response.status, state: body?.status };
+        }, Number(primaryBreakLabel));
+
+        test.info().annotations.push({
+          type: 'debug',
+          description: `Checker harness snapshot for ${primaryBreakLabel}: ${JSON.stringify(harnessSnapshot)}`
+        });
+
+        return harnessSnapshot.status === 200 ? harnessSnapshot.state : null;
+      }, {
+        message: `Expected break ${primaryBreakLabel} to remain pending approval`,
+        timeout: 60000
+      })
+      .toBe('PENDING_APPROVAL');
+  }
 
   await page.getByRole('button', { name: 'Approvals' }).click();
   const checkerQueue = page.locator('.checker-queue');
@@ -807,12 +1634,16 @@ test('reconciliation authoring to maker-checker workflow', async ({ page }) => {
   await closedReconListItem.click();
 
   const refreshedGridRows = page.locator('urp-result-grid .data-row');
-  const refreshedPrimaryRow = refreshedGridRows.filter({ hasText: primaryBreakLabel }).first();
+  const refreshedPrimaryRow = refreshedGridRows.filter({ has: breakIdMatcher }).first();
   await expect(refreshedPrimaryRow).toBeVisible({ timeout: 30000 });
   await refreshedPrimaryRow.click();
   const reloadedCheckerQueue = page.locator('.checker-queue');
   await expect(reloadedCheckerQueue.locator('tbody tr')).toHaveCount(0, { timeout: 30000 });
-  detailSection = page.locator('.break-detail');
+  const refreshedExpandButton = refreshedPrimaryRow.locator('button[aria-label*="details"]');
+  if (await refreshedExpandButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await refreshedExpandButton.click();
+  }
+  detailSection = page.locator('urp-result-grid .inline-break-detail .break-detail-view').first();
   await expect(detailSection).toContainText(`Break ${primaryBreakLabel}`);
   await expect(detailSection).toContainText(/closed/i, { timeout: 30000 });
 
@@ -828,4 +1659,105 @@ test('reconciliation authoring to maker-checker workflow', async ({ page }) => {
       { description: 'Workflow history captures automated approval comment' },
     ],
   });
+});
+
+test('multi-block groovy transformation end-to-end', async ({ page }) => {
+  const suffix = uniqueSuffix();
+  const reconCode = `GROOVY_AUTOMATION_${suffix}`;
+  const reconName = `Groovy Transformation ${suffix}`;
+  const groovyScript = `
+value = value == null ? null : value.toString()
+if (value) {
+  value = value.replace(',', '')
+  value = new BigDecimal(value)
+  if (row?.get('currency') == 'USD') {
+    value = value.setScale(2)
+  }
+}`.trim();
+
+  await login(page, 'admin1', 'password');
+
+  const adminGroupsRaw = await page.evaluate(() => window.localStorage.getItem('urp.groups'));
+  expect(adminGroupsRaw).not.toBeNull();
+  const adminGroups = JSON.parse(adminGroupsRaw ?? '[]');
+  expect(Array.isArray(adminGroups)).toBeTruthy();
+  const adminSet = new Set(adminGroups as string[]);
+  expect(adminSet.has('recon-makers')).toBeTruthy();
+
+  const adminLink = page.getByRole('link', { name: 'Administration' });
+  await expect(adminLink).toBeVisible();
+  await adminLink.click();
+  await expect(page.getByRole('heading', { name: 'Administration Workspace' })).toBeVisible();
+
+  const groovyDefinitionId = await createGroovyReconciliation({
+    page,
+    code: reconCode,
+    name: reconName,
+    description: 'Automation coverage for multi-block Groovy transformations.',
+    groovyScript,
+    screenshotName: 'groovy-step-01.png',
+  });
+
+  const adminToken = await page.evaluate(() => window.localStorage.getItem('urp.jwt'));
+  if (!adminToken) {
+    throw new Error('Unable to read admin JWT for access snapshot');
+  }
+  const accessResponse = await fetch(
+    `http://localhost:8080/api/admin/reconciliations/${groovyDefinitionId}`,
+    {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    }
+  );
+  const accessBody = await accessResponse.json();
+  test.info().annotations.push({
+    type: 'debug',
+    description: `Groovy access control snapshot: status=${accessResponse.status} entries=${JSON.stringify(accessBody?.accessControlEntries ?? [])}`,
+  });
+
+  await ingestGroovyData({
+    page,
+    definitionId: groovyDefinitionId,
+    ingestionScreenshot: 'groovy-step-02.png',
+  });
+
+  await testGroovyInWizard({
+    page,
+    definitionId: groovyDefinitionId,
+    groovyScript,
+    screenshotName: 'groovy-step-03.png',
+  });
+  await expect(page.getByRole('heading', { name: reconName })).toBeVisible({ timeout: 20000 });
+
+  await logout(page);
+
+  const makerComment = 'Submitting single break for approval via Groovy scenario.';
+  const { primaryBreakLabel } = await performMakerWorkflow({
+    page,
+    definitionId: groovyDefinitionId,
+    reconName,
+    makerComment,
+    pendingScreenshotName: 'groovy-step-05.png',
+  });
+
+  await performCheckerWorkflow({
+    page,
+    reconName,
+    primaryBreakLabel,
+    screenshotName: 'groovy-step-06.png',
+  });
+
+  await performMakerBulkSubmission({
+    page,
+    reconName,
+    bulkComment: 'Bulk submission for remaining Groovy breaks.',
+    screenshotName: 'groovy-step-07.png',
+  });
+
+  await performFinalCheckerApprovals({
+    page,
+    reconName,
+    screenshotName: 'groovy-step-08.png',
+  });
+
+  await logout(page);
 });

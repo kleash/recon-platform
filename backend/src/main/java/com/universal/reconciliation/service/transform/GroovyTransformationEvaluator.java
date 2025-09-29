@@ -27,6 +27,11 @@ class GroovyTransformationEvaluator {
         this.groovyClassLoader = new GroovyClassLoader(Thread.currentThread().getContextClassLoader(), configuration);
     }
 
+    /**
+     * Runs the Groovy snippet and resolves a value using a clear precedence: the script's explicit
+     * return value when non-null, otherwise a mutated {@code value} binding if it changed, and
+     * finally the original {@code currentValue} when no mutation occurred.
+     */
     Object evaluate(CanonicalFieldTransformation transformation, Object currentValue, Map<String, Object> rawRecord) {
         String scriptBody = transformation.getExpression();
         if (scriptBody == null || scriptBody.isBlank()) {
@@ -41,7 +46,16 @@ class GroovyTransformationEvaluator {
             binding.setVariable("raw", rawRecord);
             script.setBinding(binding);
             Object result = script.run();
-            return result != null ? result : currentValue;
+            if (result != null) {
+                return result;
+            }
+            if (binding.hasVariable("value")) {
+                Object mutated = binding.getVariable("value");
+                if (!Objects.equals(mutated, currentValue)) {
+                    return mutated;
+                }
+            }
+            return currentValue;
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException ex) {
             throw new TransformationEvaluationException("Failed to execute Groovy transformation", ex);
         } catch (TransformationEvaluationException ex) {

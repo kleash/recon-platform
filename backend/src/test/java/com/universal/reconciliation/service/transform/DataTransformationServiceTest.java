@@ -40,6 +40,29 @@ class DataTransformationServiceTest {
     }
 
     @Test
+    void applyTransformations_supportsMultiStatementGroovyScriptsWithoutExplicitReturn() {
+        CanonicalFieldMapping mapping = new CanonicalFieldMapping();
+        mapping.setTransformations(new LinkedHashSet<>());
+
+        CanonicalFieldTransformation transformation = new CanonicalFieldTransformation();
+        transformation.setMapping(mapping);
+        transformation.setType(TransformationType.GROOVY_SCRIPT);
+        transformation.setExpression(
+                """
+                value = value?.trim()
+                if (row?.get('boost')) {
+                    value = value + row.get('boost')
+                }
+                """
+        );
+        transformation.setActive(true);
+        mapping.getTransformations().add(transformation);
+
+        Object result = transformationService.applyTransformations(mapping, " code ", Map.of("boost", "-X"));
+        assertThat(result).isEqualTo("code-X");
+    }
+
+    @Test
     void applyTransformations_executesExcelFormula() {
         CanonicalFieldMapping mapping = new CanonicalFieldMapping();
         mapping.setTransformations(new LinkedHashSet<>());
@@ -71,4 +94,3 @@ class DataTransformationServiceTest {
         assertThat(result).isEqualTo("HELLO");
     }
 }
-

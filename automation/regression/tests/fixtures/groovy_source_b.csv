@@ -1,0 +1,4 @@
+transactionId,amount,currency
+GROOVY-1,"1,000.00",USD
+GROOVY-2,"400.25",USD
+GROOVY-5,"300.00",USD

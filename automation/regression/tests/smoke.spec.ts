@@ -44,7 +44,7 @@ test('authenticated users can reach the reconciliation workspace shell', async (
 
   await page.getByRole('button', { name: 'Reports' }).click();
   await expect(page.getByRole('button', { name: 'CSV' })).toBeVisible();
-  await expect(page.locator('.reports-panel')).toContainText('No exports queued yet.', { timeout: 5000 });
+  await expect(page.locator('.reports-panel table tbody tr').first()).toBeVisible({ timeout: 5000 });
   await page.getByRole('button', { name: 'Runs' }).click();
 
   const workspaceScreenshot = '02-workspace.png';

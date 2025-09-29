@@ -1,91 +1,275 @@
 # Admin Reconciliation Configurator Guide
 
-The Admin Reconciliation Configurator lets platform administrators author, publish, and operate
-reconciliations without redeploying the Universal Reconciliation Platform. This guide walks through
-the end-to-end workflow, highlights key validation rules, and points to supporting automation and
-examples.
+This guide is the day-one handbook for platform administrators who need to design, publish, and
+maintain reconciliations in the Universal Reconciliation Platform (URP). It explains the concepts
+behind the tooling, provides a step-by-step walkthrough of the configurator, highlights validation
+and testing features, and lists operational tips and troubleshooting advice so you can move from
+zero to a production-ready reconciliation with confidence.
 
-## Prerequisites
+---
 
-- Your user must carry the `ROLE_RECON_ADMIN` LDAP group. The embedded demo directory ships with the
-  `admin1/password` account assigned to that role (`cn=ROLE_RECON_ADMIN,ou=groups,...`).
-- The backend application is running locally (`./mvnw spring-boot:run`). Start the Angular frontend
-  (`npm start`) if you want to follow the UI flow in a browser.
+## 1. Audience & Prerequisites
 
-## Navigating the Administration Workspace
+**Who should read this?**
 
-1. Log in via the SPA and click the **Administration** tab that appears for admin users.
-2. The catalog displays all configured reconciliations with lifecycle badges, owner details, last
-   updated timestamps, and maker/checker state. Use the search, owner, and date filters to narrow the
-   list.
-3. Selecting a row opens the detail view with schema download links, ingestion helpers (curl
-   snippets, endpoint URLs), auto-trigger configuration, and the recent ingestion activity feed.
+- Platform administrators responsible for onboarding or updating reconciliations.
+- Business or operations SMEs partnering with admins on schema design and workflow governance.
 
-## Authoring a Reconciliation
+**Before you begin**
 
-The **New reconciliation** action launches a six-step wizard:
+- An LDAP identity that includes `ROLE_RECON_ADMIN`. The demo directory provides the
+  `admin1/password` user with this role.
+- A running URP stack. Locally, launch the backend (`./mvnw spring-boot:run` in `backend/`) and the
+  Angular SPA (`npm start` in `frontend/`). For end-to-end automation, see
+  `examples/integration-harness/README.md`.
+- Familiarity with reconciliation concepts: anchor vs. compare sources, canonical schema design,
+  maker/checker workflow, and ingestion lifecycles.
 
-1. **Definition** – Capture the code, name, description, owner, maker/checker toggle, and optional
-   auto-trigger schedule. Optimistic locking relies on the `version` field; the UI surfaces conflicts
-   from the backend if another admin saves concurrently.
-2. **Sources** – Register each data source with adapter type (CSV, JDBC, REST, etc.), anchor flag,
-   connection metadata, arrival expectations, and adapter-specific options (stored as JSON).
-3. **Schema** – Define canonical fields, choose roles (e.g., `KEY`, `COMPARE`, `CLASSIFIER`), set
-   comparison logic, tolerances, and formatting hints, then map each field to source columns. The
-   backend enforces at least one anchor source, unique field names, and key-field presence.
-   - **Transformation rules:** Each mapping can chain transformation rules before values hit the
-     canonical layer. Choose between Groovy scripts (executed in a sandbox), Excel-style formulas, or
-     the function pipeline builder (trim, case conversions, replacements, date formatting, and more).
-     Use the inline validation button to compile scripts and formulas before saving, and leverage the
-     preview panel with sample rows to confirm the final output.
-4. **Reports** – Optional templates for downstream exports. Define column order, highlight settings,
-   and whether to include matched/mismatched records.
-5. **Access** – Assign LDAP groups with maker/checker/viewer roles, notification preferences, and
-   optional product/entity metadata.
-6. **Review & Publish** – Review a summary of the configuration, publish the reconciliation, or save
-   as draft.
+> **Tip:** Bookmark the [API Reference – Administration](./API-Reference.md#74-administration) for
+> payload formats and the [Development Workflow](./Development-Workflow.md#81-onboarding-a-new-reconciliation-definition)
+> for the broader delivery process.
 
-## Schema Export & Ingestion Helpers
+---
 
-- The detail view exposes a **Download schema** button and REST snippets for the ingestion endpoint.
-  These mirror `GET /api/admin/reconciliations/{id}/schema` and
-  `POST /api/admin/reconciliations/{id}/sources/{code}/batches`.
-- Schema exports include arrival expectations, adapter options, canonical field roles, and mapping
-  metadata so ETL developers can build ingestion jobs without inspecting the database directly.
-- The ingestion endpoint accepts multipart requests with the batch file and a JSON metadata part
-  (`adapterType`, `options`, `label`). The backend records audit events and shows the most recent 20
-  batches in the detail view.
-- The integration harness (`examples/integration-harness`) includes a reusable ingestion CLI
-  (`integration-ingestion-cli.jar`) that demonstrates how to authenticate, discover reconciliation IDs,
-  and submit CSV payloads programmatically.
+## 2. Touring the Administration Workspace
 
-## Automation & Quality Gates
+1. **Login:** Visit the SPA, authenticate, then open the **Administration** workspace from the main
+   navigation. Only admin users will see this tab.
+2. **Catalog:** The landing page lists all reconciliations, displaying:
+   - Lifecycle badge (Draft, Published, Retired)
+   - Owner and last-updated timestamp
+   - Maker/checker status
+   - Quick filters (search, owner, date, lifecycle)
+3. **Detail View:** Selecting a reconciliation opens an information panel with:
+   - Schema summary and download link (`GET /api/admin/reconciliations/{id}/schema`)
+   - Ingestion helper snippets (REST + curl examples)
+   - Auto-trigger configuration overview
+   - Recent ingestion batches and run summaries
+   - Access control matrix (maker/checker/viewer groups)
 
-- **Backend integration**: `AdminReconciliationServiceIntegrationTest` persists a full definition,
-  exports the schema, and ingests a CSV batch using the real `SourceIngestionService` to guard against
-  mapping regressions.
-- **Playwright coverage**: `automation/regression/tests/smoke.spec.ts` now verifies the admin navigation
-  entry, catalog, and wizard UI, capturing screenshots for the regression gallery.
-- **Example bootstrap**: `examples/admin-configurator/scripts/bootstrap.sh` provisions the same
-  reconciliation via REST, exports the schema, and submits a CSV batch—ideal for ETL teams exploring
-  the API contract.
-- **Integration harness**: `examples/integration-harness/scripts/run_multi_example_e2e.sh` launches the
-  platform, applies admin payloads for the cash vs GL, custodian trade, and securities position
-  examples, runs the bundled ingestion CLI, and asserts the resulting run summaries. This is now the
-  recommended regression loop for admin-authored reconciliations.
+The workspace is designed so that you can audit an existing reconciliation before editing—always
+review current access control entries and ingestion history before making changes.
 
-## Operational Tips
+---
 
-- Use lifecycle filters to stage migrations: keep existing reconciliations in **Draft** while you
-  iterate, publish when the schema is ready, and retire definitions when they should be hidden from
-  analysts.
-- Auto-trigger schedules require a cron expression, timezone, and optional grace period. The backend
-  blocks invalid combinations (e.g., enabling auto-trigger without a cron string).
-- Notification preferences on access control entries allow you to wire maker/checker or operations
-  alerts into existing channels (email, Slack) via the configured notification bridge.
+## 3. Quick Start Checklist
 
-## Further Reading
+Use this checklist whenever you set up a new reconciliation:
+
+1. ✅ Confirm admin access and the target LDAP groups for maker/checker roles.
+2. ✅ Gather business requirements: sources, key fields, tolerances, break classifications.
+3. ✅ Verify sample data availability for each source (CSV, database extracts, APIs).
+4. ✅ Log into the Administration workspace and launch **New reconciliation**.
+5. ✅ Complete the six-step wizard (definition → sources → schema → reports → access → review).
+6. ✅ Validate transformations (Groovy/Excel/pipeline) and preview results using sample data.
+7. ✅ Publish the reconciliation and notify maker/checker teams.
+8. ✅ Trigger an ingestion test using the CLI or API and confirm analytics in the results workspace.
+9. ✅ Record the configuration in your runbook or change management tracker.
+
+---
+
+## 4. Wizard Walkthrough (Step by Step)
+
+The **New reconciliation** wizard guides you through authoring. Each step saves progress locally so
+you can pause and resume.
+
+### 4.1 Definition
+
+- **Code:** Unique identifier (uppercase, underscores) used across APIs and automation payloads.
+- **Name & Description:** Analyst-facing metadata. Aim for concise, descriptive text.
+- **Owner & Notes:** Free-form fields for accountability and implementation detail.
+- **Maker/Checker:** Toggle to enable two-step approval. Required for regulated reconciliations.
+- **Auto-trigger:** Optional cron schedule (timezone + grace window). Validation blocks incomplete
+  schedules (e.g., cron missing while toggle is enabled).
+
+### 4.2 Sources
+
+- Add each data source with adapter type (CSV, JDBC, REST, S3, etc.). Adapter-specific options are
+  stored as JSON and surfaced in the API.
+- Mark at least one **anchor** source; the wizard enforces this.
+- Configure arrival expectations (e.g., daily by 09:00 in New York). This metadata powers ingestion
+  alerts and dashboards.
+
+### 4.3 Schema & Transformations
+
+- Define canonical fields with roles (`KEY`, `COMPARE`, `CLASSIFIER`, etc.), tolerances, and display
+  hints.
+- Map each canonical field to source columns. For multi-source reconciliations, the same canonical
+  field can have different transformation chains per source.
+- **Transformation authoring** (details in section 5):
+  - Groovy scripts (multi-statement supported)
+  - Excel-style formulas
+  - UI-based function pipelines
+- Use **Validate** to compile transformations immediately. Errors display inline with actionable
+  messages.
+- **Groovy tester:** After ingesting at least one batch, click *Load sample rows* to fetch live
+  records, edit the script, and hit *Run test* to see the evaluated result beside the raw payload.
+
+### 4.4 Reports (Optional)
+
+- Configure export templates: column order, highlighting, inclusion of matched/mismatched/missing
+  records, and file naming conventions.
+- Templates map directly to report jobs defined in the automation suite.
+
+### 4.5 Access
+
+- Assign LDAP groups as **Maker**, **Checker**, or **Viewer**. You can scope entries by product,
+  sub-product, and entity.
+- Configure notification preferences for publish events or ingestion failures. URP’s notification
+  bridge handles channel delivery (email, Slack, etc.).
+
+### 4.6 Review & Publish
+
+- Inspect the generated summary (definition metadata, sources, schema counts, access matrix).
+- Choose **Save draft** to revisit later or **Publish** to make the reconciliation available to
+  analysts and automation. Publishing triggers audit logging under the admin’s identity.
+
+---
+
+## 5. Transformation Authoring Deep Dive
+
+URP supports three transformation modes. You can combine them within the same mapping.
+
+### 5.1 Groovy (Multi-block)
+
+- Scripts can include multiple statements and helper functions. Example:
+
+```groovy
+def amount = (value ?: 0G).setScale(2)
+if (row['feeFlag'] == 'Y') {
+  return amount * 1.02G
+}
+// mutate the bound value instead of returning
+value = amount
+```
+
+- **Binding variables:** `value` (current field), `row`/`raw` (full source payload as `Map`).
+- **Validation:** *Validate script* checks compilation, sandbox restrictions, and disallows illegal
+  imports.
+- **Testing:** Use *Load sample rows* + *Run test* to execute against live data. Results include
+  returned value and mutated `value` bindings.
+- **Best practices:**
+  - Keep deterministic logic. Avoid `new Date()` or external calls.
+  - Use `BigDecimal` for currency math to prevent floating-point drift.
+  - Log complex cases via comments and document in the reconciliation notes.
+
+### 5.2 Excel-style Formulas
+
+- Syntax mirrors Excel/Google Sheets functions. Named ranges are generated automatically:
+  - `VALUE` references the canonical input
+  - Each source column becomes an uppercase, underscore-separated name
+- Example: `IF(ISBLANK(VALUE), RAW_AMOUNT * 1.1, VALUE)`
+- **Sanitisation:** The evaluator guards against invalid names (reserved keywords, cell references).
+- **Validation:** Use the inline check to ensure the formula compiles via Apache POI.
+
+### 5.3 Function Pipeline Builder
+
+- Compose pre-built operations through the UI. Common functions:
+  - `trim`, `uppercase`, `lowercase`
+  - `replace(pattern, replacement)`
+  - `parseDate(format, targetFormat)`
+- Pipelines run in order; you can rearrange or disable individual steps. Use this mode for common
+  cleanup tasks when scripting is overkill.
+
+### 5.4 When to Use What
+
+| Scenario | Recommended Mode |
+| --- | --- |
+| Simple text/number normalisation | Function pipeline |
+| Complex calculations, conditionals, reference data lookup | Groovy |
+| Business users replicating spreadsheet logic | Excel formula |
+
+---
+
+## 6. Validation, Testing & Previewing
+
+### 6.1 Inline Validation
+
+- Each transformation exposes a **Validate** button. Fix reported errors before saving the schema.
+- The wizard blocks progression if any transformation fails validation.
+
+### 6.2 Sample Data Preview
+
+- For Groovy scripts, use the *Preview & Test* panel:
+  1. Load sample rows from recent ingestion batches.
+  2. Inspect the raw JSON payload and current canonical value.
+  3. Execute the script and review the resulting value.
+- For formula/pipeline transformations, the **Preview** button (if the source provides test rows)
+  evaluates the value and surfaces the output with before/after comparisons.
+
+### 6.3 Harness & Automation Support
+
+- The **Harness Debug Controller** (`/api/harness/breaks/{id}` under `example-harness` profile) lets
+  automation run the same validation programmatically—handy for regression suites.
+- Playwright regression (`automation/regression/tests/end-to-end.spec.ts`) walks through the entire
+  configurator, submits a Groovy-backed reconciliation, ingests data, and steps through maker/checker
+  approvals while capturing screenshots. Use it as a reference for expected UI flows.
+
+---
+
+## 7. Publishing & Governance
+
+- **Lifecycle states:**
+  - **Draft:** Editable, hidden from analysts.
+  - **Published:** Active; analysts can run, makers/checkers receive work.
+  - **Retired:** Preserved for audit; ingestion disabled.
+- **Versioning:** URP uses optimistic locking. If another admin updates the reconciliation while you
+  edit, the UI surfaces a version conflict—refresh and merge changes manually.
+- **Maker/Checker flow:** Ensure the LDAP groups you assign have active users. Use the admin detail
+  view to verify ledger of permissions. Playwright and the harness scripts simulate maker/checker
+  transitions to catch misconfigurations early.
+- **Audit trail:** All create/update/publish actions are logged with timestamps and admin identities.
+  Reference them via the audit API when preparing compliance reports.
+
+---
+
+## 8. Operating Your Reconciliation
+
+1. **Ingestion:** Use the provided curl snippets or the integration CLI to submit batches. Tag each
+   batch with a descriptive label so operational dashboards stay readable.
+2. **Monitoring:** The detail view shows the latest 20 ingestion jobs and recent run summaries.
+3. **Run Analytics:** After ingestion, analysts can open the reconciliation in the main workspace to
+  review matches, mismatches, and missing items. Maker/checker actions happen directly inside the
+  inline break detail panel.
+4. **Automation:** CI pipelines should run:
+   - Backend tests: `./mvnw -B test`
+   - Frontend tests: `npm test -- --watch=false --browsers=ChromeHeadless`
+   - Playwright suite: `npm test` (in `automation/regression`)
+   - Integration harness: `examples/integration-harness/scripts/run_multi_example_e2e.sh`
+   - Seed scripts: `./scripts/local-dev.sh bootstrap|seed`, `./scripts/seed-historical.sh`, and
+     `./scripts/verify-historical-seed.sh --days 3 --runs-per-day 1 --skip-export-check`
+
+Keep automation outputs for audit evidence when rolling out new configurations.
+
+---
+
+## 9. Troubleshooting & FAQs
+
+| Symptom | Likely Cause | Resolution |
+| --- | --- | --- |
+| Wizard refuses to progress from Schema step | Validation errors on transformations | Click the **Validate** badge on each mapping; fix syntax or missing fields. |
+| Groovy script returns original value | No explicit return and `value` binding unchanged | Return the new value or mutate `value` inside the script. |
+| Excel formula errors about invalid name | Field name sanitises to reserved keyword/cell reference | Adjust source column name or prefix with an underscore. |
+| Maker cannot submit break | Maker LDAP group missing from access step | Update Access step and republish; verify with harness debug endpoint. |
+| Automation Playwright test fails to find detail panel | Inline detail grid not expanded | Use updated selectors (`.inline-break-detail .break-detail-view`) and click expand button. |
+| Ingestion CLI reports 403 | Token lacks admin scope or reconciliation is Draft | Ensure admin token, confirm status is Published, and maker/checker groups are set. |
+
+**Need more help?**
+
+- Review `docs/wiki/API-Reference.md` for request/response formats.
+- Explore `examples/admin-configurator/payloads/` for end-to-end payload examples.
+- Ping the #reconciliation-admins channel (or your organisation’s equivalent) with audit logs and
+  reproduction steps.
+
+---
+
+## 10. Related Resources
 
 - [API Reference – Administration](./API-Reference.md#74-administration)
-- [Admin Configurator Example](../examples/admin-configurator/README.md)
-- [Development Workflow](./Development-Workflow.md#81-onboarding-a-new-reconciliation-definition)
+- [Integration Harness Guide](../examples/integration-harness/README.md)
+- [Admin Configurator Example Payloads](../examples/admin-configurator/README.md)
+- [Development Workflow & Change Controls](./Development-Workflow.md#81-onboarding-a-new-reconciliation-definition)
+
+Keep this guide bookmarked. Update it whenever new transformation types or governance controls are
+introduced so new administrators always have an up-to-date, authoritative reference.
+

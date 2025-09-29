@@ -136,9 +136,9 @@
           "transformations": [
             {
               "id": null,
-              "type": "FUNCTION_PIPELINE",
-              "expression": null,
-              "configuration": "{\"steps\":[{\"function\":\"TRIM\"}]}",
+              "type": "GROOVY_SCRIPT",
+              "expression": "value = value == null ? null : value.toString()\\nif (value) {\\n  value = value.replace(',', '')\\n  value = new BigDecimal(value)\\n}",
+              "configuration": null,
               "displayOrder": 0,
               "active": true
             }

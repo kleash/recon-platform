@@ -63,5 +63,16 @@ public class DataTransformationService {
             case FUNCTION_PIPELINE -> pipelineEvaluator.validateConfiguration(transformation.getConfiguration());
         }
     }
-}
 
+    public Object evaluateGroovyScript(String script, Object value, Map<String, Object> rawRecord) {
+        CanonicalFieldTransformation transformation = new CanonicalFieldTransformation();
+        transformation.setType(TransformationType.GROOVY_SCRIPT);
+        transformation.setExpression(script);
+        transformation.setActive(true);
+        return groovyEvaluator.evaluate(transformation, value, rawRecord == null ? Map.of() : rawRecord);
+    }
+
+    public void validateGroovyScript(String script) {
+        groovyEvaluator.validateExpression(script);
+    }
+}

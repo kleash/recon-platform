@@ -24,6 +24,7 @@ import com.universal.reconciliation.repository.SourceDataBatchRepository;
 import com.universal.reconciliation.repository.SourceDataRecordRepository;
 import jakarta.validation.Valid;
 import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -76,11 +77,9 @@ public class AdminTransformationService {
         CanonicalFieldMapping mapping = new CanonicalFieldMapping();
         mapping.setTransformations(new LinkedHashSet<>());
         request.transformations().stream()
-                .sorted((a, b) -> {
-                    Integer left = a.displayOrder() != null ? a.displayOrder() : Integer.MAX_VALUE;
-                    Integer right = b.displayOrder() != null ? b.displayOrder() : Integer.MAX_VALUE;
-                    return left.compareTo(right);
-                })
+                .sorted(Comparator.comparing(
+                        TransformationPreviewRequest.PreviewTransformationDto::displayOrder,
+                        Comparator.nullsLast(Integer::compareTo)))
                 .forEach(transformationDto -> {
                     CanonicalFieldTransformation transformation = new CanonicalFieldTransformation();
                     transformation.setMapping(mapping);

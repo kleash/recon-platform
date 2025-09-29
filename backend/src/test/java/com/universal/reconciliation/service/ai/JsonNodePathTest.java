@@ -54,4 +54,14 @@ class JsonNodePathTest {
 
         assertThat(result).isNull();
     }
+
+    @Test
+    void navigate_supportsSegmentsEndingWithBackslash() throws Exception {
+        JsonNode root = MAPPER.readTree("{\"value\\\\\":5}");
+
+        JsonNode result = JsonNodePath.navigate(root, "value\\");
+
+        assertThat(result).isNotNull();
+        assertThat(result.asInt()).isEqualTo(5);
+    }
 }

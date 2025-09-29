@@ -21,7 +21,8 @@ export type IngestionAdapterType =
   | 'JSON_FILE'
   | 'DATABASE'
   | 'REST_API'
-  | 'MESSAGE_QUEUE';
+  | 'MESSAGE_QUEUE'
+  | 'LLM_DOCUMENT';
 
 export type ReportColumnSource = 'SOURCE_A' | 'SOURCE_B' | 'BREAK_METADATA';
 
@@ -29,7 +30,11 @@ export type AccessRole = 'VIEWER' | 'MAKER' | 'CHECKER';
 
 export type DataBatchStatus = 'PENDING' | 'LOADING' | 'COMPLETE' | 'FAILED' | 'ARCHIVED';
 
-export type TransformationType = 'GROOVY_SCRIPT' | 'EXCEL_FORMULA' | 'FUNCTION_PIPELINE';
+export type TransformationType =
+  | 'GROOVY_SCRIPT'
+  | 'EXCEL_FORMULA'
+  | 'FUNCTION_PIPELINE'
+  | 'LLM_PROMPT';
 
 export interface AdminReconciliationSummary {
   id: number;

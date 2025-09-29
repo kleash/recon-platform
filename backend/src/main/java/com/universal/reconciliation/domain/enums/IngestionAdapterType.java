@@ -12,5 +12,6 @@ public enum IngestionAdapterType {
     JSON_FILE,
     DATABASE,
     REST_API,
-    MESSAGE_QUEUE
+    MESSAGE_QUEUE,
+    LLM_DOCUMENT
 }

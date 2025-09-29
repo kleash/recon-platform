@@ -215,7 +215,7 @@ public class ReconciliationIngestionClient implements Closeable {
     private static String buildFilename(IngestionBatch batch) {
         String label = batch.getLabel();
         if (label == null || label.isBlank()) {
-            return batch.getSourceCode() + "-batch";
+            return batch.getSourceCode() + "-batch.csv";
         }
         return label.replaceAll("[^A-Za-z0-9._-]", "_") + ".csv";
     }

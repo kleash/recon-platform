@@ -1,7 +1,9 @@
 package com.universal.reconciliation.ingestion.sdk.batch;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.universal.reconciliation.ingestion.sdk.IngestionBatch;
 import java.io.IOException;
 import java.net.URI;
@@ -20,8 +22,7 @@ class RestApiCsvBatchBuilderTest {
         try (MockWebServer server = new MockWebServer()) {
             server.enqueue(new MockResponse()
                     .setHeader("Content-Type", "application/json")
-                    .setBody("[{\"transactionId\":\"T-1\",\"amount\":100.25},{\"transactionId\":\"T-2\",\"amount\":50.75}]")
-            );
+                    .setBody("[{\"transactionId\":\"T-1\",\"amount\":100.25},{\"transactionId\":\"T-2\",\"amount\":50.75}]"));
             server.start();
 
             RestApiCsvBatchBuilder builder = new RestApiCsvBatchBuilder(new RestTemplate());
@@ -37,6 +38,80 @@ class RestApiCsvBatchBuilderTest {
             assertThat(csv).contains("transactionId,amount");
             assertThat(csv).contains("T-1,100.25");
             assertThat(csv).contains("T-2,50.75");
+        }
+    }
+
+    @Test
+    void supportsNestedJsonViaPointer() throws IOException {
+        try (MockWebServer server = new MockWebServer()) {
+            server.enqueue(new MockResponse()
+                    .setHeader("Content-Type", "application/json")
+                    .setBody("{\"data\":{\"items\":[{\"transactionId\":\"T-3\",\"amount\":5.0}]}}"));
+            server.start();
+
+            RestApiCsvBatchBuilder builder = new RestApiCsvBatchBuilder(new RestTemplate());
+            IngestionBatch batch = builder.get(
+                    "API",
+                    "nested",
+                    server.url("/nested").uri(),
+                    List.of("transactionId", "amount"),
+                    Map.of(),
+                    "data.items");
+
+            String csv = new String(batch.getPayload(), StandardCharsets.UTF_8);
+            assertThat(csv).contains("transactionId,amount");
+            assertThat(csv).contains("T-3,5.0");
+        }
+    }
+
+    @Test
+    void failsFastWhenPointerMissing() {
+        try (MockWebServer server = new MockWebServer()) {
+            server.enqueue(new MockResponse()
+                    .setHeader("Content-Type", "application/json")
+                    .setBody("{\"data\":{\"items\":[]}}"));
+            server.start();
+
+            RestApiCsvBatchBuilder builder = new RestApiCsvBatchBuilder(new RestTemplate());
+            assertThatThrownBy(() -> builder.get(
+                            "API",
+                            "missing",
+                            server.url("/missing").uri(),
+                            List.of(),
+                            Map.of(),
+                            "data.results"))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("data.results");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Test
+    void supportsCustomRecordExtractor() throws IOException {
+        try (MockWebServer server = new MockWebServer()) {
+            server.enqueue(new MockResponse()
+                    .setHeader("Content-Type", "application/json")
+                    .setBody("{\"payload\":{\"items\":[{\"transactionId\":\"T-4\",\"amount\":10.0}],\"corrections\":[{\"transactionId\":\"T-5\",\"amount\":3.14}]}}"));
+            server.start();
+
+            RestApiCsvBatchBuilder builder = new RestApiCsvBatchBuilder(new RestTemplate());
+            IngestionBatch batch = builder.get(
+                    "API",
+                    "custom",
+                    server.url("/custom").uri(),
+                    List.of("transactionId", "amount"),
+                    Map.of(),
+                    root -> {
+                        java.util.List<JsonNode> merged = new java.util.ArrayList<>();
+                        root.path("payload").path("items").forEach(merged::add);
+                        root.path("payload").path("corrections").forEach(merged::add);
+                        return merged;
+                    });
+
+            String csv = new String(batch.getPayload(), StandardCharsets.UTF_8);
+            assertThat(csv).contains("T-4,10.0");
+            assertThat(csv).contains("T-5,3.14");
         }
     }
 }

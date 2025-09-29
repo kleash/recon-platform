@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Pattern;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.CellValue;
@@ -22,6 +24,9 @@ import org.springframework.stereotype.Component;
  */
 @Component
 class ExcelFormulaTransformationEvaluator {
+
+    private static final Set<String> RESERVED_NAMES = Set.of("TRUE", "FALSE", "NULL", "PRINT_AREA", "PRINT_TITLES");
+    private static final Pattern CELL_REFERENCE_PATTERN = Pattern.compile("^[A-Z]+\\d+$");
 
     Object evaluate(CanonicalFieldTransformation transformation, Object currentValue, Map<String, Object> rawRecord) {
         String expression = transformation.getExpression();
@@ -111,16 +116,20 @@ class ExcelFormulaTransformationEvaluator {
         if (rawName == null || rawName.isBlank()) {
             return "_";
         }
-        String uppercase = rawName.trim().toUpperCase(Locale.ROOT);
-        StringBuilder builder = new StringBuilder();
-        for (char ch : uppercase.toCharArray()) {
-            if (Character.isLetterOrDigit(ch) || ch == '_') {
-                builder.append(ch);
-            } else {
-                builder.append('_');
-            }
+        String sanitised = rawName.trim().toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9_]", "_");
+        if (sanitised.isEmpty()) {
+            return "_";
         }
-        return builder.toString();
+        if (Character.isDigit(sanitised.charAt(0))) {
+            sanitised = "_" + sanitised;
+        }
+        if (sanitised.length() > 255) {
+            sanitised = sanitised.substring(0, 255);
+        }
+        if (CELL_REFERENCE_PATTERN.matcher(sanitised).matches() || RESERVED_NAMES.contains(sanitised)) {
+            sanitised = "_" + sanitised;
+        }
+        return sanitised;
     }
 
     private String normaliseFormula(String formula) {

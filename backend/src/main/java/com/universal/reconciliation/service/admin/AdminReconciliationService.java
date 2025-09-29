@@ -459,7 +459,13 @@ public class AdminReconciliationService {
             return;
         }
 
-        int orderFallback = 0;
+        int orderFallback = transformationRequests.stream()
+                .map(AdminCanonicalFieldTransformationRequest::displayOrder)
+                .filter(Objects::nonNull)
+                .mapToInt(Integer::intValue)
+                .max()
+                .orElse(-1)
+                + 1;
         for (AdminCanonicalFieldTransformationRequest request : transformationRequests) {
             CanonicalFieldTransformation transformation = new CanonicalFieldTransformation();
             transformation.setMapping(mapping);

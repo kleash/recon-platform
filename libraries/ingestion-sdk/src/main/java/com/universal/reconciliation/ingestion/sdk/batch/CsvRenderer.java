@@ -1,9 +1,15 @@
 package com.universal.reconciliation.ingestion.sdk.batch;
 
 import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.StringWriter;
 import java.io.UncheckedIOException;
+import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -39,6 +45,78 @@ final class CsvRenderer {
         }
     }
 
+    static void streamRows(ResultSet resultSet, List<String> explicitColumns, Writer writer)
+            throws SQLException, IOException {
+        ResultSetMetaData metaData = resultSet.getMetaData();
+        List<String> headers = determineHeaders(metaData, explicitColumns);
+        CSVPrinter printer = createPrinter(writer, headers);
+        int columnCount = metaData.getColumnCount();
+        while (resultSet.next()) {
+            Map<String, Object> row = new java.util.LinkedHashMap<>(columnCount);
+            for (int i = 1; i <= columnCount; i++) {
+                String column = metaData.getColumnLabel(i);
+                row.put(column, resultSet.getObject(i));
+            }
+            printRow(printer, normalizeKeys(row), headers);
+        }
+        printer.flush();
+    }
+
+    static CSVPrinter createPrinter(Writer writer, List<String> headers) throws IOException {
+        return CSVFormat.DEFAULT
+                .withHeader(headers.toArray(String[]::new))
+                .print(writer);
+    }
+
+    static List<String> determineHeaders(ResultSetMetaData metaData, List<String> explicitColumns)
+            throws SQLException {
+        if (explicitColumns != null && !explicitColumns.isEmpty()) {
+            return new ArrayList<>(explicitColumns);
+        }
+        int columnCount = metaData.getColumnCount();
+        List<String> headers = new ArrayList<>(columnCount);
+        for (int i = 1; i <= columnCount; i++) {
+            headers.add(metaData.getColumnLabel(i));
+        }
+        return headers;
+    }
+
+    static List<String> determineHeadersFromRow(Map<String, Object> row, List<String> explicitColumns) {
+        if (explicitColumns != null && !explicitColumns.isEmpty()) {
+            return new ArrayList<>(explicitColumns);
+        }
+        return new ArrayList<>(row.keySet());
+    }
+
+    static void streamRows(Iterable<Map<String, Object>> rows, List<String> explicitColumns, OutputStream output)
+            throws IOException {
+        try (OutputStreamWriter writer = new OutputStreamWriter(output, StandardCharsets.UTF_8)) {
+            streamRows(rows, explicitColumns, writer);
+            writer.flush();
+        }
+    }
+
+    static void streamRows(Iterable<Map<String, Object>> rows, List<String> explicitColumns, Writer writer)
+            throws IOException {
+        java.util.Iterator<Map<String, Object>> iterator = rows.iterator();
+        List<String> headers;
+        CSVPrinter printer;
+        if (iterator.hasNext()) {
+            Map<String, Object> first = normalizeKeys(iterator.next());
+            headers = determineHeadersFromRow(first, explicitColumns);
+            printer = createPrinter(writer, headers);
+            printRow(printer, first, headers);
+        } else {
+            headers = explicitColumns != null ? new ArrayList<>(explicitColumns) : List.of();
+            printer = createPrinter(writer, headers);
+        }
+        while (iterator.hasNext()) {
+            Map<String, Object> row = normalizeKeys(iterator.next());
+            printRow(printer, row, headers);
+        }
+        printer.flush();
+    }
+
     private static List<String> determineHeaders(List<Map<String, Object>> rows, List<String> explicit) {
         if (explicit != null && !explicit.isEmpty()) {
             return explicit;
@@ -48,6 +126,15 @@ final class CsvRenderer {
             headers.addAll(row.keySet());
         }
         return new ArrayList<>(headers);
+    }
+
+    static void printRow(CSVPrinter printer, Map<String, Object> row, List<String> headers) throws IOException {
+        List<String> values = new ArrayList<>(headers.size());
+        for (String header : headers) {
+            Object value = resolveValue(row, header);
+            values.add(value == null ? "" : String.valueOf(value));
+        }
+        printer.printRecord(values);
     }
 
     static Map<String, Object> normalizeKeys(Map<String, Object> row) {

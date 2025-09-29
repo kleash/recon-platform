@@ -47,22 +47,27 @@ require_binary() {
 require_binary curl
 require_binary jq
 
+if command -v lsof >/dev/null 2>&1; then
+    PORT_CHECK_TOOL="lsof"
+elif command -v ss >/dev/null 2>&1; then
+    PORT_CHECK_TOOL="ss"
+else
+    echo "Required dependency 'lsof' or 'ss' is not installed" >&2
+    exit 1
+fi
+
 ensure_port_available() {
-    if command -v lsof >/dev/null 2>&1; then
+    if [[ "$PORT_CHECK_TOOL" == "lsof" ]]; then
         if lsof -nPi :"$APP_PORT" >/dev/null 2>&1; then
             echo "Port $APP_PORT is already in use. Stop the existing process or set APP_PORT to a free port." >&2
             exit 1
         fi
         return
     fi
-    if command -v ss >/dev/null 2>&1; then
-        if ss -ltn | grep -q ":$APP_PORT "; then
-            echo "Port $APP_PORT is already in use. Stop the existing process or set APP_PORT to a free port." >&2
-            exit 1
-        fi
-        return
+    if ss -ltn | grep -q ":$APP_PORT "; then
+        echo "Port $APP_PORT is already in use. Stop the existing process or set APP_PORT to a free port." >&2
+        exit 1
     fi
-    log "Skipping port availability check because neither lsof nor ss is installed"
 }
 
 log() {

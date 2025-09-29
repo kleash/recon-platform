@@ -69,7 +69,9 @@ public class ReconciliationIngestionClient implements Closeable {
 
         try (Response response = client.newCall(request).execute()) {
             if (response.code() == 401) {
-                token = authenticate();
+                synchronized (this) {
+                    this.token = null;
+                }
                 return resolveDefinitionId(reconciliationCode);
             }
             if (!response.isSuccessful()) {
@@ -127,7 +129,9 @@ public class ReconciliationIngestionClient implements Closeable {
 
         try (Response response = client.newCall(request).execute()) {
             if (response.code() == 401) {
-                token = authenticate();
+                synchronized (this) {
+                    this.token = null;
+                }
                 return ingestBatch(reconciliationId, batch);
             }
             if (!response.isSuccessful()) {
@@ -144,13 +148,11 @@ public class ReconciliationIngestionClient implements Closeable {
         }
     }
 
-    private String ensureToken() throws IOException {
-        String current = token;
-        if (current == null || current.isBlank()) {
-            current = authenticate();
-            token = current;
+    private synchronized String ensureToken() throws IOException {
+        if (token == null || token.isBlank()) {
+            token = authenticate();
         }
-        return current;
+        return token;
     }
 
     private String authenticate() throws IOException {

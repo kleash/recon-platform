@@ -166,8 +166,16 @@ upsert_reconciliation() {
     local existing
     existing=$(curl -sS -H "Authorization: Bearer $token" \
         "$BASE_URL/api/admin/reconciliations?search=$code&size=10")
-    local recon_id
-    recon_id=$(echo "$existing" | jq -r ".items[] | select(.code == \"$code\") | .id" | head -n 1)
+    local matches
+    mapfile -t matches < <(echo "$existing" | jq -r ".items[] | select(.code == \"$code\") | .id")
+    if (( ${#matches[@]} > 1 )); then
+        echo "Multiple reconciliations matched code $code. Resolve duplicates in the admin API before running the harness." >&2
+        exit 1
+    fi
+    local recon_id=""
+    if (( ${#matches[@]} == 1 )); then
+        recon_id="${matches[0]}"
+    fi
 
     local method url expected_status
     if [[ -n "$recon_id" && "$recon_id" != "null" ]]; then

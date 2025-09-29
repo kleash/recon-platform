@@ -1,18 +1,31 @@
 package com.universal.reconciliation.ingestion.sdk.batch;
 
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.MappingIterator;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectReader;
 import com.universal.reconciliation.ingestion.sdk.IngestionBatch;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.net.URI;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
+import org.apache.commons.csv.CSVPrinter;
 import org.springframework.http.RequestEntity;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.ClientHttpRequest;
+import org.springframework.http.client.ClientHttpResponse;
+import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.RestClientException;
 
 /**
  * Calls an HTTP API that returns a JSON payload and converts the record array into a CSV-backed batch.
@@ -102,23 +115,147 @@ public final class RestApiCsvBatchBuilder {
             String recordPointer,
             Function<JsonNode, Iterable<JsonNode>> recordExtractor)
             throws IOException {
-        ResponseEntity<String> response = restTemplate.exchange(request, String.class);
+        try {
+            return restTemplate.execute(
+                    request.getUrl(),
+                    request.getMethod(),
+                    clientRequest -> prepareRequest(clientRequest, request),
+                    clientResponse -> handleResponse(
+                            sourceCode,
+                            label,
+                            columns,
+                            options,
+                            recordPointer,
+                            recordExtractor,
+                            clientResponse));
+        } catch (RestClientException e) {
+            if (e.getCause() instanceof IOException ioException) {
+                throw ioException;
+            }
+            throw e;
+        }
+    }
+
+    private void prepareRequest(ClientHttpRequest clientRequest, RequestEntity<?> request) throws IOException {
+        clientRequest.getHeaders().putAll(request.getHeaders());
+        if (request.hasBody()) {
+            writeRequestBody(clientRequest, request);
+        }
+    }
+
+    private void writeRequestBody(ClientHttpRequest clientRequest, RequestEntity<?> request) throws IOException {
+        Object body = request.getBody();
+        if (body == null) {
+            return;
+        }
+        for (HttpMessageConverter<?> converter : restTemplate.getMessageConverters()) {
+            if (converter.canWrite(body.getClass(), request.getHeaders().getContentType())) {
+                @SuppressWarnings("unchecked")
+                HttpMessageConverter<Object> writer = (HttpMessageConverter<Object>) converter;
+                writer.write(body, request.getHeaders().getContentType(), clientRequest);
+                return;
+            }
+        }
+        throw new IOException("No HttpMessageConverter for request body type " + body.getClass());
+    }
+
+    private IngestionBatch handleResponse(
+            String sourceCode,
+            String label,
+            List<String> columns,
+            Map<String, Object> options,
+            String recordPointer,
+            Function<JsonNode, Iterable<JsonNode>> recordExtractor,
+            ClientHttpResponse response)
+            throws IOException {
         if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
             throw new IOException("API call failed with status " + response.getStatusCode());
         }
-        JsonNode root = objectMapper.readTree(response.getBody());
-        Iterable<JsonNode> records = selectRecords(root, recordPointer, recordExtractor);
-        List<Map<String, Object>> rows = new ArrayList<>();
-        for (JsonNode node : records) {
-            Map<String, Object> map = objectMapper.convertValue(node, Map.class);
-            rows.add(CsvRenderer.normalizeKeys(map));
+        try (InputStream bodyStream = response.getBody();
+                ByteArrayOutputStream output = new ByteArrayOutputStream();
+                OutputStreamWriter writer = new OutputStreamWriter(output, StandardCharsets.UTF_8)) {
+            if (recordExtractor != null || (recordPointer != null && !recordPointer.isBlank())) {
+                JsonNode root = objectMapper.readTree(bodyStream);
+                Iterable<JsonNode> records = selectRecords(root, recordPointer, recordExtractor);
+                streamJsonNodes(records, columns == null ? null : new ArrayList<>(columns), writer);
+            } else {
+                streamJsonArray(bodyStream, columns == null ? null : new ArrayList<>(columns), writer);
+            }
+            writer.flush();
+            byte[] payload = output.toByteArray();
+            return IngestionBatch.builder(sourceCode, label)
+                    .mediaType("text/csv")
+                    .payload(payload)
+                    .options(options == null ? Map.of() : options)
+                    .build();
         }
-        byte[] payload = CsvRenderer.render(rows, columns == null ? null : new ArrayList<>(columns));
-        return IngestionBatch.builder(sourceCode, label)
-                .mediaType("text/csv")
-                .payload(payload)
-                .options(options == null ? Map.of() : options)
-                .build();
+    }
+
+    private void streamJsonArray(InputStream bodyStream, List<String> columns, OutputStreamWriter writer) throws IOException {
+        JsonParser parser = objectMapper.getFactory().createParser(bodyStream);
+        JsonToken firstToken = parser.nextToken();
+        if (firstToken == null) {
+            CSVPrinter printer = CsvRenderer.createPrinter(writer, columns == null ? List.of() : columns);
+            printer.flush();
+            return;
+        }
+        if (firstToken != JsonToken.START_ARRAY) {
+            throw new IOException("Expected JSON array response but received: " + firstToken);
+        }
+        JsonToken nextToken = parser.nextToken();
+        if (nextToken == JsonToken.END_ARRAY) {
+            CSVPrinter printer = CsvRenderer.createPrinter(writer, columns == null ? List.of() : columns);
+            printer.flush();
+            return;
+        }
+        ObjectReader reader = objectMapper.readerFor(Map.class);
+        try (MappingIterator<Map<String, Object>> iterator = reader.readValues(parser)) {
+            streamMaps(iterator, columns, writer);
+        }
+    }
+
+    private void streamJsonNodes(Iterable<JsonNode> nodes, List<String> columns, OutputStreamWriter writer)
+            throws IOException {
+        Iterator<JsonNode> iterator = nodes.iterator();
+        if (iterator == null) {
+            CSVPrinter printer = CsvRenderer.createPrinter(writer, columns == null ? List.of() : columns);
+            printer.flush();
+            return;
+        }
+        streamMaps(new Iterator<>() {
+            @Override
+            public boolean hasNext() {
+                return iterator.hasNext();
+            }
+
+            @Override
+            public Map<String, Object> next() {
+                JsonNode node = iterator.next();
+                return objectMapper.convertValue(node, Map.class);
+            }
+        }, columns, writer);
+    }
+
+    private void streamMaps(Iterator<Map<String, Object>> iterator, List<String> columns, OutputStreamWriter writer)
+            throws IOException {
+        List<String> headers = columns != null && !columns.isEmpty() ? new ArrayList<>(columns) : null;
+        CSVPrinter printer;
+        if (iterator.hasNext()) {
+            Map<String, Object> first = CsvRenderer.normalizeKeys(iterator.next());
+            if (headers == null) {
+                headers = CsvRenderer.determineHeadersFromRow(first, null);
+            }
+            printer = CsvRenderer.createPrinter(writer, headers);
+            CsvRenderer.printRow(printer, first, headers);
+        } else {
+            headers = headers != null ? headers : List.of();
+            printer = CsvRenderer.createPrinter(writer, headers);
+        }
+        while (iterator.hasNext()) {
+            Map<String, Object> row = CsvRenderer.normalizeKeys(iterator.next());
+            CsvRenderer.printRow(printer, row, headers);
+        }
+        printer.flush();
     }
 
     private Iterable<JsonNode> selectRecords(

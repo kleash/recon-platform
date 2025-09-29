@@ -643,79 +643,77 @@ async function ingestGroovyData(options: {
     filePath: groovySourceB,
   });
 
-  let batchesComplete = false;
-  for (let attempt = 0; attempt < 12; attempt += 1) {
-    const detailSnapshot = await page.evaluate(async (defId) => {
-      const token = window.localStorage.getItem('urp.jwt');
-      const response = await fetch(`http://localhost:8080/api/admin/reconciliations/${defId}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  let ingestionSnapshot: { status: number; batches?: Array<{ label: string; status: string }> } | null = null;
+  let ingestionPollCount = 0;
+  await expect
+    .poll(async () => {
+      ingestionPollCount += 1;
+      ingestionSnapshot = await page.evaluate(async (defId) => {
+        const token = window.localStorage.getItem('urp.jwt');
+        const response = await fetch(`http://localhost:8080/api/admin/reconciliations/${defId}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        const body = await response.json();
+        return {
+          status: response.status,
+          batches: (body?.ingestionBatches ?? []).map((batch: any) => ({
+            label: batch.label,
+            status: batch.status,
+          })),
+        };
+      }, definitionId);
+
+      test.info().annotations.push({
+        type: 'debug',
+        description: `Groovy ingestion poll ${ingestionPollCount}: status=${ingestionSnapshot?.status} batches=${JSON.stringify(ingestionSnapshot?.batches ?? [])}`,
       });
-      const body = await response.json();
-      return {
-        status: response.status,
-        batches: (body?.ingestionBatches ?? []).map((batch: any) => ({
-          label: batch.label,
-          status: batch.status,
-        })),
-      };
-    }, definitionId);
 
-    test.info().annotations.push({
-      type: 'debug',
-      description: `Groovy ingestion poll ${attempt + 1}: status=${detailSnapshot.status} batches=${JSON.stringify(detailSnapshot.batches)}`,
-    });
+      const batches = ingestionSnapshot?.batches ?? [];
+      return (
+        ingestionSnapshot?.status === 200 &&
+        batches.length >= 2 &&
+        batches.every((batch) => batch.status === 'COMPLETE')
+      );
+    }, {
+      message: 'Expected ingestion batches to complete',
+      timeout: 60000,
+    })
+    .toBeTruthy();
 
-    if (
-      detailSnapshot.status === 200 &&
-      (detailSnapshot.batches ?? []).length >= 2 &&
-      detailSnapshot.batches.every((batch: { status: string }) => batch.status === 'COMPLETE')
-    ) {
-      batchesComplete = true;
-      break;
-    }
+  let sampleSnapshot: { status: number; rows?: Array<Record<string, unknown>> } | null = null;
+  let samplePollCount = 0;
+  await expect
+    .poll(async () => {
+      samplePollCount += 1;
+      sampleSnapshot = await page.evaluate(async (defId) => {
+        const token = window.localStorage.getItem('urp.jwt');
+        const params = new URLSearchParams({
+          definitionId: String(defId),
+          sourceCode: 'GROOVY_B',
+          limit: '5',
+        });
+        const response = await fetch(`http://localhost:8080/api/admin/transformations/samples?${params.toString()}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        const body = await response.json().catch(() => ({}));
+        return {
+          status: response.status,
+          rows: body?.rows ?? [],
+        };
+      }, definitionId);
 
-    await page.waitForTimeout(5000);
-  }
-
-  if (!batchesComplete) {
-    throw new Error('Groovy ingestion batches did not reach COMPLETE status within expected time.');
-  }
-
-  let sampleRowsReady = false;
-  for (let attempt = 0; attempt < 12; attempt += 1) {
-    const sampleSnapshot = await page.evaluate(async (defId) => {
-      const token = window.localStorage.getItem('urp.jwt');
-      const params = new URLSearchParams({
-        definitionId: String(defId),
-        sourceCode: 'GROOVY_B',
-        limit: '5',
+      test.info().annotations.push({
+        type: 'debug',
+        description: `Groovy sample poll ${samplePollCount}: status=${sampleSnapshot?.status} rows=${sampleSnapshot?.rows?.length ?? 0}`,
       });
-      const response = await fetch(`http://localhost:8080/api/admin/transformations/samples?${params.toString()}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      const body = await response.json().catch(() => ({}));
-      return {
-        status: response.status,
-        rows: body?.rows ?? [],
-      };
-    }, definitionId);
 
-    test.info().annotations.push({
-      type: 'debug',
-      description: `Groovy sample poll ${attempt + 1}: status=${sampleSnapshot.status} rows=${sampleSnapshot.rows?.length ?? 0}`,
-    });
-
-    if (sampleSnapshot.status === 200 && (sampleSnapshot.rows ?? []).length > 0) {
-      sampleRowsReady = true;
-      break;
-    }
-
-    await page.waitForTimeout(5000);
-  }
-
-  if (!sampleRowsReady) {
-    throw new Error('Groovy sample rows were not available after ingestion.');
-  }
+      const rowCount = sampleSnapshot?.rows?.length ?? 0;
+      return sampleSnapshot?.status === 200 && rowCount > 0;
+    }, {
+      message: 'Expected Groovy sample rows to be available',
+      timeout: 60000,
+    })
+    .toBeTruthy();
 
   await page.screenshot({ path: resolveAssetPath(ingestionScreenshot), fullPage: true });
   await recordScreen({
@@ -825,8 +823,9 @@ async function performMakerWorkflow(options: {
   definitionId: number;
   reconName: string;
   makerComment: string;
+  pendingScreenshotName?: string;
 }): Promise<{ targetBreakId: number; primaryBreakLabel: string }> {
-  const { page, definitionId, reconName, makerComment } = options;
+  const { page, definitionId, reconName, makerComment, pendingScreenshotName = 'groovy-step-05.png' } = options;
 
   await login(page, 'ops1', 'password');
   const opsGroupsRaw = await page.evaluate(() => window.localStorage.getItem('urp.groups'));
@@ -844,27 +843,38 @@ async function performMakerWorkflow(options: {
     status: number;
     breakSummaries: Array<{ id: number; status: string; allowed: string[] }>;
   } | null = null;
-  for (let attempt = 0; attempt < 12; attempt += 1) {
-    groovyRunDetail = await page.evaluate(async (defId) => {
-      const token = window.localStorage.getItem('urp.jwt');
-      const response = await fetch(`http://localhost:8080/api/reconciliations/${defId}/runs/latest`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  let runPollCount = 0;
+  await expect
+    .poll(async () => {
+      runPollCount += 1;
+      groovyRunDetail = await page.evaluate(async (defId) => {
+        const token = window.localStorage.getItem('urp.jwt');
+        const response = await fetch(`http://localhost:8080/api/reconciliations/${defId}/runs/latest`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        const body = await response.json();
+        return {
+          status: response.status,
+          breakSummaries: (body.breaks ?? []).map((item: any) => ({
+            id: item.id,
+            status: item.status,
+            allowed: item.allowedStatusTransitions ?? [],
+          })),
+        };
+      }, definitionId);
+
+      const breakCount = groovyRunDetail?.breakSummaries.length ?? 0;
+      test.info().annotations.push({
+        type: 'debug',
+        description: `Groovy run poll ${runPollCount}: status=${groovyRunDetail?.status} breaks=${breakCount}`,
       });
-      const body = await response.json();
-      return {
-        status: response.status,
-        breakSummaries: (body.breaks ?? []).map((item: any) => ({
-          id: item.id,
-          status: item.status,
-          allowed: item.allowedStatusTransitions ?? [],
-        })),
-      };
-    }, definitionId);
-    if ((groovyRunDetail?.breakSummaries.length ?? 0) > 0) {
-      break;
-    }
-    await page.waitForTimeout(5000);
-  }
+
+      return breakCount > 0;
+    }, {
+      message: 'Expected reconciliation run to produce break summaries',
+      timeout: 60000,
+    })
+    .toBeTruthy();
 
   expect(groovyRunDetail?.status).toBe(200);
   expect(groovyRunDetail?.breakSummaries.length ?? 0).toBeGreaterThan(0);
@@ -988,34 +998,76 @@ async function performMakerWorkflow(options: {
     }
   }
 
-  let pendingConfirmed = false;
-  for (let attempt = 0; attempt < 12; attempt += 1) {
-    const harnessSnapshot = await page.evaluate(async (breakId) => {
-      const token = window.localStorage.getItem('urp.jwt');
-      const response = await fetch(`http://localhost:8080/api/harness/breaks/${breakId}/entries`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  let pendingPollCount = 0;
+  await expect
+    .poll(async () => {
+      pendingPollCount += 1;
+      const harnessSnapshot = await page.evaluate(async (breakId) => {
+        const token = window.localStorage.getItem('urp.jwt');
+        const response = await fetch(`http://localhost:8080/api/harness/breaks/${breakId}/entries`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        });
+        const body = await response.json();
+        return { status: response.status, body };
+      }, targetBreakId);
+
+      test.info().annotations.push({
+        type: 'debug',
+        description: `Pending poll harness snapshot ${pendingPollCount}: ${JSON.stringify(harnessSnapshot)}`,
       });
-      const body = await response.json();
-      return { status: response.status, body };
-    }, targetBreakId);
 
-    test.info().annotations.push({
-      type: 'debug',
-      description: `Pending poll harness snapshot: ${JSON.stringify(harnessSnapshot)}`,
+      return (
+        harnessSnapshot.status === 200 &&
+        harnessSnapshot.body?.status === 'PENDING_APPROVAL'
+      );
+    }, {
+      message: 'Expected break to reach PENDING_APPROVAL',
+      timeout: 60000,
+    })
+    .toBeTruthy();
+
+  const harnessEntries = await page.evaluate(async (breakId) => {
+    const token = window.localStorage.getItem('urp.jwt');
+    const response = await fetch(`http://localhost:8080/api/harness/breaks/${breakId}/entries`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
     });
+    const body = await response.json();
+    return { status: response.status, body };
+  }, targetBreakId);
+  test.info().annotations.push({
+    type: 'debug',
+    description: `Groovy harness entries: status=${harnessEntries.status} body=${JSON.stringify(harnessEntries.body)}`,
+  });
 
-    if (
-      harnessSnapshot.status === 200 &&
-      harnessSnapshot.body?.status === 'PENDING_APPROVAL'
-    ) {
-      pendingConfirmed = true;
-      break;
-    }
-
-    await page.waitForTimeout(5000);
+  await page.reload();
+  const reconListItem = page.getByRole('listitem').filter({ hasText: reconName });
+  await expect(reconListItem).toBeVisible({ timeout: 60000 });
+  await reconListItem.click();
+  const refreshedRows = page.locator('urp-result-grid .data-row');
+  const refreshedRow = refreshedRows.filter({ has: groovyBreakMatcher }).first();
+  await expect(refreshedRow).toBeVisible({ timeout: 60000 });
+  await expect(refreshedRow.locator('.mat-column-status')).toContainText('PENDING_APPROVAL', {
+    timeout: 60000,
+  });
+  await refreshedRow.click();
+  const refreshedExpandButton = refreshedRow.locator('button[aria-label*="details"]');
+  if (await refreshedExpandButton.isVisible({ timeout: 1000 }).catch(() => false)) {
+    await refreshedExpandButton.click();
   }
+  const refreshedDetailSection = page.locator('urp-result-grid .inline-break-detail .break-detail-view').first();
+  await expect(refreshedDetailSection.locator('.status-chip')).toContainText('PENDING_APPROVAL', { timeout: 60000 });
 
-  expect(pendingConfirmed).toBeTruthy();
+  await page.screenshot({ path: resolveAssetPath(pendingScreenshotName), fullPage: true });
+  await recordScreen({
+    name: 'Groovy maker submission',
+    route: '/',
+    screenshotFile: pendingScreenshotName,
+    assertions: [
+      { description: 'Break detail shows pending approval after submission' },
+      { description: 'Workflow history logs maker comment' },
+      { description: 'Status chip displays pending state' },
+    ],
+  });
 
   await logout(page);
   return { targetBreakId: targetBreakId!, primaryBreakLabel };
@@ -1728,361 +1780,34 @@ if (value) {
 
   await logout(page);
 
-  await login(page, 'ops1', 'password');
-  const opsGroupsRaw = await page.evaluate(() => window.localStorage.getItem('urp.groups'));
-  expect(opsGroupsRaw).not.toBeNull();
-  const opsGroups = JSON.parse(opsGroupsRaw ?? '[]');
-  const opsSet = new Set(opsGroups as string[]);
-  expect(opsSet.has('recon-makers')).toBeTruthy();
-
-  await expect(page.getByRole('heading', { name: 'Reconciliations' })).toBeVisible();
-  await page.getByRole('listitem').filter({ hasText: reconName }).click();
-
-  await page.getByRole('button', { name: 'Run reconciliation' }).click();
-
-  let groovyRunDetail: {
-    status: number;
-    breakSummaries: Array<{ id: number; status: string; allowed: string[] }>;
-  } | null = null;
-  for (let attempt = 0; attempt < 12; attempt += 1) {
-    groovyRunDetail = await page.evaluate(async (definitionId) => {
-      const token = window.localStorage.getItem('urp.jwt');
-      const response = await fetch(`http://localhost:8080/api/reconciliations/${definitionId}/runs/latest`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      const body = await response.json();
-      return {
-        status: response.status,
-        breakSummaries: (body.breaks ?? []).map((item: any) => ({
-          id: item.id,
-          status: item.status,
-          allowed: item.allowedStatusTransitions ?? [],
-        })),
-      };
-    }, groovyDefinitionId);
-    if ((groovyRunDetail?.breakSummaries.length ?? 0) > 0) {
-      break;
-    }
-    await page.waitForTimeout(5000);
-  }
-
-  expect(groovyRunDetail?.status).toBe(200);
-  expect(groovyRunDetail?.breakSummaries.length ?? 0).toBeGreaterThan(0);
-  test.info().annotations.push({
-    type: 'debug',
-    description: `Groovy break summaries: ${JSON.stringify(groovyRunDetail?.breakSummaries ?? [])}`,
-  });
-  const targetBreakId = groovyRunDetail?.breakSummaries[0]?.id;
-  expect(targetBreakId).toBeDefined();
-
-  const breakRowSnapshot = await page.evaluate(async ({ definitionId, breakId }) => {
-    const token = window.localStorage.getItem('urp.jwt');
-    const response = await fetch(
-      `http://localhost:8080/api/reconciliations/${definitionId}/results?size=50&includeTotals=false&status=PENDING_APPROVAL`,
-      { headers: token ? { Authorization: `Bearer ${token}` } : undefined }
-    );
-    const body = await response.json();
-    const row = (body?.rows ?? []).find((entry: any) => entry.breakId === breakId);
-    return { status: response.status, row };
-  }, { definitionId: groovyDefinitionId, breakId: targetBreakId });
-  test.info().annotations.push({
-    type: 'debug',
-    description: `Groovy row snapshot: status=${breakRowSnapshot?.status} row=${JSON.stringify(breakRowSnapshot?.row ?? {})}`,
-  });
-  test.info().annotations.push({
-    type: 'debug',
-    description: `Groovy target row snapshot: ${JSON.stringify(breakRowSnapshot)}`,
-  });
-
-  const harnessEntries = await page.evaluate(async (breakId) => {
-    const token = window.localStorage.getItem('urp.jwt');
-    const response = await fetch(`http://localhost:8080/api/harness/breaks/${breakId}/entries`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    });
-    const body = await response.json();
-    return { status: response.status, body };
-  }, targetBreakId);
-  test.info().annotations.push({
-    type: 'debug',
-    description: `Groovy harness entries: ${JSON.stringify(harnessEntries)}`,
-  });
-  test.info().annotations.push({
-    type: 'debug',
-    description: `Groovy harness entries: status=${harnessEntries.status} body=${JSON.stringify(harnessEntries.body)}`,
-  });
-
-  const groovyRunScreenshot = 'groovy-step-04.png';
-  await page.screenshot({ path: resolveAssetPath(groovyRunScreenshot), fullPage: true });
-  await recordScreen({
-    name: 'Groovy operations run',
-    route: '/',
-    screenshotFile: groovyRunScreenshot,
-    assertions: [
-      { description: 'Run analytics highlight match/mismatch counts' },
-      { description: 'Break grid lists mismatched and missing rows' },
-      { description: 'Status filters include pending approvals' },
-    ],
-  });
-
-  const gridRows = page.locator('urp-result-grid .data-row');
-  const groovyBreakMatcher = page.locator('.mat-column-breakId', {
-    hasText: new RegExp(`^\\s*${targetBreakId}\\s*$`)
-  });
-  const targetRow = gridRows.filter({ has: groovyBreakMatcher }).first();
-  await expect(targetRow).toBeVisible({ timeout: 60000 });
-  await targetRow.scrollIntoViewIfNeeded();
-  await targetRow.click();
-  const expandButton = targetRow.locator('button[aria-label*="details"]');
-  if (await expandButton.isVisible({ timeout: 1000 }).catch(() => false)) {
-    await expandButton.click();
-  }
-  const detailSection = page.locator('urp-result-grid .inline-break-detail .break-detail-view').first();
-  await expect(detailSection).toContainText('Break');
   const makerComment = 'Submitting single break for approval via Groovy scenario.';
-  await detailSection.locator('textarea[placeholder="Add justification for your action"]').fill(makerComment);
-  const makerSubmitResponsePromise = page.waitForResponse((response) => {
-    return (
-      response.request().method() === 'PATCH' &&
-      response.url().includes(`/api/breaks/${targetBreakId}/status`)
-    );
-  });
-  page.once('request', (request) => {
-    if (request.url().includes(`/api/breaks/${targetBreakId}/status`)) {
-      test.info().annotations.push({
-        type: 'debug',
-        description: `Maker request headers: ${JSON.stringify(request.headers())}`,
-      });
-      test.info().annotations.push({
-        type: 'debug',
-        description: `Maker request body: ${request.postData()}`,
-      });
-    }
-  });
-  let makerSubmissionSucceeded = false;
-  try {
-    await detailSection.getByRole('button', { name: 'Submit for Approval' }).click();
-    const makerSubmitResponse = await makerSubmitResponsePromise;
-    test.info().annotations.push({
-      type: 'debug',
-      description: `Maker submit response: ${makerSubmitResponse.status()} ${makerSubmitResponse.statusText()}`,
-    });
-    if (!makerSubmitResponse.ok()) {
-      const body = await makerSubmitResponse.text();
-      throw new Error(
-        `Maker submission failed (${makerSubmitResponse.status()} ${makerSubmitResponse.statusText()}): ${body}`
-      );
-    }
-    makerSubmissionSucceeded = true;
-  } catch (error) {
-    console.warn('UI maker submission failed; falling back to direct API call', error);
-  }
-
-  if (!makerSubmissionSucceeded) {
-    const privilegedToken = createServiceToken(
-      'admin1',
-      ['ROLE_RECON_ADMIN', 'recon-makers', 'recon-checkers'],
-      'Automation Admin'
-    );
-    const fallbackResponse = await page.evaluate(
-      async ({ breakId, comment, token }) => {
-        const response = await fetch(`http://localhost:8080/api/breaks/${breakId}/status`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ status: 'PENDING_APPROVAL', comment }),
-        });
-        return { status: response.status, body: await response.text() };
-      },
-      { breakId: targetBreakId, comment: makerComment, token: privilegedToken }
-    );
-
-    if (fallbackResponse.status !== 200) {
-      throw new Error(
-        `Maker submission fallback failed (${fallbackResponse.status}): ${fallbackResponse.body}`
-      );
-    }
-  }
-
-  let pendingConfirmed = false;
-  for (let attempt = 0; attempt < 12; attempt += 1) {
-    const harnessSnapshot = await page.evaluate(async (breakId) => {
-      const token = window.localStorage.getItem('urp.jwt');
-      const response = await fetch(`http://localhost:8080/api/harness/breaks/${breakId}/entries`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-      const body = await response.json();
-      return { status: response.status, body };
-    }, targetBreakId);
-
-    test.info().annotations.push({
-      type: 'debug',
-      description: `Pending poll harness snapshot: ${JSON.stringify(harnessSnapshot)}`,
-    });
-
-    if (
-      harnessSnapshot.status === 200 &&
-      harnessSnapshot.body?.status === 'PENDING_APPROVAL'
-    ) {
-      pendingConfirmed = true;
-      break;
-    }
-
-    await page.waitForTimeout(5000);
-  }
-
-  expect(pendingConfirmed).toBeTruthy();
-
-  await page.reload();
-  const groovyReconListItem = page.getByRole('listitem').filter({ hasText: reconName });
-  await expect(groovyReconListItem).toBeVisible({ timeout: 60000 });
-  await groovyReconListItem.click();
-  const refreshedRows = page.locator('urp-result-grid .data-row');
-  const refreshedRow = refreshedRows.filter({ has: groovyBreakMatcher }).first();
-  await expect(refreshedRow).toBeVisible({ timeout: 60000 });
-  await expect(refreshedRow.locator('.mat-column-status')).toContainText('PENDING_APPROVAL', {
-    timeout: 60000
-  });
-  await refreshedRow.click();
-  const refreshedExpandButton = refreshedRow.locator('button[aria-label*="details"]');
-  if (await refreshedExpandButton.isVisible({ timeout: 1000 }).catch(() => false)) {
-    await refreshedExpandButton.click();
-  }
-  const refreshedDetailSection = page.locator('urp-result-grid .inline-break-detail .break-detail-view').first();
-  await expect(refreshedDetailSection.locator('.status-chip')).toContainText('PENDING_APPROVAL', { timeout: 60000 });
-
-  const groovyMakerSubmitScreenshot = 'groovy-step-05.png';
-  await page.screenshot({ path: resolveAssetPath(groovyMakerSubmitScreenshot), fullPage: true });
-  await recordScreen({
-    name: 'Groovy maker submission',
-    route: '/',
-    screenshotFile: groovyMakerSubmitScreenshot,
-    assertions: [
-      { description: 'Break detail shows pending approval after submission' },
-      { description: 'Workflow history logs maker comment' },
-      { description: 'Status chip displays pending state' },
-    ],
+  const { primaryBreakLabel } = await performMakerWorkflow({
+    page,
+    definitionId: groovyDefinitionId,
+    reconName,
+    makerComment,
+    pendingScreenshotName: 'groovy-step-05.png',
   });
 
-  const originalToken = await page.evaluate(() => window.localStorage.getItem('urp.jwt'));
-  if (!originalToken) {
-    throw new Error('Unable to capture ops1 token for checker flow');
-  }
-  const checkerToken = reissueTokenWithGroups(originalToken, ['recon-checkers']);
-  await page.evaluate(
-    ({ token }) => {
-      window.localStorage.setItem('urp.jwt', token);
-      window.localStorage.setItem('urp.groups', JSON.stringify(['recon-checkers']));
-    },
-    { token: checkerToken }
-  );
-  await page.reload();
-  const checkerReconItem = page.getByRole('listitem').filter({ hasText: reconName });
-  await expect(checkerReconItem).toBeVisible({ timeout: 60000 });
-  await checkerReconItem.click();
-
-  await page.getByRole('button', { name: 'Approvals' }).click();
-  const approvalsTable = page.locator('.checker-queue tbody tr');
-  await expect(approvalsTable.first()).toBeVisible({ timeout: 30000 });
-  await approvalsTable.first().locator('input[type="checkbox"]').check();
-  await page.locator('.checker-queue textarea[name="queueComment"]').fill(
-    'Checker approving Groovy submission.'
-  );
-  const checkerBulkResponsePromise = page.waitForResponse((response) => {
-    return response.request().method() === 'POST' && response.url().includes('/api/breaks/bulk');
+  await performCheckerWorkflow({
+    page,
+    reconName,
+    primaryBreakLabel,
+    screenshotName: 'groovy-step-06.png',
   });
-  await page.getByRole('button', { name: 'Approve' }).click();
-  const checkerBulkResponse = await checkerBulkResponsePromise;
-  expect(checkerBulkResponse.ok()).toBeTruthy();
 
-  const groovyCheckerApproveScreenshot = 'groovy-step-06.png';
-  await page.screenshot({ path: resolveAssetPath(groovyCheckerApproveScreenshot), fullPage: true });
-  await recordScreen({
-    name: 'Groovy checker approval',
-    route: '/',
-    screenshotFile: groovyCheckerApproveScreenshot,
-    assertions: [
-      { description: 'Approvals queue clears after checker action' },
-      { description: 'Bulk approval comment recorded' },
-      { description: 'Maker submission removed from queue' },
-    ],
+  await performMakerBulkSubmission({
+    page,
+    reconName,
+    bulkComment: 'Bulk submission for remaining Groovy breaks.',
+    screenshotName: 'groovy-step-07.png',
+  });
+
+  await performFinalCheckerApprovals({
+    page,
+    reconName,
+    screenshotName: 'groovy-step-08.png',
   });
 
   await logout(page);
-  await login(page, 'ops1', 'password');
-  await expect(page.getByRole('heading', { name: 'Reconciliations' })).toBeVisible();
-  await page.getByRole('listitem').filter({ hasText: reconName }).click();
-  const selectLoadedButton = page.getByRole('button', { name: 'Select loaded' });
-  await expect(selectLoadedButton).toBeVisible({ timeout: 60000 });
-  await expect(selectLoadedButton).toBeEnabled({ timeout: 60000 });
-  await selectLoadedButton.click();
-  const bulkArea = page.locator('.bulk-actions');
-  await expect(bulkArea).toBeVisible();
-  await bulkArea.locator('textarea[name="bulkComment"]').fill('Bulk submission for remaining Groovy breaks.');
-  const bulkSubmitPromise = page.waitForResponse((response) => {
-    return response.request().method() === 'POST' && response.url().includes('/api/breaks/bulk');
-  });
-  await bulkArea.getByRole('button', { name: 'Submit' }).click();
-  const bulkSubmitResponse = await bulkSubmitPromise;
-  expect(bulkSubmitResponse.ok()).toBeTruthy();
-
-  const groovyBulkSubmitScreenshot = 'groovy-step-07.png';
-  await page.screenshot({ path: resolveAssetPath(groovyBulkSubmitScreenshot), fullPage: true });
-  await recordScreen({
-    name: 'Groovy bulk submission',
-    route: '/',
-    screenshotFile: groovyBulkSubmitScreenshot,
-    assertions: [
-      { description: 'Bulk panel confirms submission for approvals' },
-      { description: 'Selection count resets after request' },
-      { description: 'Run grid updates pending status for selected breaks' },
-    ],
-  });
-
-  const makerToken = await page.evaluate(() => window.localStorage.getItem('urp.jwt'));
-  if (!makerToken) {
-    throw new Error('Unable to capture maker token for final checker pass');
-  }
-  const finalCheckerToken = reissueTokenWithGroups(makerToken, ['recon-checkers']);
-  await page.evaluate(
-    ({ token }) => {
-      window.localStorage.setItem('urp.jwt', token);
-      window.localStorage.setItem('urp.groups', JSON.stringify(['recon-checkers']));
-    },
-    { token: finalCheckerToken }
-  );
-  await page.reload();
-  const finalCheckerReconItem = page.getByRole('listitem').filter({ hasText: reconName });
-  await expect(finalCheckerReconItem).toBeVisible({ timeout: 60000 });
-  await finalCheckerReconItem.click();
-  await page.getByRole('button', { name: 'Approvals' }).click();
-  const pendingRows = page.locator('.checker-queue tbody tr');
-  await expect(pendingRows.first()).toBeVisible({ timeout: 30000 });
-  const pendingCount = await pendingRows.count();
-  for (let idx = 0; idx < pendingCount; idx += 1) {
-    await pendingRows.nth(idx).locator('input[type="checkbox"]').check();
-  }
-  await page.locator('.checker-queue textarea[name="queueComment"]').fill(
-    'Bulk approval for remaining Groovy submissions.'
-  );
-  const finalApprovePromise = page.waitForResponse((response) => {
-    return response.request().method() === 'POST' && response.url().includes('/api/breaks/bulk');
-  });
-  await page.getByRole('button', { name: 'Approve' }).click();
-  const finalApproveResponse = await finalApprovePromise;
-  expect(finalApproveResponse.ok()).toBeTruthy();
-
-  const groovyBulkApproveScreenshot = 'groovy-step-08.png';
-  await page.screenshot({ path: resolveAssetPath(groovyBulkApproveScreenshot), fullPage: true });
-  await recordScreen({
-    name: 'Groovy bulk approvals',
-    route: '/',
-    screenshotFile: groovyBulkApproveScreenshot,
-    assertions: [
-      { description: 'Approvals queue empty after bulk checker action' },
-      { description: 'Bulk approval comment recorded' },
-      { description: 'Checker console confirms final approval' },
-    ],
-  });
 });

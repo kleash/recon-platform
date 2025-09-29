@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
  */
 @RestController
 @Profile("example-harness")
+@RequestMapping("/api/harness")
 public class HarnessDebugController {
 
     private final BreakItemRepository breakItemRepository;
@@ -41,7 +42,7 @@ public class HarnessDebugController {
         this.breakService = breakService;
     }
 
-    @GetMapping("/api/harness/breaks/{id}/entries")
+    @GetMapping("/breaks/{id}/entries")
     public Map<String, Object> inspectBreakEntries(@PathVariable("id") Long breakId) {
         BreakItem item = breakItemRepository.findById(breakId)
                 .orElseThrow(() -> new IllegalArgumentException("Break not found"));
@@ -75,7 +76,7 @@ public class HarnessDebugController {
         return response;
     }
 
-    @PostMapping("/api/harness/breaks/{id}/status")
+    @PostMapping("/breaks/{id}/status")
     public Map<String, Object> attemptStatusUpdate(
             @PathVariable("id") Long breakId, @RequestBody HarnessStatusRequest request) {
         Map<String, Object> response = new HashMap<>();

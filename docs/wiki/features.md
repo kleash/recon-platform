@@ -1,24 +1,25 @@
 # Feature Compendium
 
-This document enumerates every major capability delivered by the Universal Reconciliation Platform. Use it to scope implementations, align stakeholders, and ensure downstream teams understand the depth of functionality available today.
+This compendium enumerates the major capabilities delivered by the Universal Reconciliation Platform. Use it to scope new work,
+align stakeholders, and ensure downstream teams understand the breadth of functionality available today.
 
 ## 2024 Highlights
 
 | Theme | Enhancements | What Changed |
 | --- | --- | --- |
-| **Configuration Studio** | Metadata-first admin workspace | Reconciliations, sources, canonical fields, and report templates are now authored in the UI and stored in versioned metadata, eliminating the previous Java-based definitions.
-| **Maker-Checker Workflow** | Rejection handling, dual-control enforcement, workflow audit trail | Makers can no longer self-approve, checkers can reject with mandatory comments, and every transition is persisted in `break_workflow_audit`.
-| **Ingestion Flexibility** | Multi-source ingestion APIs and batch telemetry | Admins can register CSV/JDBC/API adapters and upload batches through secure endpoints, with ingestion activity surfaced in dashboards and audit feeds.
-| **Automation Evidence** | Consolidated Playwright regression suite | The regression pack exercises both admin and analyst workspaces, publishing HTML and Markdown evidence bundles for release sign-off.
-| **Observability & Reporting** | Expanded dashboards and scheduled distribution | Run analytics expose richer dimensional slicing and scheduled reports deliver via email/SFTP with full audit coverage.
+| **Metadata-First Configuration** | Canonical fields, source adapters, and report templates authored in the admin studio | All reconciliation metadata is stored in relational tables; admins can publish updates without Java deployments. |
+| **Dynamic Analyst Workspace** | Virtualised break grid, saved views, server-side selection | Analysts query any run with cursor pagination, persist layouts, and perform “select filtered” bulk actions. |
+| **Maker-Checker Workflow** | Approval queue, bulk transitions, audit history | Break actions resolve allowed transitions via `BreakAccessService`, write audit rows, and expose a checker queue API. |
+| **Export Flexibility** | Async dataset jobs, synchronous run exports, metadata-rich payloads | CSV/JSONL/XLSX exports capture filters, hash, row count, and use background jobs to avoid blocking UI threads. |
+| **Ingestion Telemetry** | Source batch uploads with SLAs and activity feed integration | Multipart ingestion endpoint stores batches, checksums, and surfaces success/failure in the activity feed. |
 
 ## Executive Overview
 - **Audience:** product owners, delivery leads, and stakeholders who need a concise overview of platform value.
-- **Outcome:** rapid mapping of high-level features to supporting subsystems and workflows.
+- **Outcome:** rapid mapping of high-level features to the services that power them.
 
 ```mermaid
 graph TD
-  A[Reconciliation Definition Studio] -->|Metadata| B(Matching Engine)
+  A[Admin Studio] -->|Metadata| B(Matching Engine)
   B --> C{Run Outcomes}
   C -->|Matched| D[Analytics Summary]
   C -->|Mismatched| E[Break Inventory]
@@ -26,75 +27,75 @@ graph TD
   E --> G[Maker Actions]
   G --> H[Checker Approvals]
   H --> I[Audit Trail]
-  D --> J[Dashboards & Reports]
+  D --> J[Dashboards & Exports]
   I --> J
-  J --> K[Excel & Scheduled Reports]
+  J --> K[Async Export Jobs]
   B --> L[Activity Feed]
-  L --> M[Observability Stack]
+  L --> M[Operations Monitoring]
   B --> N[Automation Hooks]
-  N --> O[API / Scheduler / Kafka]
+  N --> O[Scheduler / API / Kafka]
 ```
 
 ## Capability Matrix
 | Domain | Feature | Description | Key Consumers |
 | --- | --- | --- | --- |
-| Configuration | Metadata-driven reconciliations | Define entities, matching keys, tolerances, and workflow roles without code changes. | Reconciliation administrators |
-| Configuration | Pluggable data ingestion | Accept staged data from ETL pipelines, flat files, or upstream systems through standardized staging tables. | Data engineering |
-| Matching | Multi-stage matching rules | Support exact, tolerance-based, and custom comparison logic with prioritised rule stacks. | Matching engine |
-| Matching | Run orchestration | Trigger runs manually, on schedules, via API calls, or from Kafka topics. | Operations teams |
-| Workflow | Automated break creation | Classify mismatches into actionable break records with contextual metadata. | Makers |
-| Workflow | Maker-checker lifecycle | Enforce configurable approval flows with comments, attachments, status transitions (`OPEN`, `PENDING_APPROVAL`, `REJECTED`, `CLOSED`), and immutable audit trails. | Makers, checkers |
-| Workflow | Bulk updates | Perform mass status updates and annotations directly from filtered break lists. | Makers |
-| Analytics | Real-time dashboards | Surface run-level KPIs, distribution charts, and trend lines for each reconciliation. | Analysts, leadership |
-| Analytics | Activity feeds | Chronicle runs, approvals, exports, and user actions for audit review. | Risk & audit |
-| Reporting | On-demand exports | Generate Excel exports based on configurable templates and deliver via UI or API. | Analysts |
-| Reporting | Scheduled distribution | Automate recurring report delivery with templated emails, SFTP drops, or API callbacks. | Operations |
-| Security | LDAP-authenticated access | Integrate with enterprise LDAP for authentication and authorization scopes. | Platform users |
-| Security | Scope-based entitlements | Restrict recon visibility by product, entity, or geography tied to LDAP groups. | Security admins |
-| Observability | System activity logging | Capture structured events for runs, workflow actions, and configuration changes. | Support teams |
-| Observability | Metrics & health endpoints | Provide actuator endpoints and dashboards for infrastructure monitoring. | SRE teams |
+| Configuration | Canonical metadata authoring | Define sources, canonical fields, transformations, reports, and entitlements without code changes. | Reconciliation administrators |
+| Configuration | Pluggable ingestion adapters | Register CSV/JDBC/API connectors with SLA metadata and options for downstream automation. | Data engineering |
+| Matching | Rule-based engine | Execute deterministic passes with tolerance-aware comparators derived from canonical field definitions. | Matching engine |
+| Matching | Run orchestration | Trigger via UI, API, or scheduler with correlation IDs and comments for audit. | Operations teams |
+| Workflow | Break classification | Persist full source payloads plus flattened attributes for filtering and analytics. | Makers |
+| Workflow | Maker-checker lifecycle | Enforce approval flows, capture comments, and maintain immutable audit trails with correlation IDs. | Makers, checkers |
+| Workflow | Bulk actions | Use server-side selection to update or annotate thousands of breaks in a single operation. | Makers |
+| Analytics | Real-time dashboards | Expose run summaries, approval queues, and break distributions to the SPA through lightweight DTOs. | Analysts, leadership |
+| Analytics | Saved views | Persist personalised grid layouts, share via tokens, and set user defaults. | Analysts |
+| Reporting | Async dataset exports | Queue CSV/JSONL/XLSX jobs with full filter context, poll status, and download artifacts when ready. | Analysts, audit |
+| Reporting | Immediate run exports | Generate XLSX summaries for any run, including filter metadata and audit notes. | Analysts |
+| Security | LDAP-authenticated access | Authenticate via LDAP, map groups to roles, and enforce dimensional entitlements. | Platform users |
+| Observability | Activity feed | Chronicle runs, workflow transitions, exports, and configuration publishes for support teams. | Support, risk |
+| Observability | Metrics & health checks | Spring Boot actuators and Jacoco coverage thresholds guard code health. | SRE teams |
 
 ## Feature Deep Dive
 
-### 1. Configuration Studio
-- **Dynamic schema builder:** register reconciliation definitions, field metadata, and rule hierarchies through configuration forms or API payloads.
-- **Reusable templates:** clone baseline configurations (e.g., cash vs GL, securities positions) to accelerate onboarding.
-- **Environment promotion:** export/import configuration packages between environments ensuring parity without manual edits.
+### 1. Admin Studio & Metadata Lifecycle
+- **Canonical field designer:** map each logical attribute to source columns with transformation chains and tolerances.
+- **Source catalog:** capture adapters, arrival expectations, and connection metadata for automated SLAs and monitoring.
+- **Entitlement matrix:** bind LDAP groups to products/entities, define maker/checker roles, and opt into notifications.
+- **Versioned publishes:** optimistic locking with `version` column prevents conflicting updates; publish and retire actions are audited.
 
 ### 2. Matching & Analytics Engine
-- **Rule execution pipeline:** executes staged data through deterministic matching passes with tolerance-aware comparators.
-- **Outcome persistence:** writes run summaries, analytics aggregates, and break snapshots for downstream review.
-- **Performance safeguards:** parallelizes matching jobs, enforces batch sizing, and exposes metrics for throughput tuning.
+- **Deterministic execution:** engine derives matching keys, comparators, and classification rules directly from metadata.
+- **Analytics DTOs:** `RunDetailDto` packages summaries, dimensional aggregates, and filter metadata for the SPA.
+- **Activity integration:** every run emits a system event (`RECONCILIATION_RUN`) for dashboards and downstream hooks.
 
 ### 3. Workflow & Case Management
-- **Maker toolset:** annotate breaks, attach documents, request approvals, and perform targeted bulk updates.
-- **Checker console:** review pending approvals with full context, approve/reject actions, and capture regulatory commentary.
-- **Audit immutability:** every transition, comment, and attachment is recorded with LDAP principal metadata for traceability.
+- **Maker tools:** comment, annotate, and submit breaks for approval with role-aware transitions and validation.
+- **Checker console:** dedicated `/approvals` endpoint surfaces pending items capped by configurable queue size.
+- **Audit fabric:** `break_workflow_audit` and `break_comments` capture actor DN, role, comment, and correlation IDs.
 
 ### 4. Analyst Experience
-- **Responsive dashboards:** present run KPIs, filterable break grids, and drill-down side-by-side source comparisons with saved filter sets and reusable views.
-- **Stateful sessions:** preserve analyst context, filters, and selections across navigation or page refreshes.
-- **Assisted investigation:** highlight mismatched fields, surface data lineage, and embed reference data for faster resolution.
+- **Virtualised grid:** cursor pagination via `/results` scales to hundreds of thousands of rows with server-side filtering.
+- **Saved views:** analysts persist filters and layouts in `analyst_saved_views`, share tokens, and set defaults per reconciliation.
+- **Server-side selection:** `/results/ids` returns break identifiers and totals to back “select filtered” workflows.
 
-### 5. Reporting & Distribution
-- **Excel template designer:** configure tab layouts, column ordering, formatting, and formulas using metadata stored in the database.
-- **Delivery options:** download instantly from the UI, invoke via API, or schedule recurring deliveries with optional distribution lists.
-- **Compliance-ready archives:** persist generated reports with metadata for audit retrieval and retention policies.
+### 5. Reporting & Exports
+- **Async export jobs:** background processor iterates cursor pages, writes CSV/JSONL/XLSX via `DatasetExportWriter`, and stores payloads in `export_jobs`.
+- **Integrity metadata:** each export stores hash, row count, timezone, and filter snapshot to simplify reconciliations.
+- **Run-level Excel export:** `/api/exports/runs/{runId}` uses report templates to produce formatted XLSX files on demand.
 
 ### 6. Integration Surface
-- **REST API:** orchestrate reconciliations, manage configurations, and query outcomes programmatically with OAuth2/JWT enforcement and fine-grained scopes for admin endpoints.
-- **Event-driven hooks:** listen to Kafka topics for automated triggers or push notifications on run completion.
-- **External orchestrators:** support invocation from enterprise schedulers, RPA bots, or workflow engines via secure APIs.
+- **REST APIs:** full coverage for metadata management, run orchestration, break search, approvals, exports, and saved views.
+- **Automation ready:** APIs accept correlation IDs, support cron-trigger use cases, and expose consistent error responses.
+- **Extensible ingestion:** multipart upload endpoint accepts adapter options and labels for pipeline integration.
 
 ### 7. Security & Compliance
-- **Unified identity:** rely on LDAP groups for access scopes, maker/checker roles, and reporting permissions.
-- **Configurable data masking:** protect sensitive attributes in UI views and exports based on role-specific policies.
-- **End-to-end audit:** unify log streams, activity feeds, and database history for regulatory examinations.
+- **Unified identity:** JWT tokens embed LDAP groups; access control entries enforce product/entity scoping and roles.
+- **Notification hooks:** access entries optionally deliver publish/ingestion alerts to e-mail or chat channels via stored endpoints.
+- **Audit completeness:** activity feed, break audit trails, and export metadata provide end-to-end traceability.
 
 ### 8. Operations & Support
-- **Health monitoring:** integrate Spring Actuator endpoints with observability platforms for uptime and performance tracking.
-- **Self-healing ETL:** detect missing demo data or configuration drift and reseed baseline reconciliations on startup.
-- **Run diagnostics:** provide correlation IDs, execution timelines, and anomaly detection flags for support engineers.
+- **Activity feed dashboards:** `/api/activity` lists recent events, enabling control room monitoring of runs, approvals, and exports.
+- **Jacoco-guarded builds:** backend tests enforce coverage thresholds; the Playwright suite exercises analyst/admin surfaces.
+- **Ingestion diagnostics:** batch status, checksums, and timestamps help triage missing or delayed feeds.
 
 ## Roadmap Snapshot
 
@@ -103,17 +104,18 @@ gantt
     dateFormat  YYYY-MM-DD
     title Capability Delivery Roadmap
     section Core Engine
-    MVP Matching & Run Tracking         :done,    des1, 2023-10-01, 2024-01-15
-    Advanced Rule Configurations        :done,    des2, 2024-01-16, 2024-03-30
+    Metadata Convergence              :done,    ce1, 2023-10-01, 2024-02-29
+    Analytics DTO Enhancements        :done,    ce2, 2024-03-01, 2024-04-30
     section Workflow & UI
-    Analyst Dashboard Foundations       :done,    des3, 2023-11-01, 2024-02-15
-    Maker-Checker Enhancements          :done,    des4, 2024-02-16, 2024-04-30
+    Saved View Sharing                :done,    wu1, 2024-02-15, 2024-03-30
+    Approval Queue Optimisation       :done,    wu2, 2024-04-01, 2024-05-31
     section Reporting & Automation
-    Excel Template Engine               :done,    des5, 2023-12-01, 2024-02-28
-    Scheduled Distribution              :done,    des6, 2024-03-15, 2024-05-31
+    Async Dataset Exports             :done,    ra1, 2024-03-15, 2024-06-15
+    Export Observability              :active,  ra2, 2024-07-01, 2024-09-30
     section Continuous Investment
-    Admin Configurator Iterations       :active,  des7, 2024-06-01, 2024-09-30
-    Observability Enhancements          :active,  des8, 2024-07-01, 2024-10-15
+    Admin Studio Iterations           :active,  ci1, 2024-07-15, 2024-10-31
+    Activity Feed Enhancements        :planned, ci2, 2024-09-01, 2024-11-30
 ```
 
-Use this roadmap to communicate current scope and planned investments. Update milestones as delivery progresses and add future initiatives as they are approved.
+Update milestones as delivery progresses and append future initiatives as they are approved. Keep the table above aligned with
+release notes so stakeholders can map roadmap items to shipped functionality.

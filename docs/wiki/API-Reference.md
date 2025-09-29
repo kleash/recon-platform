@@ -1,11 +1,13 @@
 ## 7. API Reference
 
-All endpoints (except `/api/auth/login`) require a JWT bearer token obtained during login. The Angular SPA forwards the token via the `Authorization: Bearer <token>` header for every request.
+This section documents the REST surface exposed by the Universal Reconciliation Platform. Unless noted otherwise every endpoint
+expects and produces `application/json` and requires a JWT bearer token issued by the authentication service. All timestamps
+are emitted in ISO-8601 format and, where relevant, are normalised to the Asia/Singapore time zone.
 
 ### 7.1 Authentication
 | Endpoint | Method | Description |
 | --- | --- | --- |
-| `/api/auth/login` | POST | Authenticate against LDAP and receive a signed JWT plus group entitlements. |
+| `/api/auth/login` | POST | Exchanges LDAP credentials for a signed JWT plus resolved group memberships. |
 
 **Sample: Login**
 
@@ -32,46 +34,30 @@ _Response `200 OK`_
 }
 ```
 
-### 7.2 Reconciliations
+### 7.2 Analyst Workspace APIs
+The analyst SPA orchestrates reconciliations, runs, break searches, and exports via the endpoints listed below. All calls require
+that the JWT principal belongs to at least one access-control entry for the target reconciliation definition.
+
+#### 7.2.1 Reconciliations & Runs
 | Endpoint | Method | Description |
 | --- | --- | --- |
-| `/api/reconciliations` | GET | Return reconciliations visible to the caller based on LDAP group membership. |
-| `/api/reconciliations/{id}/run` | POST | Trigger the matching engine for the specified reconciliation definition. |
-| `/api/reconciliations/{id}/runs/latest` | GET | Fetch the latest completed run plus optional break filters (`product`, `subProduct`, `entity`, `status`). |
-| `/api/reconciliations/runs/{runId}` | GET | Retrieve any historical run by identifier, with the same filter parameters as `runs/latest`. |
-| `/api/reconciliations/{id}/results` | GET | Cursor-paginated break search returning grid rows, dynamic column metadata, total counts, and next-cursor token. |
-| `/api/reconciliations/{id}/results/ids` | GET | Server-side aggregation of break identifiers for the current filter set (used for “select all filtered” bulk actions). |
-
-**Sample: List reconciliations**
-
-_Response `200 OK`_
-```json
-[
-  {
-    "id": 42,
-    "code": "SECURITY_POSITIONS",
-    "name": "Security Position Reconciliation",
-    "description": "Compares custody holdings against internal positions"
-  },
-  {
-    "id": 77,
-    "code": "CASH_BALANCES",
-    "name": "Cash Nostro Reconciliation",
-    "description": "Matches nostro balances to the general ledger"
-  }
-]
-```
+| `/api/reconciliations` | GET | Lists reconciliations visible to the caller based on LDAP group membership. |
+| `/api/reconciliations/{id}/runs` | GET | Returns the most recent runs for a reconciliation. Accepts `limit` (1–50, defaults to 5). |
+| `/api/reconciliations/{id}/approvals` | GET | Fetches the checker approval queue (requires checker role within the user’s groups). |
+| `/api/reconciliations/{id}/run` | POST | Triggers the matching engine. Body is optional; missing fields default to manual metadata. |
+| `/api/reconciliations/{id}/runs/latest` | GET | Retrieves the latest run and applies optional filters (`product`, `subProduct`, `entity`, repeated `status`). |
+| `/api/reconciliations/runs/{runId}` | GET | Retrieves a specific run, optionally filtered by the same query parameters as `runs/latest`. |
 
 **Sample: Trigger a run**
 
 _Request_
 ```http
 POST /api/reconciliations/42/run HTTP/1.1
-Content-Type: application/json
 Authorization: Bearer <token>
+Content-Type: application/json
 
 {
-  "triggerType": "MANUAL_API",
+  "triggerType": "MANUAL_UI",
   "correlationId": "OPS-2024-09-15-001",
   "comments": "Month-end validation",
   "initiatedBy": "analyst.jane"
@@ -79,75 +65,28 @@ Authorization: Bearer <token>
 ```
 
 _Response `200 OK`_
-```json
-{
-  "summary": {
-    "definitionId": 42,
-    "runId": 915,
-    "runDateTime": "2024-09-15T21:05:17Z",
-    "triggerType": "MANUAL_API",
-    "triggeredBy": "analyst.jane",
-    "triggerCorrelationId": "OPS-2024-09-15-001",
-    "triggerComments": "Month-end validation",
-    "matched": 15892,
-    "mismatched": 37,
-    "missing": 4
-  },
-  "analytics": {
-    "breaksByStatus": {"OPEN": 29, "PENDING_APPROVAL": 8},
-    "breaksByType": {"MISMATCH": 33, "MISSING_IN_SOURCE_A": 4},
-    "breaksByProduct": {"EQUITIES": 19, "FIXED_INCOME": 18},
-    "breaksByEntity": {"Fund-01": 12, "Fund-02": 25},
-    "openBreaksByAgeBucket": {"<1d": 21, "1-3d": 8},
-    "filteredBreakCount": 37,
-    "totalBreakCount": 37,
-    "totalMatchedCount": 15892
-  },
-  "breaks": [
-    {
-      "id": 5012,
-      "breakType": "MISMATCH",
-      "status": "PENDING_APPROVAL",
-      "product": "EQUITIES",
-      "subProduct": "US LISTED",
-      "entity": "Fund-01",
-      "submittedBy": "CN=analyst.jane,OU=Users,DC=corp,DC=example",
-      "allowedStatusTransitions": ["REJECTED", "CLOSED"],
-      "detectedAt": "2024-09-15T21:05:18Z",
-      "sourceA": {"transactionId": "TX-99321", "amount": 100000.0},
-      "sourceB": {"transactionId": "TX-99321", "amount": 95000.0},
-      "workflowAuditCount": 1,
-      "comments": []
-    }
-  ],
-  "filters": {
-    "products": ["EQUITIES", "FIXED_INCOME"],
-    "subProducts": ["US LISTED", "CORPORATE"],
-    "entities": ["Fund-01", "Fund-02"],
-    "statuses": ["OPEN", "PENDING_APPROVAL", "CLOSED"]
-  }
-}
-```
+The response body is a `RunDetailDto` object containing run summary, analytics, filtered break rows, and filter metadata, matching
+the structure returned by `GET /api/reconciliations/{id}/runs/latest`.
 
-**Sample: Fetch latest run with filters**
+#### 7.2.2 Break Search & Selection
+| Endpoint | Method | Description |
+| --- | --- | --- |
+| `/api/reconciliations/{id}/results` | GET | Cursor-paginated break search. Supports query parameters documented below. |
+| `/api/reconciliations/{id}/results/ids` | GET | Returns identifiers for all breaks matching the supplied filters (used for “select filtered”). |
 
-_Request_
-```http
-GET /api/reconciliations/42/runs/latest?product=EQUITIES&status=OPEN&status=PENDING_APPROVAL HTTP/1.1
-Authorization: Bearer <token>
-```
+Break search query parameters:
+- `fromDate` / `toDate` — Inclusive ISO dates interpreted in Asia/Singapore time (`YYYY-MM-DD`).
+- `runId` — Comma-separated run identifiers.
+- `runType` — Comma-separated `TriggerType` values (e.g., `MANUAL_UI,SCHEDULED_CRON`).
+- `status` — Comma-separated `BreakStatus` values.
+- `filter.<attribute>` — Column-level filters, where `<attribute>` matches a canonical field name or classification.
+- `operator.<attribute>` — Overrides the default equality operator using values from `FilterOperator` (e.g., `CONTAINS`).
+- `search` — Free-text search across break metadata.
+- `size` — Page size (defaults to 200, bounded to 5000).
+- `cursor` — Encoded token returned from a previous page.
+- `includeTotals` — `true` to request aggregate counts in the payload.
 
-_Response `200 OK`_: identical payload shape as the trigger response but scoped to filtered breaks only.
-
-**Sample: Paginated break results**
-
-_Request_
-```http
-GET /api/reconciliations/42/results?fromDate=2024-09-01&toDate=2024-09-30&size=200&status=OPEN HTTP/1.1
-Authorization: Bearer <token>
-```
-
-_Response `200 OK`_
+_Response shape_
 ```json
 {
   "rows": [
@@ -157,143 +96,98 @@ _Response `200 OK`_
       "runDateTime": "2024-09-20T13:10:42Z",
       "timezone": "Asia/Singapore",
       "triggerType": "SCHEDULED_CRON",
-      "breakItem": { "id": 91501, "status": "OPEN", "breakType": "MISMATCH", "classifications": {"product": "FX"}, ... },
-      "attributes": { "desk": "SG-APAC", "counterparty": "BARC" }
+      "breakItem": {
+        "id": 91501,
+        "breakType": "MISMATCH",
+        "status": "PENDING_APPROVAL",
+        "classifications": {"product": "FX"},
+        "allowedStatusTransitions": ["REJECTED", "CLOSED"],
+        "detectedAt": "2024-09-20T13:10:42Z",
+        "sources": {
+          "SOURCE_A": {"transactionId": "TX-99321", "amount": 100000.0},
+          "SOURCE_B": {"transactionId": "TX-99321", "amount": 95000.0}
+        },
+        "missingSources": [],
+        "comments": [],
+        "history": []
+      },
+      "attributes": {"subProduct": "US LISTED"}
     }
   ],
   "page": {
-    "nextCursor": "1726824642000::91501",
+    "cursor": "eyJpZCI6OTE1MDEsIm9mZnNldCI6MjAwfQ==",
     "hasMore": true,
-    "totalCount": 417
+    "totalCount": 37
   },
   "columns": [
     {
-      "key": "product",
-      "label": "Product",
-      "dataType": "string",
-      "operators": ["EQUALS", "CONTAINS", "STARTS_WITH"],
-      "sortable": true,
-      "pinnable": true
+      "field": "product",
+      "displayName": "Product",
+      "dataType": "STRING",
+      "filterable": true
     }
   ]
 }
 ```
 
-**Sample: Select-all filtered**
-
-_Request_
-```http
-GET /api/reconciliations/42/results/ids?fromDate=2024-09-01&toDate=2024-09-30&status=OPEN HTTP/1.1
-Authorization: Bearer <token>
-```
-
-_Response `200 OK`_
-```json
-{
-  "breakIds": [91501, 91502, 91518, 91533],
-  "totalCount": 417
-}
-```
-
-The caller can feed `breakIds` directly into `/api/breaks/bulk` to drive server-side bulk approval flows.
-
-### 7.3 Break Management
+#### 7.2.3 Break Operations
 | Endpoint | Method | Description |
 | --- | --- | --- |
-| `/api/breaks/{id}/comments` | POST | Append a timeline comment and optional action code to a break. |
-| `/api/breaks/{id}/status` | PATCH | Transition a break to `PENDING_APPROVAL`, `REJECTED`, or `CLOSED` (maker/checker enforced with role validation). |
-| `/api/breaks/bulk` | POST | Apply a shared status change and/or comment to multiple breaks. |
-| `/api/breaks/{id}/workflow-audit` | GET | Retrieve the immutable maker/checker audit trail for a break, including actor roles and comments. |
+| `/api/breaks/{id}/comments` | POST | Appends an audit comment to a break. Requires `comment` and an `action` code. |
+| `/api/breaks/{id}/status` | PATCH | Transitions a break to a new `BreakStatus`. Optional `comment` and `correlationId`. |
+| `/api/breaks/bulk` | POST | Applies a bulk action to multiple breaks. Requires `breakIds` plus a status change and/or comment. |
 
-**Sample: Comment on a break**
-
-_Request_
-```http
-POST /api/breaks/5012/comments HTTP/1.1
-Content-Type: application/json
-Authorization: Bearer <token>
-
-{
-  "comment": "Investigated variance with custodian, awaiting approval",
-  "action": "COMMENT"
-}
-```
-
-_Response `200 OK`_
-```json
-{
-  "id": 5012,
-  "breakType": "MISMATCH",
-  "status": "PENDING_APPROVAL",
-  "product": "EQUITIES",
-  "subProduct": "US LISTED",
-  "entity": "Fund-01",
-  "submittedBy": "CN=analyst.jane,OU=Users,DC=corp,DC=example",
-  "allowedStatusTransitions": ["REJECTED", "CLOSED"],
-  "detectedAt": "2024-09-15T21:05:18Z",
-  "sourceA": {"transactionId": "TX-99321", "amount": 100000.0},
-  "sourceB": {"transactionId": "TX-99321", "amount": 95000.0},
-  "workflowAuditCount": 1,
-  "comments": [
-    {
-      "id": 88291,
-      "actorDn": "CN=analyst.jane,OU=Users,DC=corp,DC=example",
-      "action": "COMMENT",
-      "comment": "Investigated variance with custodian, awaiting approval",
-      "createdAt": "2024-09-15T21:12:03Z"
-    }
-  ]
-}
-```
-
-**Sample: Bulk transition**
-
-_Request_
+**Sample: Bulk status change**
 ```http
 POST /api/breaks/bulk HTTP/1.1
-Content-Type: application/json
 Authorization: Bearer <token>
+Content-Type: application/json
 
 {
-  "breakIds": [5012, 5013, 5017],
+  "breakIds": [91501, 91502, 91503],
   "status": "PENDING_APPROVAL",
-  "comment": "Escalated for checker review",
-  "action": "BULK_ESCALATE"
+  "comment": "Month-end certification",
+  "correlationId": "OPS-2024-09-15-BULK"
 }
 ```
 
-_Response `200 OK`_: returns an array of updated `BreakItemDto` objects mirroring the structure above.
-
-### 7.4 Analyst Workspace APIs
+#### 7.2.4 Saved Views
 | Endpoint | Method | Description |
 | --- | --- | --- |
-| `/api/reconciliations/{id}/export-jobs` | GET | List export jobs queued by the caller for the specified reconciliation (newest first). |
-| `/api/reconciliations/{id}/export-jobs` | POST | Queue an asynchronous export job for the current filter set (`format`, `filters`, optional `fileNamePrefix`, `includeMetadata`). |
-| `/api/export-jobs/{jobId}` | GET | Retrieve the status of a specific export job (queued, processing, completed, failed). |
-| `/api/export-jobs/{jobId}/download` | GET | Download the generated export payload once the job reaches `COMPLETED`. |
-| `/api/reconciliations/{id}/saved-views` | GET | List the caller’s saved grid views ordered by `updatedAt`. |
-| `/api/reconciliations/{id}/saved-views` | POST | Create a new saved view (name, description, `settingsJson`, `shared`, `defaultView`). |
-| `/api/reconciliations/{id}/saved-views/{viewId}` | PUT | Update an existing saved view owned by the caller. |
-| `/api/reconciliations/{id}/saved-views/{viewId}` | DELETE | Delete a saved view owned by the caller. |
-| `/api/reconciliations/{id}/saved-views/{viewId}/default` | POST | Mark a saved view as the caller’s default (clearing the previous default). |
-| `/api/saved-views/shared/{token}` | GET | Resolve a shared saved view via public share token (read-only). |
+| `/api/reconciliations/{id}/saved-views` | GET | Lists saved grid layouts for the reconciliation owned by the caller. |
+| `/api/reconciliations/{id}/saved-views` | POST | Creates a saved view from the supplied `SavedViewRequest`. Returns `201 Created` with location header. |
+| `/api/reconciliations/{id}/saved-views/{viewId}` | PUT | Updates a saved view (name, description, sharing, default flag, JSON settings). |
+| `/api/reconciliations/{id}/saved-views/{viewId}` | DELETE | Deletes a saved view owned by the caller. |
+| `/api/reconciliations/{id}/saved-views/{viewId}/default` | POST | Marks the view as the caller’s default. |
+| `/api/saved-views/shared/{token}` | GET | Resolves a shared view token and returns the saved view payload if it exists. |
+
+Saved view payloads capture the entire grid state (column order, filters, density, etc.) as a JSON blob inside `settingsJson`.
+
+#### 7.2.5 Exports & Activity Feed
+| Endpoint | Method | Description |
+| --- | --- | --- |
+| `/api/exports/runs/{runId}` | GET | Streams an immediate XLSX export for a run using the active report template. |
+| `/api/reconciliations/{id}/export-jobs` | GET | Lists asynchronous dataset export jobs created by the caller (most recent first). |
+| `/api/reconciliations/{id}/export-jobs` | POST | Queues a dataset export. Accepts `format` (`CSV`, `JSONL`, `XLSX`), optional filters, and metadata options. |
+| `/api/export-jobs/{jobId}` | GET | Polls job status (`QUEUED`, `PROCESSING`, `COMPLETED`, `FAILED`). |
+| `/api/export-jobs/{jobId}/download` | GET | Downloads the generated file once the job status is `COMPLETED`. |
+| `/api/activity` | GET | Returns the most recent platform events (runs, workflow transitions, exports, configuration publishes). |
 
 **Sample: Queue an export job**
-
-_Request_
 ```http
 POST /api/reconciliations/42/export-jobs HTTP/1.1
-Content-Type: application/json
 Authorization: Bearer <token>
+Content-Type: application/json
 
 {
-  "format": "XLSX",
+  "format": "CSV",
   "filters": {
+    "status": ["OPEN"],
     "fromDate": ["2024-09-01"],
     "toDate": ["2024-09-30"],
-    "status": ["OPEN"]
+    "filter.product": ["FX"]
   },
-  "fileNamePrefix": "sept-open-breaks",
+  "fileNamePrefix": "cash-gl-september",
   "includeMetadata": true
 }
 ```
@@ -301,386 +195,164 @@ Authorization: Bearer <token>
 _Response `202 Accepted`_
 ```json
 {
-  "id": 884,
-  "jobType": "RESULT_DATASET",
-  "format": "XLSX",
+  "id": 512,
+  "definitionId": 42,
   "status": "QUEUED",
-  "fileName": "sept-open-breaks-2024-09-27T01-33-20.xlsx",
-  "contentHash": null,
+  "format": "CSV",
+  "jobType": "RESULT_DATASET",
+  "fileName": "cash-gl-september-20240930.csv",
   "rowCount": null,
-  "createdAt": "2024-09-27T01:33:20Z",
-  "completedAt": null,
-  "errorMessage": null
+  "createdAt": "2024-09-30T10:15:00Z",
+  "updatedAt": "2024-09-30T10:15:00Z"
 }
 ```
 
-Clients should poll `GET /api/export-jobs/{jobId}` and, once the job status is `COMPLETED`, call the download endpoint using the provided filename.
+### 7.3 Administrative APIs
+Administrative endpoints require the caller to hold the `RECON_ADMIN` role (granted via LDAP group membership). These APIs power
+the configuration studio, metadata exports, and ingestion tooling.
 
-**Sample: Fetch workflow audit**
-
-_Request_
-```http
-GET /api/breaks/5012/workflow-audit HTTP/1.1
-Authorization: Bearer <token>
-```
-
-_Response `200 OK`_
-```json
-[
-  {
-    "id": 70001,
-    "breakId": 5012,
-    "previousStatus": "OPEN",
-    "newStatus": "PENDING_APPROVAL",
-    "actorDn": "CN=analyst.jane,OU=Users,DC=corp,DC=example",
-    "actorRole": "MAKER",
-    "comment": "Escalating for approval",
-    "correlationId": "OPS-2024-09-15-001",
-    "createdAt": "2024-09-15T21:12:03Z"
-  },
-  {
-    "id": 70002,
-    "breakId": 5012,
-    "previousStatus": "PENDING_APPROVAL",
-    "newStatus": "REJECTED",
-    "actorDn": "CN=checker.dave,OU=Users,DC=corp,DC=example",
-    "actorRole": "CHECKER",
-    "comment": "Variance still unexplained",
-    "correlationId": "OPS-2024-09-15-001",
-    "createdAt": "2024-09-15T21:20:11Z"
-  }
-]
-```
-
-### 7.5 Administration
+#### 7.3.1 Reconciliation Authoring
 | Endpoint | Method | Description |
 | --- | --- | --- |
-| `/api/admin/reconciliations` | GET | List reconciliation definitions with filters (`status`, `owner`, `search`, `updatedAfter`, `updatedBefore`) and pagination (`page`, `size`). |
-| `/api/admin/reconciliations` | POST | Create a reconciliation definition (sources, canonical fields, reports, access entries). Requires `ROLE_RECON_ADMIN`. |
-| `/api/admin/reconciliations/{id}` | GET | Retrieve the full configuration graph for authoring workflows. |
-| `/api/admin/reconciliations/{id}` | PUT | Replace a configuration graph. Include the latest `version` to satisfy optimistic locking. |
-| `/api/admin/reconciliations/{id}` | PATCH | Toggle maker-checker, notes, or lifecycle status without resubmitting nested metadata. |
-| `/api/admin/reconciliations/{id}` | DELETE | Soft-retire a reconciliation definition and hide it from analyst views. |
-| `/api/admin/reconciliations/{id}/schema` | GET | Export canonical schema metadata for ETL teams and automation scripts. |
-| `/api/admin/reconciliations/{id}/sources/{code}/batches` | POST | Upload a source data batch via multipart form-data. Accepts file payload plus adapter metadata. |
-| `/api/admin/transformations/validate` | POST | Validate a single transformation definition (Groovy, Excel formula, or function pipeline) without persisting changes. |
-| `/api/admin/transformations/preview` | POST | Apply one or more transformations to sample data and return the transformed value for UI previews. |
-| `/api/admin/transformations/samples` | GET | Retrieve the most recent raw and canonical payloads for a source (query params: `definitionId`, `sourceCode`, `limit`). |
-| `/api/admin/transformations/groovy/test` | POST | Execute a Groovy script against an ad-hoc sample (`{ script, value, rawRecord }`) and return the computed result. |
+| `/api/admin/reconciliations` | GET | Paginates reconciliation definitions. Supports `status`, `owner`, `updatedAfter`, `updatedBefore`, `search`, `page`, `size`. |
+| `/api/admin/reconciliations/{id}` | GET | Retrieves a specific reconciliation definition with sources, canonical fields, reports, and access entries. |
+| `/api/admin/reconciliations` | POST | Creates a new reconciliation from an `AdminReconciliationRequest`. Returns `201 Created`. |
+| `/api/admin/reconciliations/{id}` | PUT | Replaces the reconciliation definition. Requires a full payload (including sources and canonical fields). |
+| `/api/admin/reconciliations/{id}` | PATCH | Applies a partial update (e.g., status transitions, ownership changes). |
+| `/api/admin/reconciliations/{id}` | DELETE | Retires the reconciliation (soft delete). |
+| `/api/admin/reconciliations/{id}/schema` | GET | Exports a JSON snapshot of the reconciliation metadata. |
+| `/api/admin/reconciliations/{id}/sources/{sourceCode}/batches` | POST | Uploads a source batch. Multipart request with `metadata` (JSON) and `file` (payload). |
 
-**Transformation helper endpoints**
-
-Use the helper endpoints while authoring transformations in the admin workspace:
-
-- `POST /api/admin/transformations/validate` — body accepts `{ "type": "GROOVY_SCRIPT" | "EXCEL_FORMULA" | "FUNCTION_PIPELINE", "expression": "...", "configuration": "..." }` and returns `{ "valid": true/false, "message": "..." }`.
-- `POST /api/admin/transformations/preview` — body accepts `{ "value": "sample", "rawRecord": { "column": "value" }, "transformations": [{ ... }] }` and responds with `{ "result": "transformed" }`.
-- `GET /api/admin/transformations/samples` — query with `definitionId`, `sourceCode`, and optional `limit` to hydrate the UI tester with the latest raw rows.
-- `POST /api/admin/transformations/groovy/test` — pass `{ "script": "...", "value": any, "rawRecord": { ... } }` to run a Groovy script in the sandbox and receive `{ "result": any }`.
-
-**Sample: List reconciliation definitions**
-
-_Request_
-```http
-GET /api/admin/reconciliations?status=PUBLISHED&owner=operations&page=0&size=10 HTTP/1.1
-Authorization: Bearer <token>
-```
-
-_Response `200 OK`_
-```json
-{
-  "items": [
-    {
-      "id": 101,
-      "code": "CUSTODY_GL",
-      "name": "Custody vs GL",
-      "status": "PUBLISHED",
-      "makerCheckerEnabled": true,
-      "updatedAt": "2024-05-13T08:25:00Z",
-      "owner": "Custody Ops",
-      "updatedBy": "admin.user",
-      "lastIngestionAt": "2024-05-13T08:00:00Z"
-    }
-  ],
-  "totalElements": 12,
-  "totalPages": 2,
-  "page": 0,
-  "size": 10
-}
-```
-
-**Sample: Create a reconciliation definition**
-
-_Request_
+**Sample: Create a reconciliation**
 ```http
 POST /api/admin/reconciliations HTTP/1.1
 Authorization: Bearer <token>
 Content-Type: application/json
 
 {
-  "code": "CUSTODY_GL",
-  "name": "Custody vs GL",
-  "description": "Matches daily custody positions with the general ledger",
-  "owner": "Custody Ops",
+  "code": "CASH_GL",
+  "name": "Cash vs GL",
+  "description": "Matches nostro balances against the general ledger",
+  "owner": "Finance Ops",
   "makerCheckerEnabled": true,
-  "notes": "Pilot with the custody operations team",
-  "status": "DRAFT",
-  "autoTriggerEnabled": true,
-  "autoTriggerCron": "0 2 * * *",
-  "autoTriggerTimezone": "UTC",
-  "autoTriggerGraceMinutes": 30,
+  "notes": "Cutover wave 2",
+  "status": "PUBLISHED",
+  "autoTriggerEnabled": false,
+  "autoTriggerCron": null,
+  "autoTriggerTimezone": null,
+  "autoTriggerGraceMinutes": null,
   "sources": [
     {
-      "code": "CUSTODY_FEED",
-      "displayName": "Custody CSV",
-      "adapterType": "CSV_FILE",
+      "code": "CASH",
+      "displayName": "Cash staging feed",
+      "adapterType": "CSV",
       "anchor": true,
-      "description": "Daily custodial export",
-      "arrivalExpectation": "Weekdays by 18:00",
-      "arrivalTimezone": "America/New_York",
-      "arrivalSlaMinutes": 60
+      "description": "Daily nostro balances",
+      "adapterOptions": "{\"delimiter\":\",\"}"
     },
     {
-      "code": "GL_LEDGER",
+      "code": "GL",
       "displayName": "General Ledger",
-      "adapterType": "DATABASE",
+      "adapterType": "JDBC",
       "anchor": false,
-      "description": "Ledger staging table"
+      "connectionConfig": "{\"url\":\"jdbc:mariadb://gl.example.com:3306/ledger\"}"
     }
   ],
   "canonicalFields": [
     {
-      "canonicalName": "tradeId",
-      "displayName": "Trade ID",
+      "canonicalName": "accountNumber",
+      "displayName": "Account",
       "role": "KEY",
       "dataType": "STRING",
       "comparisonLogic": "EXACT_MATCH",
-      "formattingHint": null,
       "required": true,
       "mappings": [
-        {"sourceCode": "CUSTODY_FEED", "sourceColumn": "trade_id", "required": true},
-        {"sourceCode": "GL_LEDGER", "sourceColumn": "trade_id", "required": true}
+        { "sourceCode": "CASH", "sourceColumn": "account_id", "required": true },
+        { "sourceCode": "GL", "sourceColumn": "account_id", "required": true }
+      ]
+    },
+    {
+      "canonicalName": "balance",
+      "displayName": "Balance",
+      "role": "COMPARE",
+      "dataType": "DECIMAL",
+      "comparisonLogic": "NUMERIC_THRESHOLD",
+      "thresholdPercentage": 0.5,
+      "required": true,
+      "mappings": [
+        { "sourceCode": "CASH", "sourceColumn": "balance" },
+        { "sourceCode": "GL", "sourceColumn": "balance" }
       ]
     }
   ],
-  "reportTemplates": [],
-  "accessControlEntries": [
+  "reportTemplates": [
     {
-      "ldapGroupDn": "CN=RECON_ADMIN,OU=Groups,DC=corp,DC=example",
-      "role": "MAKER",
-      "notifyOnPublish": true,
-      "notifyOnIngestionFailure": true,
-      "notificationChannel": "recon-admins@example.com"
-    }
-  ]
-}
-```
-
-_Response `201 Created`_
-```json
-{
-  "id": 101,
-  "code": "CUSTODY_GL",
-  "name": "Custody vs GL",
-  "description": "Matches daily custody positions with the general ledger",
-  "status": "DRAFT",
-  "makerCheckerEnabled": true,
-  "owner": "Custody Ops",
-  "autoTriggerEnabled": true,
-  "autoTriggerCron": "0 2 * * *",
-  "autoTriggerTimezone": "UTC",
-  "version": 0,
-  "sources": [
-    {
-      "id": 201,
-      "code": "CUSTODY_FEED",
-      "adapterType": "CSV_FILE",
-      "anchor": true,
-      "arrivalExpectation": "Weekdays by 18:00",
-      "arrivalTimezone": "America/New_York",
-      "arrivalSlaMinutes": 60
-    }
-  ],
-  "canonicalFields": [
-    {
-      "canonicalName": "tradeId",
-      "displayName": "Trade ID",
-      "role": "KEY",
-      "formattingHint": null,
-      "mappings": [
+      "name": "Cash vs GL Exceptions",
+      "description": "Break-only export",
+      "includeMatched": false,
+      "includeMismatched": true,
+      "includeMissing": true,
+      "highlightDifferences": true,
+      "columns": [
         {
-          "sourceCode": "CUSTODY_FEED",
-          "sourceColumn": "trade_id",
-          "defaultValue": null,
-          "ordinalPosition": 0,
-          "required": true,
-          "transformations": [
-            {
-              "id": 5001,
-              "type": "FUNCTION_PIPELINE",
-              "expression": null,
-              "configuration": "{\"steps\":[{\"function\":\"TRIM\"},{\"function\":\"TO_UPPERCASE\"}]}",
-              "displayOrder": 0,
-              "active": true
-            }
-          ]
+          "header": "Account",
+          "source": "BREAK_METADATA",
+          "sourceField": "accountNumber",
+          "displayOrder": 1,
+          "highlightDifferences": false
         },
         {
-          "sourceCode": "GL_LEDGER",
-          "sourceColumn": "trade_id",
-          "defaultValue": null,
-          "ordinalPosition": 0,
-          "required": true,
-          "transformations": [
-            {
-              "id": 5002,
-              "type": "GROOVY_SCRIPT",
-              "expression": "return value?.trim()",
-              "configuration": null,
-              "displayOrder": 0,
-              "active": true
-            }
-          ]
+          "header": "Cash Balance",
+          "source": "SOURCE_A",
+          "sourceField": "balance",
+          "displayOrder": 2,
+          "highlightDifferences": true
         }
       ]
     }
-  ]
-}
-```
-
-**Sample: Export schema**
-
-_Request_
-```http
-GET /api/admin/reconciliations/101/schema HTTP/1.1
-Authorization: Bearer <token>
-```
-
-_Response `200 OK`_
-```json
-{
-  "definitionId": 101,
-  "code": "CUSTODY_GL",
-  "name": "Custody vs GL",
-  "sources": [
+  ],
+  "accessControlEntries": [
     {
-      "code": "CUSTODY_FEED",
-      "adapterType": "CSV_FILE",
-      "anchor": true,
-      "connectionConfig": null,
-      "arrivalExpectation": "Weekdays by 18:00",
-      "arrivalTimezone": "America/New_York",
-      "arrivalSlaMinutes": 60,
-      "adapterOptions": null,
-      "ingestionEndpoint": "/api/admin/reconciliations/101/sources/CUSTODY_FEED/batches"
+      "ldapGroupDn": "CN=RECON_MAKERS,OU=Groups,DC=corp,DC=example",
+      "role": "MAKER",
+      "product": "Payments",
+      "notifyOnPublish": true,
+      "notifyOnIngestionFailure": true,
+      "notificationChannel": "teams://finance-ops"
     },
     {
-      "code": "GL_LEDGER",
-      "adapterType": "DATABASE",
-      "anchor": false,
-      "connectionConfig": null,
-      "arrivalExpectation": null,
-      "arrivalTimezone": null,
-      "arrivalSlaMinutes": null,
-      "adapterOptions": null,
-      "ingestionEndpoint": "/api/admin/reconciliations/101/sources/GL_LEDGER/batches"
-    }
-  ],
-  "fields": [
-    {
-      "displayName": "Trade ID",
-      "canonicalName": "tradeId",
-      "role": "KEY",
-      "dataType": "STRING",
-      "comparisonLogic": "EXACT_MATCH",
-      "formattingHint": null,
-      "required": true,
-      "mappings": [
-        {"sourceCode": "CUSTODY_FEED", "sourceColumn": "trade_id"},
-        {"sourceCode": "GL_LEDGER", "sourceColumn": "trade_id"}
-      ]
+      "ldapGroupDn": "CN=RECON_CHECKERS,OU=Groups,DC=corp,DC=example",
+      "role": "CHECKER"
     }
   ]
 }
 ```
 
-**Validation rules**
-
-- Source codes must be unique and exactly one source must be flagged as the anchor.
-- Canonical field names must be unique, each field requires at least one mapping, and at least one field must use the `KEY` role.
-- Numeric threshold comparisons demand a non-negative `thresholdPercentage`; other comparison types must omit the value.
-- Report template names are deduplicated per reconciliation; access-control entries remain optional.
-- Optimistic locking is enforced through the `version` attribute on `PUT` operations. Conflicts return `409 Conflict`.
-
-**Sample: Upload a batch using the CSV adapter**
-
-_Request_
-```http
-POST /api/admin/reconciliations/101/sources/CUSTODY_FEED/batches HTTP/1.1
-Authorization: Bearer <token>
-Content-Type: multipart/form-data; boundary=----BOUNDARY
-
-------BOUNDARY
-Content-Disposition: form-data; name="metadata"
-Content-Type: application/json
-
-{
-  "adapterType": "CSV_FILE",
-  "label": "custody-2024-04-01",
-  "options": {"delimiter": ","}
-}
-------BOUNDARY
-Content-Disposition: form-data; name="file"; filename="custody.csv"
-Content-Type: text/csv
-
-trade_id,net_amount,currency
-T-1001,125000.00,USD
-T-1002,88000.50,USD
-------BOUNDARY--
+**Sample: Upload a batch**
+```bash
+curl -X POST "https://recon.example.com/api/admin/reconciliations/42/sources/CASH/batches" \
+  -H "Authorization: Bearer $TOKEN" \
+  -F 'metadata={"adapterType":"CSV","label":"2024-09-30","options":{"delimiter":","}};type=application/json' \
+  -F "file=@cash_20240930.csv;type=text/csv"
 ```
 
-_Response `200 OK`_
-```json
-{
-  "id": 301,
-  "label": "custody-2024-04-01",
-  "status": "COMPLETE",
-  "recordCount": 2,
-  "checksum": "2e9bf0cb-7f41-4d7a-97bd-7d99179c1e8a",
-  "ingestedAt": "2024-04-01T08:15:00Z"
-}
-```
-
-### 7.5 Reporting & Activity
+#### 7.3.2 Transformation Toolkit
 | Endpoint | Method | Description |
 | --- | --- | --- |
-| `/api/exports/runs/{runId}` | GET | Stream an Excel workbook for the specified run using the active report template. |
-| `/api/activity` | GET | Retrieve the 50 most recent system activity entries visible to the caller. |
+| `/api/admin/transformations/validate` | POST | Validates canonical field transformation chains before publishing. |
+| `/api/admin/transformations/preview` | POST | Applies transformations to sample data and returns a preview payload. |
+| `/api/admin/transformations/groovy/test` | POST | Executes Groovy scripts against synthetic inputs to validate custom logic. |
+| `/api/admin/transformations/samples` | GET | Fetches source data samples for a definition/source combination. Query params: `definitionId`, `sourceCode`, `limit`. |
 
-**Sample: Activity feed**
+Validation and preview endpoints accept payloads describing the canonical field, transformations, and sample input values. If a
+transformation fails, the API responds with `400 Bad Request` and a descriptive error message.
 
-_Response `200 OK`_
-```json
-[
-  {
-    "id": 3391,
-    "eventType": "RECONCILIATION_RUN",
-    "details": "Run 915 completed successfully",
-    "recordedAt": "2024-09-15T21:05:22Z"
-  },
-  {
-    "id": 3392,
-    "eventType": "BREAK_STATUS_CHANGE",
-    "details": "Break 5012 moved to PENDING_APPROVAL by CN=analyst.jane,OU=Users,DC=corp,DC=example",
-    "recordedAt": "2024-09-15T21:12:05Z"
-  }
-]
-```
+### 7.4 Error Handling & Conventions
+- **HTTP 400** — Validation failures (missing fields, malformed query parameters, transformation errors).
+- **HTTP 401** — Missing or invalid JWT token.
+- **HTTP 403** — Caller lacks the required role or group membership for the resource.
+- **HTTP 404** — Resource not found (e.g., reconciliation, export job, saved view token).
+- **HTTP 409** — Export job download attempted before completion.
+- **HTTP 500** — Unexpected server errors (logged with correlation identifiers in the activity feed).
 
-> 📄 **Excel exports:** The `/api/exports/runs/{runId}` endpoint streams binary content (`application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`). Angular triggers it via `window.open` or `HttpClient` with `responseType: 'blob'` and prompts the user to download `reconciliation-run-<id>.xlsx`.
-
-### 7.6 Error Handling & Status Codes
-- **401 Unauthorized:** Returned when the JWT is missing, expired, or invalid.
-- **403 Forbidden:** Raised when the authenticated user lacks the required LDAP group for the requested reconciliation or activity feed.
-- **404 Not Found:** Emitted when a reconciliation, run, or break ID does not exist or is not visible to the caller.
-- **422 Unprocessable Entity:** Validation failures on comment, status, or bulk update payloads (e.g., empty comment, missing work for bulk update).
-- **500 Internal Server Error:** Unexpected exceptions are logged with correlation IDs; check the activity feed and application logs for context.
+All responses include a stable `message` field when an error is raised so clients can surface actionable feedback to end users.

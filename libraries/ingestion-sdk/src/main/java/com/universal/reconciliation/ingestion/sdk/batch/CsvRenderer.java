@@ -11,6 +11,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -115,6 +116,51 @@ final class CsvRenderer {
             printRow(printer, row, headers);
         }
         printer.flush();
+    }
+
+    static void streamIterator(Iterator<Map<String, Object>> iterator, List<String> explicitColumns, Writer writer)
+            throws IOException {
+        AutoCloseable closeable = iterator instanceof AutoCloseable ? (AutoCloseable) iterator : null;
+        List<String> headers = explicitColumns != null && !explicitColumns.isEmpty() ? new ArrayList<>(explicitColumns) : null;
+        CSVPrinter printer;
+        try {
+            if (iterator.hasNext()) {
+                Map<String, Object> first = normalizeKeys(iterator.next());
+                if (headers == null) {
+                    headers = determineHeadersFromRow(first, null);
+                }
+                printer = createPrinter(writer, headers);
+                printRow(printer, first, headers);
+            } else {
+                headers = headers != null ? headers : List.of();
+                printer = createPrinter(writer, headers);
+            }
+            while (iterator.hasNext()) {
+                Map<String, Object> row = normalizeKeys(iterator.next());
+                printRow(printer, row, headers);
+            }
+            printer.flush();
+        } catch (RuntimeException | IOException e) {
+            if (closeable != null) {
+                try {
+                    closeable.close();
+                } catch (Exception suppressed) {
+                    if (e instanceof IOException ioException) {
+                        ioException.addSuppressed(suppressed);
+                    } else {
+                        e.addSuppressed(suppressed);
+                    }
+                }
+            }
+            throw e;
+        }
+        if (closeable != null) {
+            try {
+                closeable.close();
+            } catch (Exception e) {
+                throw new IOException("Failed to close record iterator", e);
+            }
+        }
     }
 
     private static List<String> determineHeaders(List<Map<String, Object>> rows, List<String> explicit) {

@@ -50,6 +50,10 @@ public final class IngestionBatch {
         return label;
     }
 
+    /**
+     * Materializes the payload into memory. Prefer {@link #writePayload(OutputStream)} when working with large
+     * batches or streaming adapters to avoid buffering gigabyte-sized files into a single byte array.
+     */
     public byte[] getPayload() {
         if (payload != null) {
             return payload;

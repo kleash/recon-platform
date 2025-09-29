@@ -37,6 +37,26 @@ The runner performs the following steps:
   into a `GL` CSV batch.
 - Uses `IngestionPipeline` to stream both batches through the ingestion API.
 
+### Multi-format ingestion samples
+
+Enable the `format-samples` Spring profile to preview the new `StructuredDataBatchBuilder` helpers
+for JSON arrays, Excel worksheets, and delimited text files. The profile logs a CSV preview for each
+input format without submitting the batches to the ingestion API:
+
+```bash
+java -jar examples/ingestion-sdk-example/target/ingestion-sdk-example-0.1.0.jar \
+  --spring.profiles.active=format-samples \
+  --reconciliation.ingestion.base-url=http://localhost:8080 \
+  --reconciliation.ingestion.username=admin1 \
+  --reconciliation.ingestion.password=password
+```
+
+The profile synthesizes each dataset at runtime so the repository remains free of sample payloads:
+
+- JSON cash ledger array – emitted from an in-memory string.
+- Generated custodian workbook – Excel sheet named `Positions` created with Apache POI.
+- Pipe-delimited trade blotter – emitted from an in-memory string.
+
 ## Integration validation
 
 `examples/integration-harness/scripts/run_ingestion_library_e2e.sh` provisions the platform,

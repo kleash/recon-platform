@@ -1,7 +1,11 @@
 package com.universal.reconciliation.config;
 
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Min;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
+import org.springframework.validation.annotation.Validated;
 
 /**
  * Configuration properties controlling the OpenAI integration. Defaults are
@@ -10,6 +14,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @ConfigurationProperties(prefix = "app.integrations.openai")
+@Validated
 public class OpenAiProperties {
 
     /** API key used when calling the OpenAI REST API. */
@@ -22,15 +27,20 @@ public class OpenAiProperties {
     private String defaultModel = "gpt-4o-mini";
 
     /** Default temperature applied to completions unless overridden. */
+    @DecimalMin(value = "0.0", inclusive = true)
+    @DecimalMax(value = "2.0", inclusive = true)
     private double defaultTemperature = 0.0d;
 
     /** Default maximum output tokens. */
+    @Min(1)
     private int defaultMaxOutputTokens = 800;
 
     /** Maximum number of characters forwarded from a document into prompts. */
+    @Min(1)
     private int documentCharacterLimit = 15000;
 
     /** Number of characters preserved in the metadata preview snippet. */
+    @Min(1)
     private int metadataPreviewCharacters = 1200;
 
     public String getApiKey() {
@@ -66,9 +76,10 @@ public class OpenAiProperties {
     }
 
     public void setDefaultTemperature(double defaultTemperature) {
-        if (defaultTemperature >= 0.0d) {
-            this.defaultTemperature = defaultTemperature;
+        if (defaultTemperature < 0.0d || defaultTemperature > 2.0d) {
+            throw new IllegalArgumentException("defaultTemperature must be between 0.0 and 2.0 inclusive");
         }
+        this.defaultTemperature = defaultTemperature;
     }
 
     public int getDefaultMaxOutputTokens() {
@@ -76,9 +87,10 @@ public class OpenAiProperties {
     }
 
     public void setDefaultMaxOutputTokens(int defaultMaxOutputTokens) {
-        if (defaultMaxOutputTokens > 0) {
-            this.defaultMaxOutputTokens = defaultMaxOutputTokens;
+        if (defaultMaxOutputTokens <= 0) {
+            throw new IllegalArgumentException("defaultMaxOutputTokens must be greater than zero");
         }
+        this.defaultMaxOutputTokens = defaultMaxOutputTokens;
     }
 
     public int getDocumentCharacterLimit() {
@@ -86,9 +98,10 @@ public class OpenAiProperties {
     }
 
     public void setDocumentCharacterLimit(int documentCharacterLimit) {
-        if (documentCharacterLimit > 0) {
-            this.documentCharacterLimit = documentCharacterLimit;
+        if (documentCharacterLimit <= 0) {
+            throw new IllegalArgumentException("documentCharacterLimit must be greater than zero");
         }
+        this.documentCharacterLimit = documentCharacterLimit;
     }
 
     public int getMetadataPreviewCharacters() {
@@ -96,9 +109,10 @@ public class OpenAiProperties {
     }
 
     public void setMetadataPreviewCharacters(int metadataPreviewCharacters) {
-        if (metadataPreviewCharacters > 0) {
-            this.metadataPreviewCharacters = metadataPreviewCharacters;
+        if (metadataPreviewCharacters <= 0) {
+            throw new IllegalArgumentException("metadataPreviewCharacters must be greater than zero");
         }
+        this.metadataPreviewCharacters = metadataPreviewCharacters;
     }
 }
 

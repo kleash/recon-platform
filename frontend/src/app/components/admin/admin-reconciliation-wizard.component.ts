@@ -896,65 +896,6 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     });
   }
 
-  private parseLlmConfig<T extends Record<string, unknown>>(
-    raw: string | null | undefined,
-    defaults: T,
-    converters: Partial<Record<keyof T, (value: unknown) => T[keyof T]>>,
-    warnContext: string,
-    parseErrorFallback?: (raw: string) => T
-  ): T {
-    if (!raw) {
-      return { ...defaults };
-    }
-    try {
-      const parsed = JSON.parse(raw) as Record<string, unknown>;
-      const result: T = { ...defaults };
-      (Object.keys(defaults) as Array<keyof T>).forEach((key) => {
-        const rawValue = parsed[key as string];
-        if (rawValue === undefined || rawValue === null) {
-          return;
-        }
-        const converter = converters[key];
-        const converted = converter
-          ? (converter(rawValue) as T[keyof T])
-          : (rawValue as T[keyof T]);
-        result[key] = converted as T[keyof T];
-      });
-      return result;
-    } catch (error) {
-      console.warn(warnContext, error);
-      if (parseErrorFallback) {
-        return parseErrorFallback(raw);
-      }
-      return { ...defaults };
-    }
-  }
-
-  private buildLlmConfigPayload<T extends Record<string, unknown>>(
-    value: T,
-    descriptors: Array<{
-      key: keyof T;
-      include: (fieldValue: T[keyof T]) => boolean;
-      transform?: (fieldValue: T[keyof T]) => unknown;
-    }>,
-    emptyValue: string | null
-  ): string | null {
-    const payload: Record<string, unknown> = {};
-    descriptors.forEach((descriptor) => {
-      const key = descriptor.key;
-      const fieldValue = value[key];
-      if (descriptor.include(fieldValue as T[keyof T])) {
-        payload[key as string] = descriptor.transform
-          ? descriptor.transform(fieldValue as T[keyof T])
-          : (fieldValue as unknown);
-      }
-    });
-    if (Object.keys(payload).length === 0) {
-      return emptyValue;
-    }
-    return JSON.stringify(payload, null, 2);
-  }
-
   private hasText(value?: string | null): value is string {
     return value !== undefined && value !== null && value.trim().length > 0;
   }
@@ -1015,6 +956,78 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     }
   }
 
+  private parseLlmAdapterOptions(raw?: string | null): LlmAdapterOptionsFormValue {
+    const defaults: LlmAdapterOptionsFormValue = {
+      model: '',
+      promptTemplate: '',
+      extractionSchema: '',
+      recordPath: '',
+      temperature: null,
+      maxOutputTokens: null
+    };
+    if (!raw) {
+      return { ...defaults };
+    }
+    try {
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      const result: LlmAdapterOptionsFormValue = { ...defaults };
+      if (parsed.model !== undefined && parsed.model !== null) {
+        result.model = this.coerceString(parsed.model);
+      }
+      if (parsed.promptTemplate !== undefined && parsed.promptTemplate !== null) {
+        result.promptTemplate = this.coerceString(parsed.promptTemplate);
+      }
+      if (parsed.extractionSchema !== undefined && parsed.extractionSchema !== null) {
+        result.extractionSchema = this.stringifyMaybeJson(parsed.extractionSchema);
+      }
+      if (parsed.recordPath !== undefined && parsed.recordPath !== null) {
+        result.recordPath = this.coerceString(parsed.recordPath);
+      }
+      if (parsed.temperature !== undefined && parsed.temperature !== null) {
+        result.temperature = this.coerceNumber(parsed.temperature);
+      }
+      if (parsed.maxOutputTokens !== undefined && parsed.maxOutputTokens !== null) {
+        result.maxOutputTokens = this.coerceInteger(parsed.maxOutputTokens);
+      }
+      return result;
+    } catch (error) {
+      console.warn('Failed to parse LLM adapter options', error);
+      return {
+        ...defaults,
+        promptTemplate: raw ?? ''
+      };
+    }
+  }
+
+  private buildLlmAdapterOptionsJson(value: LlmAdapterOptionsFormValue): string {
+    const payload: Record<string, unknown> = {};
+    if (this.hasText(value.model)) {
+      payload.model = value.model.trim();
+    }
+    if (this.hasText(value.promptTemplate)) {
+      payload.promptTemplate = value.promptTemplate;
+    }
+    if (this.hasText(value.recordPath)) {
+      payload.recordPath = value.recordPath.trim();
+    }
+    if (this.isNumber(value.temperature)) {
+      payload.temperature = value.temperature;
+    }
+    if (this.isNumber(value.maxOutputTokens)) {
+      payload.maxOutputTokens = value.maxOutputTokens;
+    }
+    if (this.hasText(value.extractionSchema)) {
+      payload.extractionSchema = this.parseJsonOrWarn(
+        value.extractionSchema,
+        'LLM extraction schema is not valid JSON; storing raw string'
+      );
+    }
+    if (Object.keys(payload).length === 0) {
+      return '';
+    }
+    return JSON.stringify(payload, null, 2);
+  }
+
   private setupLlmAdapterOptions(
     group: FormGroup,
     adapterOptions: string | null,
@@ -1051,73 +1064,6 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       const json = this.buildLlmAdapterOptionsJson(value as LlmAdapterOptionsFormValue);
       adapterOptionsControl?.setValue(json, { emitEvent: false });
     });
-  }
-
-  private parseLlmAdapterOptions(raw?: string | null): LlmAdapterOptionsFormValue {
-    const defaults: LlmAdapterOptionsFormValue = {
-      model: '',
-      promptTemplate: '',
-      extractionSchema: '',
-      recordPath: '',
-      temperature: null,
-      maxOutputTokens: null
-    };
-    return this.parseLlmConfig<LlmAdapterOptionsFormValue>(
-      raw,
-      defaults,
-      {
-        model: (value) => this.coerceString(value),
-        promptTemplate: (value) => this.coerceString(value),
-        extractionSchema: (value) => this.stringifyMaybeJson(value),
-        recordPath: (value) => this.coerceString(value),
-        temperature: (value) => this.coerceNumber(value),
-        maxOutputTokens: (value) => this.coerceInteger(value)
-      },
-      'Failed to parse LLM adapter options',
-      (rawText) => ({
-        ...defaults,
-        promptTemplate: rawText ?? ''
-      })
-    );
-  }
-
-  private buildLlmAdapterOptionsJson(value: LlmAdapterOptionsFormValue): string {
-    return (
-      this.buildLlmConfigPayload<LlmAdapterOptionsFormValue>(
-        value,
-        [
-          {
-            key: 'model',
-            include: (field) => this.hasText(field as string | null),
-            transform: (field) => (field as string).trim()
-          },
-          {
-            key: 'promptTemplate',
-            include: (field) => this.hasText(field as string | null)
-          },
-          {
-            key: 'recordPath',
-            include: (field) => this.hasText(field as string | null),
-            transform: (field) => (field as string).trim()
-          },
-          {
-            key: 'temperature',
-            include: (field) => this.isNumber(field as number | null | undefined)
-          },
-          {
-            key: 'maxOutputTokens',
-            include: (field) => this.isNumber(field as number | null | undefined)
-          },
-          {
-            key: 'extractionSchema',
-            include: (field) => this.hasText(field as string | null),
-            transform: (field) =>
-              this.parseJsonOrWarn(field as string, 'LLM extraction schema is not valid JSON; storing raw string')
-          }
-        ],
-        ''
-      ) ?? ''
-    );
   }
 
   private stringifyMaybeJson(schema: unknown): string {
@@ -1285,24 +1231,41 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       maxOutputTokens: null,
       includeRawRecord: true
     };
-    return this.parseLlmConfig<LlmTransformationConfigFormValue>(
-      configuration,
-      defaults,
-      {
-        promptTemplate: (value) => this.coerceString(value),
-        jsonSchema: (value) => this.stringifyMaybeJson(value),
-        resultPath: (value) => this.coerceString(value),
-        model: (value) => this.coerceString(value),
-        temperature: (value) => this.coerceNumber(value),
-        maxOutputTokens: (value) => this.coerceInteger(value),
-        includeRawRecord: (value) => this.coerceBoolean(value, defaults.includeRawRecord)
-      },
-      'Failed to parse LLM transformation configuration',
-      (rawText) => ({
+    if (!configuration) {
+      return { ...defaults };
+    }
+    try {
+      const parsed = JSON.parse(configuration) as Record<string, unknown>;
+      const result: LlmTransformationConfigFormValue = { ...defaults };
+      if (parsed.promptTemplate !== undefined && parsed.promptTemplate !== null) {
+        result.promptTemplate = this.coerceString(parsed.promptTemplate);
+      }
+      if (parsed.jsonSchema !== undefined && parsed.jsonSchema !== null) {
+        result.jsonSchema = this.stringifyMaybeJson(parsed.jsonSchema);
+      }
+      if (parsed.resultPath !== undefined && parsed.resultPath !== null) {
+        result.resultPath = this.coerceString(parsed.resultPath);
+      }
+      if (parsed.model !== undefined && parsed.model !== null) {
+        result.model = this.coerceString(parsed.model);
+      }
+      if (parsed.temperature !== undefined && parsed.temperature !== null) {
+        result.temperature = this.coerceNumber(parsed.temperature);
+      }
+      if (parsed.maxOutputTokens !== undefined && parsed.maxOutputTokens !== null) {
+        result.maxOutputTokens = this.coerceInteger(parsed.maxOutputTokens);
+      }
+      if (parsed.includeRawRecord !== undefined && parsed.includeRawRecord !== null) {
+        result.includeRawRecord = this.coerceBoolean(parsed.includeRawRecord, defaults.includeRawRecord);
+      }
+      return result;
+    } catch (error) {
+      console.warn('Failed to parse LLM transformation configuration', error);
+      return {
         ...defaults,
-        promptTemplate: rawText ?? ''
-      })
-    );
+        promptTemplate: configuration ?? ''
+      };
+    }
   }
 
   private llmConfigFromGroup(group: FormGroup): FormGroup {
@@ -1312,44 +1275,35 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
   private serializeLlmTransformation(group: FormGroup): string | null {
     const llmGroup = this.llmConfigFromGroup(group);
     const value = llmGroup.getRawValue() as LlmTransformationConfigFormValue;
-    return this.buildLlmConfigPayload<LlmTransformationConfigFormValue>(
-      value,
-      [
-        {
-          key: 'promptTemplate',
-          include: (field) => this.hasText(field as string | null)
-        },
-        {
-          key: 'jsonSchema',
-          include: (field) => this.hasText(field as string | null),
-          transform: (field) =>
-            this.parseJsonOrWarn(field as string, 'LLM transformation schema is not valid JSON; storing raw string')
-        },
-        {
-          key: 'resultPath',
-          include: (field) => this.hasText(field as string | null),
-          transform: (field) => (field as string).trim()
-        },
-        {
-          key: 'model',
-          include: (field) => this.hasText(field as string | null),
-          transform: (field) => (field as string).trim()
-        },
-        {
-          key: 'temperature',
-          include: (field) => this.isNumber(field as number | null | undefined)
-        },
-        {
-          key: 'maxOutputTokens',
-          include: (field) => this.isNumber(field as number | null | undefined)
-        },
-        {
-          key: 'includeRawRecord',
-          include: (field) => field === false
-        }
-      ],
-      null
-    );
+    const payload: Record<string, unknown> = {};
+    if (this.hasText(value.promptTemplate)) {
+      payload.promptTemplate = value.promptTemplate;
+    }
+    if (this.hasText(value.jsonSchema)) {
+      payload.jsonSchema = this.parseJsonOrWarn(
+        value.jsonSchema,
+        'LLM transformation schema is not valid JSON; storing raw string'
+      );
+    }
+    if (this.hasText(value.resultPath)) {
+      payload.resultPath = value.resultPath.trim();
+    }
+    if (this.hasText(value.model)) {
+      payload.model = value.model.trim();
+    }
+    if (this.isNumber(value.temperature)) {
+      payload.temperature = value.temperature;
+    }
+    if (this.isNumber(value.maxOutputTokens)) {
+      payload.maxOutputTokens = value.maxOutputTokens;
+    }
+    if (value.includeRawRecord === false) {
+      payload.includeRawRecord = false;
+    }
+    if (Object.keys(payload).length === 0) {
+      return null;
+    }
+    return JSON.stringify(payload, null, 2);
   }
 
   private buildTransformationValidationPayload(group: FormGroup): TransformationValidationRequest {

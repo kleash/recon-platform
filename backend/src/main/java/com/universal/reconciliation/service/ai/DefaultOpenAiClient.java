@@ -16,12 +16,14 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 /**
- * Default {@link OpenAiClient} backed by the OpenAI REST API. The implementation
- * intentionally focuses on the {@code /v1/responses} endpoint so callers can
- * leverage JSON schemas for deterministic extraction.
+ * Default {@link OpenAiClient} backed by the OpenAI REST API. Requests are
+ * delegated to the chat completions endpoint so callers can optionally supply
+ * JSON schemas for deterministic extraction.
  */
 @Component
 public class DefaultOpenAiClient implements OpenAiClient {
+
+    private static final String COMPLETION_URI = "/v1/chat/completions";
 
     private final OpenAiProperties properties;
     private final RestClient restClient;
@@ -43,13 +45,13 @@ public class DefaultOpenAiClient implements OpenAiClient {
         Map<String, Object> body = new LinkedHashMap<>();
         String model = StringUtils.hasText(request.model()) ? request.model() : properties.getDefaultModel();
         body.put("model", model);
-        body.put("input", request.prompt());
+        body.put("messages", List.of(Map.of("role", "user", "content", request.prompt())));
         Double temperature = request.temperature() != null ? request.temperature() : properties.getDefaultTemperature();
         body.put("temperature", temperature);
         Integer maxTokens = request.maxOutputTokens() != null
                 ? request.maxOutputTokens()
                 : properties.getDefaultMaxOutputTokens();
-        body.put("max_output_tokens", maxTokens);
+        body.put("max_tokens", maxTokens);
 
         Map<String, Object> schema = request.jsonSchema();
         if (schema != null && !schema.isEmpty()) {
@@ -63,24 +65,25 @@ public class DefaultOpenAiClient implements OpenAiClient {
         }
 
         try {
-            OpenAiResponse response = restClient
+            OpenAiChatCompletionResponse response = restClient
                     .post()
-                    .uri("/v1/responses")
+                    .uri(COMPLETION_URI)
                     .header(HttpHeaders.AUTHORIZATION, "Bearer " + properties.getApiKey())
                     .contentType(MediaType.APPLICATION_JSON)
                     .accept(MediaType.APPLICATION_JSON)
                     .body(body)
                     .retrieve()
-                    .body(OpenAiResponse.class);
-            if (response == null || response.output() == null) {
+                    .body(OpenAiChatCompletionResponse.class);
+            if (response == null || response.choices() == null || response.choices().isEmpty()) {
                 throw new OpenAiClientException("OpenAI returned an empty response.");
             }
-            String combined = response.output().stream()
+            String combined = response.choices().stream()
                     .filter(Objects::nonNull)
-                    .flatMap(item -> item.content() == null ? java.util.stream.Stream.empty() : item.content().stream())
+                    .map(OpenAiChatCompletionChoice::message)
                     .filter(Objects::nonNull)
-                    .map(OpenAiResponseContent::text)
+                    .map(OpenAiChatMessage::content)
                     .filter(StringUtils::hasText)
+                    .map(String::trim)
                     .collect(Collectors.joining("\n"))
                     .trim();
             if (!StringUtils.hasText(combined)) {
@@ -98,12 +101,12 @@ public class DefaultOpenAiClient implements OpenAiClient {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private record OpenAiResponse(List<OpenAiResponseItem> output) {}
+    private record OpenAiChatCompletionResponse(List<OpenAiChatCompletionChoice> choices) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private record OpenAiResponseItem(String type, List<OpenAiResponseContent> content) {}
+    private record OpenAiChatCompletionChoice(OpenAiChatMessage message) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    private record OpenAiResponseContent(String type, String text) {}
+    private record OpenAiChatMessage(String role, String content) {}
 }
 

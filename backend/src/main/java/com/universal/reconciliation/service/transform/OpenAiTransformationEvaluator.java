@@ -60,9 +60,6 @@ class OpenAiTransformationEvaluator {
             if (target.isNull()) {
                 return null;
             }
-            if (target.isValueNode()) {
-                return objectMapper.treeToValue(target, Object.class);
-            }
             return objectMapper.convertValue(target, Object.class);
         } catch (JsonProcessingException ex) {
             throw new TransformationEvaluationException("Unable to parse LLM response as JSON", ex);

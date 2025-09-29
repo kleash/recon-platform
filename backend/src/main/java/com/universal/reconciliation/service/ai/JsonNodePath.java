@@ -1,8 +1,9 @@
 package com.universal.reconciliation.service.ai;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Helper for navigating dot-separated JSON paths that allows escaping literal dots using a
@@ -27,31 +28,9 @@ public final class JsonNodePath {
     }
 
     private static List<String> splitSegments(String path) {
-        List<String> segments = new ArrayList<>();
-        StringBuilder current = new StringBuilder();
-        boolean escaping = false;
-        for (int i = 0; i < path.length(); i++) {
-            char ch = path.charAt(i);
-            if (escaping) {
-                current.append(ch);
-                escaping = false;
-                continue;
-            }
-            if (ch == '\\') {
-                escaping = true;
-                continue;
-            }
-            if (ch == '.') {
-                segments.add(current.toString());
-                current.setLength(0);
-                continue;
-            }
-            current.append(ch);
-        }
-        if (escaping) {
-            current.append('\\');
-        }
-        segments.add(current.toString());
-        return segments;
+        String[] segments = path.split("(?<!\\)\\.");
+        return Arrays.stream(segments)
+                .map(segment -> segment.replace("\\.", "."))
+                .collect(Collectors.toList());
     }
 }

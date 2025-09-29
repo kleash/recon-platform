@@ -1,5 +1,7 @@
 package com.universal.reconciliation.examples.harness.ingestion;
 
+import com.universal.reconciliation.ingestion.sdk.IngestionPipeline;
+import com.universal.reconciliation.ingestion.sdk.ReconciliationIngestionClient;
 import java.io.IOException;
 import java.util.List;
 
@@ -20,9 +22,13 @@ public final class IngestionCliApplication {
             return;
         }
 
-        try (IngestionHttpClient client = new IngestionHttpClient(options)) {
+        try (ReconciliationIngestionClient client = new ReconciliationIngestionClient(
+                options.baseUrl(),
+                options.username(),
+                options.password())) {
+            IngestionPipeline pipeline = new IngestionPipeline(client);
             for (ScenarioDefinition scenario : scenarios) {
-                client.runScenario(scenario);
+                pipeline.run(scenario.toScenario());
             }
             System.out.println("Ingestion completed successfully");
         } catch (IOException ex) {

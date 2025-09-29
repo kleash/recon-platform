@@ -1,0 +1,38 @@
+[
+  {
+    "transactionId": "CASH-1001",
+    "amount": 1000.00,
+    "currency": "USD",
+    "tradeDate": "2024-03-18",
+    "product": "Payments",
+    "subProduct": "Wire",
+    "entityName": "US"
+  },
+  {
+    "transactionId": "CASH-1002",
+    "amount": 505.50,
+    "currency": "EUR",
+    "tradeDate": "2024-03-18",
+    "product": "Payments",
+    "subProduct": "Wire",
+    "entityName": "EU"
+  },
+  {
+    "transactionId": "CASH-1004",
+    "amount": 450.75,
+    "currency": "GBP",
+    "tradeDate": "2024-03-18",
+    "product": "Payments",
+    "subProduct": "Wire",
+    "entityName": "UK"
+  },
+  {
+    "transactionId": "CASH-1005",
+    "amount": 310.10,
+    "currency": "USD",
+    "tradeDate": "2024-03-18",
+    "product": "Payments",
+    "subProduct": "Wire",
+    "entityName": "US"
+  }
+]

@@ -102,7 +102,7 @@ complete runnable sample that combines JDBC and REST sources.
 
 `RestApiCsvBatchBuilder` supports nested responses and custom pagination flows. Point it at a nested
 array using JSON Pointer syntax (`"payload.entries"` or `"/payload/entries"`), or supply a
-`Function<JsonNode, Iterable<JsonNode>>` when the records span multiple fields/pages:
+`RecordExtractor` when the records span multiple fields/pages:
 
 ```java
 RestApiCsvBatchBuilder api = new RestApiCsvBatchBuilder(restTemplate);
@@ -112,11 +112,14 @@ IngestionBatch glBatch = api.get(
         URI.create("https://example.org/api/gl"),
         List.of("transactionId", "amount"),
         Map.of(),
-        root -> {
-            List<JsonNode> combined = new ArrayList<>();
-            root.path("payload").path("entries").forEach(combined::add);
-            root.path("payload").path("adjustments").forEach(combined::add);
-            return combined;
+        (parser, mapper) -> {
+            JsonNode root = mapper.readTree(parser);
+            List<Map<String, Object>> combined = new ArrayList<>();
+            root.path("payload").path("entries")
+                    .forEach(node -> combined.add(mapper.convertValue(node, Map.class)));
+            root.path("payload").path("adjustments")
+                    .forEach(node -> combined.add(mapper.convertValue(node, Map.class)));
+            return combined.iterator();
         });
 ```
 

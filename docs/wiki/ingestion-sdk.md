@@ -75,8 +75,8 @@ credentials and base URL through `reconciliation.ingestion.*` properties.
 
 For wrapped or paginated APIs, supply either a JSON Pointer (e.g. `"/payload/entries"`) or a custom
 extractor. The dot-separated convenience syntax (e.g. `"payload.entries"`) resolves simple property
-paths and does not implement the full JSON Pointer escaping rules. The extractor receives the root
-`JsonNode` and returns the iterable of records to render:
+paths and does not implement the full JSON Pointer escaping rules. The extractor receives the
+response as a Jackson `JsonParser`, enabling fully streaming extraction for large documents:
 
 ```java
 RestApiCsvBatchBuilder api = new RestApiCsvBatchBuilder(restTemplate);
@@ -86,11 +86,14 @@ IngestionBatch glBatch = api.get(
         URI.create("https://example.org/api/gl"),
         List.of("transactionId", "amount"),
         Map.of(),
-        root -> {
-            List<JsonNode> combined = new ArrayList<>();
-            root.path("payload").path("entries").forEach(combined::add);
-            root.path("payload").path("adjustments").forEach(combined::add);
-            return combined;
+        (parser, mapper) -> {
+            JsonNode root = mapper.readTree(parser);
+            List<Map<String, Object>> combined = new ArrayList<>();
+            root.path("payload").path("entries")
+                    .forEach(node -> combined.add(mapper.convertValue(node, Map.class)));
+            root.path("payload").path("adjustments")
+                    .forEach(node -> combined.add(mapper.convertValue(node, Map.class)));
+            return combined.iterator();
         });
 ```
 

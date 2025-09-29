@@ -1,8 +1,8 @@
 package com.universal.reconciliation.ingestion.sdk.batch;
 
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonPointer;
 import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.MappingIterator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
@@ -20,7 +20,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.Function;
 import org.apache.commons.csv.CSVPrinter;
 import org.springframework.http.RequestEntity;
 import org.springframework.http.client.ClientHttpRequest;
@@ -70,7 +69,7 @@ public final class RestApiCsvBatchBuilder {
             URI uri,
             List<String> columns,
             Map<String, Object> options,
-            Function<JsonNode, Iterable<JsonNode>> recordExtractor)
+            RecordExtractor recordExtractor)
             throws IOException {
         RequestEntity<Void> request = RequestEntity.get(uri).build();
         return exchange(sourceCode, label, request, columns, options, recordExtractor);
@@ -103,7 +102,7 @@ public final class RestApiCsvBatchBuilder {
             RequestEntity<?> request,
             List<String> columns,
             Map<String, Object> options,
-            Function<JsonNode, Iterable<JsonNode>> recordExtractor)
+            RecordExtractor recordExtractor)
             throws IOException {
         return exchange(sourceCode, label, request, columns, options, null, recordExtractor);
     }
@@ -115,7 +114,7 @@ public final class RestApiCsvBatchBuilder {
             List<String> columns,
             Map<String, Object> options,
             String recordPointer,
-            Function<JsonNode, Iterable<JsonNode>> recordExtractor)
+            RecordExtractor recordExtractor)
             throws IOException {
         try {
             return restTemplate.execute(
@@ -167,7 +166,7 @@ public final class RestApiCsvBatchBuilder {
             List<String> columns,
             Map<String, Object> options,
             String recordPointer,
-            Function<JsonNode, Iterable<JsonNode>> recordExtractor,
+            RecordExtractor recordExtractor,
             ClientHttpResponse response)
             throws IOException {
         if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
@@ -176,13 +175,16 @@ public final class RestApiCsvBatchBuilder {
         Path tempFile = Files.createTempFile("ingestion-rest-", ".csv");
         tempFile.toFile().deleteOnExit();
         try (InputStream bodyStream = response.getBody();
+                JsonParser parser = objectMapper.getFactory().createParser(bodyStream);
                 BufferedWriter writer = Files.newBufferedWriter(tempFile, StandardCharsets.UTF_8)) {
-            if (recordExtractor != null || (recordPointer != null && !recordPointer.isBlank())) {
-                JsonNode root = objectMapper.readTree(bodyStream);
-                Iterable<JsonNode> records = selectRecords(root, recordPointer, recordExtractor);
-                streamJsonNodes(records, columns == null ? null : new ArrayList<>(columns), writer);
+            List<String> headerColumns = columns == null ? null : new ArrayList<>(columns);
+            if (recordExtractor != null) {
+                Iterator<Map<String, Object>> iterator = recordExtractor.extract(parser, objectMapper);
+                streamMaps(iterator, headerColumns, writer);
+            } else if (recordPointer != null && !recordPointer.isBlank()) {
+                streamJsonPointer(parser, recordPointer, headerColumns, writer);
             } else {
-                streamJsonArray(bodyStream, columns == null ? null : new ArrayList<>(columns), writer);
+                streamJsonArray(parser, headerColumns, writer);
             }
             writer.flush();
         } catch (IOException | RuntimeException e) {
@@ -201,8 +203,7 @@ public final class RestApiCsvBatchBuilder {
                 .build();
     }
 
-    private void streamJsonArray(InputStream bodyStream, List<String> columns, Writer writer) throws IOException {
-        JsonParser parser = objectMapper.getFactory().createParser(bodyStream);
+    private void streamJsonArray(JsonParser parser, List<String> columns, Writer writer) throws IOException {
         JsonToken firstToken = parser.nextToken();
         if (firstToken == null) {
             CSVPrinter printer = CsvRenderer.createPrinter(writer, columns == null ? List.of() : columns);
@@ -212,8 +213,8 @@ public final class RestApiCsvBatchBuilder {
         if (firstToken != JsonToken.START_ARRAY) {
             throw new IOException("Expected JSON array response but received: " + firstToken);
         }
-        JsonToken nextToken = parser.nextToken();
-        if (nextToken == JsonToken.END_ARRAY) {
+        JsonToken elementToken = parser.nextToken();
+        if (elementToken == JsonToken.END_ARRAY) {
             CSVPrinter printer = CsvRenderer.createPrinter(writer, columns == null ? List.of() : columns);
             printer.flush();
             return;
@@ -224,76 +225,90 @@ public final class RestApiCsvBatchBuilder {
         }
     }
 
-    private void streamJsonNodes(Iterable<JsonNode> nodes, List<String> columns, Writer writer)
-            throws IOException {
-        Iterator<JsonNode> iterator = nodes.iterator();
-        if (iterator == null) {
-            CSVPrinter printer = CsvRenderer.createPrinter(writer, columns == null ? List.of() : columns);
-            printer.flush();
-            return;
-        }
-        streamMaps(new Iterator<>() {
-            @Override
-            public boolean hasNext() {
-                return iterator.hasNext();
-            }
-
-            @Override
-            public Map<String, Object> next() {
-                JsonNode node = iterator.next();
-                return objectMapper.convertValue(node, Map.class);
-            }
-        }, columns, writer);
-    }
-
     private void streamMaps(Iterator<Map<String, Object>> iterator, List<String> columns, Writer writer)
             throws IOException {
+        AutoCloseable closeable = iterator instanceof AutoCloseable ? (AutoCloseable) iterator : null;
         List<String> headers = columns != null && !columns.isEmpty() ? new ArrayList<>(columns) : null;
         CSVPrinter printer;
-        if (iterator.hasNext()) {
-            Map<String, Object> first = CsvRenderer.normalizeKeys(iterator.next());
-            if (headers == null) {
-                headers = CsvRenderer.determineHeadersFromRow(first, null);
+        try {
+            if (iterator.hasNext()) {
+                Map<String, Object> first = CsvRenderer.normalizeKeys(iterator.next());
+                if (headers == null) {
+                    headers = CsvRenderer.determineHeadersFromRow(first, null);
+                }
+                printer = CsvRenderer.createPrinter(writer, headers);
+                CsvRenderer.printRow(printer, first, headers);
+            } else {
+                headers = headers != null ? headers : List.of();
+                printer = CsvRenderer.createPrinter(writer, headers);
             }
-            printer = CsvRenderer.createPrinter(writer, headers);
-            CsvRenderer.printRow(printer, first, headers);
-        } else {
-            headers = headers != null ? headers : List.of();
-            printer = CsvRenderer.createPrinter(writer, headers);
+            while (iterator.hasNext()) {
+                Map<String, Object> row = CsvRenderer.normalizeKeys(iterator.next());
+                CsvRenderer.printRow(printer, row, headers);
+            }
+            printer.flush();
+        } catch (RuntimeException | IOException e) {
+            if (closeable != null) {
+                try {
+                    closeable.close();
+                } catch (Exception suppressed) {
+                    if (e instanceof IOException ioException) {
+                        ioException.addSuppressed(suppressed);
+                    } else {
+                        e.addSuppressed(suppressed);
+                    }
+                }
+            }
+            throw e;
         }
-        while (iterator.hasNext()) {
-            Map<String, Object> row = CsvRenderer.normalizeKeys(iterator.next());
-            CsvRenderer.printRow(printer, row, headers);
+        if (closeable != null) {
+            try {
+                closeable.close();
+            } catch (Exception e) {
+                throw new IOException("Failed to close record iterator", e);
+            }
         }
-        printer.flush();
     }
 
-    private Iterable<JsonNode> selectRecords(
-            JsonNode root, String recordPointer, Function<JsonNode, Iterable<JsonNode>> recordExtractor) throws IOException {
-        if (recordExtractor != null) {
-            Iterable<JsonNode> extracted = recordExtractor.apply(root);
-            if (extracted == null) {
-                throw new IOException("Record extractor returned null for response body");
-            }
-            return extracted;
+    private void streamJsonPointer(JsonParser parser, String pointer, List<String> columns, Writer writer)
+            throws IOException {
+        String normalized = normalizePointer(pointer);
+        if ("/".equals(normalized)) {
+            streamJsonArray(parser, columns, writer);
+            return;
         }
 
-        if (recordPointer != null && !recordPointer.isBlank()) {
-            JsonNode pointerNode = root.at(normalizePointer(recordPointer));
-            if (pointerNode.isMissingNode()) {
-                throw new IOException("JSON pointer '" + recordPointer + "' did not resolve to any node");
+        JsonPointer jsonPointer = JsonPointer.compile(normalized);
+        ObjectReader reader = objectMapper.readerFor(Map.class);
+        while (true) {
+            JsonToken token = parser.nextToken();
+            if (token == null) {
+                throw new IOException("JSON pointer '" + pointer + "' did not resolve to any node");
             }
-            if (!pointerNode.isArray()) {
-                throw new IOException(
-                        "JSON pointer '" + recordPointer + "' resolved to " + pointerNode.getNodeType() + " instead of array");
+            if (token == JsonToken.FIELD_NAME) {
+                continue;
             }
-            return pointerNode;
+            JsonPointer contextPointer = parser.getParsingContext().pathAsPointer();
+            if (jsonPointer.equals(contextPointer)) {
+                if (token != JsonToken.START_ARRAY) {
+                    throw new IOException(
+                            "JSON pointer '" + pointer + "' resolved to " + token + " instead of array");
+                }
+                JsonToken elementToken = parser.nextToken();
+                if (elementToken == JsonToken.END_ARRAY) {
+                    CSVPrinter printer = CsvRenderer.createPrinter(writer, columns == null ? List.of() : columns);
+                    printer.flush();
+                    return;
+                }
+                try (MappingIterator<Map<String, Object>> iterator = reader.readValues(parser)) {
+                    streamMaps(iterator, columns, writer);
+                }
+                return;
+            }
+            if (token == JsonToken.START_ARRAY || token == JsonToken.START_OBJECT) {
+                continue;
+            }
         }
-
-        if (!root.isArray()) {
-            throw new IOException("Expected JSON array response but received: " + root.getNodeType());
-        }
-        return root;
     }
 
     /**
@@ -319,5 +334,14 @@ public final class RestApiCsvBatchBuilder {
                     .append(part.replace("~", "~0").replace("/", "~1"));
         }
         return builder.length() > 0 ? builder.toString() : "/";
+    }
+
+    /**
+     * Supplies an iterator of CSV-ready rows from the API response. Implementations can use the provided
+     * {@link JsonParser} to stream over large payloads without materializing the entire JSON document.
+     */
+    @FunctionalInterface
+    public interface RecordExtractor {
+        Iterator<Map<String, Object>> extract(JsonParser parser, ObjectMapper objectMapper) throws IOException;
     }
 }

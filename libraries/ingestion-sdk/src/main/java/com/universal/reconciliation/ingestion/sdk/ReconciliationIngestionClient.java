@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.Closeable;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -82,15 +84,24 @@ public class ReconciliationIngestionClient implements Closeable {
                 }
                 JsonNode tree = mapper.readTree(Objects.requireNonNull(response.body()).bytes());
                 JsonNode items = tree.path("items");
+                List<Long> matchingIds = new ArrayList<>();
                 for (JsonNode item : items) {
                     if (reconciliationCode.equalsIgnoreCase(item.path("code").asText())) {
                         long id = item.path("id").asLong(-1);
                         if (id <= 0) {
                             throw new IOException("Invalid id returned for reconciliation '" + reconciliationCode + "'");
                         }
-                        definitionCache.put(reconciliationCode, id);
-                        return id;
+                        matchingIds.add(id);
                     }
+                }
+                if (matchingIds.size() == 1) {
+                    long id = matchingIds.get(0);
+                    definitionCache.put(reconciliationCode, id);
+                    return id;
+                }
+                if (matchingIds.size() > 1) {
+                    throw new IOException(
+                            "Found multiple reconciliations with code '" + reconciliationCode + "'. Please ensure the code is unique.");
                 }
             }
         }

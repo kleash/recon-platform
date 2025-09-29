@@ -33,7 +33,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
+import com.universal.reconciliation.service.transform.DataTransformationService;
+import com.universal.reconciliation.service.transform.TransformationEvaluationException;
 import com.universal.reconciliation.util.ParsingUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,6 +54,7 @@ public class SourceIngestionService {
     private final SourceDataRecordRepository recordRepository;
     private final Map<IngestionAdapterType, IngestionAdapter> adapters;
     private final ObjectMapper objectMapper;
+    private final DataTransformationService transformationService;
 
     public SourceIngestionService(
             ReconciliationSourceRepository sourceRepository,
@@ -61,7 +63,8 @@ public class SourceIngestionService {
             SourceDataBatchRepository batchRepository,
             SourceDataRecordRepository recordRepository,
             List<IngestionAdapter> adapters,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            DataTransformationService transformationService) {
         this.sourceRepository = sourceRepository;
         this.canonicalFieldRepository = canonicalFieldRepository;
         this.mappingRepository = mappingRepository;
@@ -69,6 +72,7 @@ public class SourceIngestionService {
         this.recordRepository = recordRepository;
         this.adapters = adapters.stream().collect(Collectors.toMap(IngestionAdapter::getType, Function.identity()));
         this.objectMapper = objectMapper;
+        this.transformationService = transformationService;
     }
 
     @Transactional
@@ -148,8 +152,15 @@ public class SourceIngestionService {
             Object rawValue = null;
             if (mapping != null) {
                 rawValue = rawRecord.get(mapping.getSourceColumn());
-                if (rawValue == null && mapping.getDefaultValue() != null) {
+                if ((rawValue == null || (rawValue instanceof String str && !StringUtils.hasText(str)))
+                        && mapping.getDefaultValue() != null) {
                     rawValue = mapping.getDefaultValue();
+                }
+                try {
+                    rawValue = transformationService.applyTransformations(mapping, rawValue, rawRecord);
+                } catch (TransformationEvaluationException ex) {
+                    throw new IllegalArgumentException(
+                            "Transformation failed for field " + field.getCanonicalName() + ": " + ex.getMessage(), ex);
                 }
             }
             Object normalised = convert(rawValue, field);

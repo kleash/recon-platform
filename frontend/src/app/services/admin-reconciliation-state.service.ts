@@ -8,7 +8,11 @@ import {
   AdminReconciliationRequest,
   AdminReconciliationSchema,
   AdminReconciliationSummary,
-  ReconciliationLifecycleStatus
+  ReconciliationLifecycleStatus,
+  TransformationValidationRequest,
+  TransformationValidationResponse,
+  TransformationPreviewRequest,
+  TransformationPreviewResponse
 } from '../models/admin-api-models';
 import { ApiService } from './api.service';
 import { NotificationService } from './notification.service';
@@ -230,6 +234,18 @@ export class AdminReconciliationStateService {
         })
       )
       .subscribe();
+  }
+
+  validateTransformation(
+    payload: TransformationValidationRequest
+  ): Observable<TransformationValidationResponse> {
+    return this.api.validateTransformation(payload);
+  }
+
+  previewTransformation(
+    payload: TransformationPreviewRequest
+  ): Observable<TransformationPreviewResponse> {
+    return this.api.previewTransformation(payload);
   }
 
   private refreshSummaries(): void {

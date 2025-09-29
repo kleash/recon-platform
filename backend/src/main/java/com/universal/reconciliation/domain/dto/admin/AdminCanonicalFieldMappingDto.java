@@ -1,8 +1,11 @@
 package com.universal.reconciliation.domain.dto.admin;
 
+import java.util.List;
+
 /**
  * Mapping metadata linking canonical fields to concrete source columns.
  */
+
 public record AdminCanonicalFieldMappingDto(
         Long id,
         String sourceCode,
@@ -10,5 +13,5 @@ public record AdminCanonicalFieldMappingDto(
         String transformationExpression,
         String defaultValue,
         Integer ordinalPosition,
-        boolean required) {}
-
+        boolean required,
+        List<AdminCanonicalFieldTransformationDto> transformations) {}

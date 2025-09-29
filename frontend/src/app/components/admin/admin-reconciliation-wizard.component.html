@@ -136,13 +136,123 @@
         <div formArrayName="mappings" class="mappings">
           <h4>Mappings</h4>
           <div *ngFor="let mappingGroup of sourceMappings(i).controls; let m = index" [formGroupName]="m" class="mapping-row">
-            <label>Source<input type="text" formControlName="sourceCode" /></label>
-            <label>Column<input type="text" formControlName="sourceColumn" /></label>
-            <label>Transform<input type="text" formControlName="transformationExpression" placeholder="Optional expression" /></label>
-            <label>Default<input type="text" formControlName="defaultValue" /></label>
-            <label>Ordinal<input type="number" formControlName="ordinalPosition" /></label>
-            <label class="checkbox"><input type="checkbox" formControlName="required" /> Required</label>
-            <button type="button" class="link" (click)="removeMapping(i, m)">Remove</button>
+            <div class="mapping-grid">
+              <label>Source<input type="text" formControlName="sourceCode" /></label>
+              <label>Column<input type="text" formControlName="sourceColumn" /></label>
+              <label>Legacy expression
+                <input type="text" formControlName="transformationExpression" placeholder="Optional legacy expression" />
+              </label>
+              <label>Default<input type="text" formControlName="defaultValue" /></label>
+              <label>Ordinal<input type="number" formControlName="ordinalPosition" /></label>
+              <label class="checkbox"><input type="checkbox" formControlName="required" /> Required</label>
+              <button type="button" class="link" (click)="removeMapping(i, m)">Remove mapping</button>
+            </div>
+
+            <div formArrayName="transformations" class="transformation-list">
+              <h5>Transformations</h5>
+              <div
+                *ngFor="let transformationGroup of mappingTransformations(i, m).controls; let t = index"
+                [formGroupName]="t"
+                class="transformation-card"
+              >
+                <div class="transformation-header">
+                  <label>
+                    Type
+                    <select formControlName="type" (change)="onTransformationTypeChange(i, m, t)">
+                      <option *ngFor="let type of transformationTypes" [value]="type">{{ type }}</option>
+                    </select>
+                  </label>
+                  <label>
+                    Display order
+                    <input type="number" formControlName="displayOrder" />
+                  </label>
+                  <label class="checkbox"><input type="checkbox" formControlName="active" /> Active</label>
+                </div>
+
+                <div class="transformation-body">
+                  <ng-container [ngSwitch]="transformationGroup.get('type')?.value">
+                    <div *ngSwitchCase="'GROOVY_SCRIPT'" class="transformation-editor">
+                      <label>Groovy script<textarea formControlName="expression" rows="4" placeholder="return value"></textarea></label>
+                    </div>
+                    <div *ngSwitchCase="'EXCEL_FORMULA'" class="transformation-editor">
+                      <label>Excel formula<input type="text" formControlName="expression" placeholder="=VALUE" /></label>
+                      <p class="hint">Use VALUE or column names (e.g. CASH_AMOUNT) as named references.</p>
+                    </div>
+                    <div *ngSwitchCase="'FUNCTION_PIPELINE'" class="transformation-editor" formArrayName="pipelineSteps">
+                      <div
+                        *ngFor="let stepGroup of pipelineSteps(i, m, t).controls; let s = index"
+                        [formGroupName]="s"
+                        class="pipeline-step"
+                      >
+                        <label>
+                          Function
+                          <select formControlName="function">
+                            <option *ngFor="let fn of pipelineFunctionOptions" [value]="fn.value">{{ fn.label }}</option>
+                          </select>
+                        </label>
+                        <div formArrayName="args" class="pipeline-args">
+                          <div
+                            *ngFor="let argCtrl of pipelineStepArgs(i, m, t, s).controls; let a = index"
+                            class="arg-row"
+                          >
+                            <label>Arg {{ a + 1 }}<input [formControlName]="a" placeholder="Value or {{column}}" /></label>
+                            <button type="button" class="link" (click)="removePipelineArg(i, m, t, s, a)">Remove</button>
+                          </div>
+                          <button type="button" class="secondary" (click)="addPipelineArg(i, m, t, s)">Add argument</button>
+                        </div>
+                        <button
+                          type="button"
+                          class="link"
+                          (click)="removePipelineStep(i, m, t, s)"
+                          *ngIf="pipelineSteps(i, m, t).length > 1"
+                        >
+                          Remove step
+                        </button>
+                      </div>
+                      <button type="button" class="secondary" (click)="addPipelineStep(i, m, t)">Add step</button>
+                    </div>
+                  </ng-container>
+                </div>
+
+                <div class="transformation-actions">
+                  <button type="button" class="secondary" (click)="validateTransformation(i, m, t)">Validate rule</button>
+                  <button type="button" class="link" (click)="removeTransformation(i, m, t)">Remove</button>
+                </div>
+                <p class="hint" *ngIf="transformationGroup.get('validationMessage')?.value">
+                  {{ transformationGroup.get('validationMessage')?.value }}
+                </p>
+              </div>
+              <button type="button" class="secondary" (click)="addTransformation(i, m)">Add transformation</button>
+            </div>
+
+            <div class="preview-tools">
+              <h5>Preview</h5>
+              <label>
+                Sample value
+                <input
+                  type="text"
+                  [value]="previewState[previewKey(i, m)]?.value || ''"
+                  (input)="handlePreviewInput(i, m, 'value', $event)"
+                />
+              </label>
+              <label>
+                Sample row (JSON)
+                <textarea
+                  rows="3"
+                  [value]="previewState[previewKey(i, m)]?.raw || '{}'"
+                  (input)="handlePreviewInput(i, m, 'raw', $event)"
+                ></textarea>
+              </label>
+              <div class="preview-actions">
+                <button type="button" class="secondary" (click)="previewMapping(i, m)">Preview transformations</button>
+              </div>
+              <p class="success" *ngIf="previewState[previewKey(i, m)]?.result">
+                Result: {{ previewState[previewKey(i, m)]?.result }}
+              </p>
+              <p class="error" *ngIf="previewState[previewKey(i, m)]?.error">
+                {{ previewState[previewKey(i, m)]?.error }}
+              </p>
+            </div>
           </div>
           <button type="button" class="secondary" (click)="addMapping(i)">Add mapping</button>
         </div>

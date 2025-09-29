@@ -45,6 +45,14 @@ public record AdminReconciliationSchemaDto(
             String transformationExpression,
             String defaultValue,
             Integer ordinalPosition,
-            boolean required) {}
-}
+            boolean required,
+            List<SchemaFieldTransformationDto> transformations) {}
 
+    public record SchemaFieldTransformationDto(
+            Long id,
+            String type,
+            String expression,
+            String configuration,
+            Integer displayOrder,
+            boolean active) {}
+}

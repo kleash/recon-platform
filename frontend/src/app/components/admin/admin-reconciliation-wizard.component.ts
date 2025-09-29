@@ -3,6 +3,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import {
   FormArray,
   FormBuilder,
+  FormControl,
   FormGroup,
   ReactiveFormsModule,
   Validators
@@ -14,6 +15,7 @@ import {
   AdminAccessControlEntry,
   AdminCanonicalField,
   AdminCanonicalFieldMapping,
+  AdminCanonicalFieldTransformation,
   AdminReconciliationDetail,
   AdminReconciliationRequest,
   AdminReportColumn,
@@ -24,7 +26,12 @@ import {
   FieldRole,
   IngestionAdapterType,
   ReportColumnSource,
-  ReconciliationLifecycleStatus
+  ReconciliationLifecycleStatus,
+  TransformationPreviewRequest,
+  TransformationPreviewResponse,
+  TransformationType,
+  TransformationValidationRequest,
+  TransformationValidationResponse
 } from '../../models/admin-api-models';
 import { AdminReconciliationStateService } from '../../services/admin-reconciliation-state.service';
 
@@ -74,6 +81,22 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
   readonly comparisonLogics: ComparisonLogic[] = ['EXACT_MATCH', 'CASE_INSENSITIVE', 'NUMERIC_THRESHOLD', 'DATE_ONLY'];
   readonly reportSources: ReportColumnSource[] = ['SOURCE_A', 'SOURCE_B', 'BREAK_METADATA'];
   readonly accessRoles: AccessRole[] = ['VIEWER', 'MAKER', 'CHECKER'];
+  readonly transformationTypes: TransformationType[] = [
+    'GROOVY_SCRIPT',
+    'EXCEL_FORMULA',
+    'FUNCTION_PIPELINE'
+  ];
+  readonly pipelineFunctionOptions: { value: string; label: string }[] = [
+    { value: 'TRIM', label: 'Trim whitespace' },
+    { value: 'TO_UPPERCASE', label: 'Uppercase' },
+    { value: 'TO_LOWERCASE', label: 'Lowercase' },
+    { value: 'REPLACE', label: 'Replace text' },
+    { value: 'SUBSTRING', label: 'Substring' },
+    { value: 'DEFAULT_IF_BLANK', label: 'Default if blank' },
+    { value: 'PREFIX', label: 'Add prefix' },
+    { value: 'SUFFIX', label: 'Add suffix' },
+    { value: 'FORMAT_DATE', label: 'Format date' }
+  ];
 
   readonly form: FormGroup = this.fb.group({
     definition: this.fb.group({
@@ -102,6 +125,7 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
   definitionId: number | null = null;
   optimisticLockError: string | null = null;
   isSaving = false;
+  previewState: Record<string, { value: string; raw: string; result?: string; error?: string }> = {};
 
   private readonly destroy$ = new Subject<void>();
   private patchedFromDetail = false;
@@ -205,6 +229,29 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     return this.canonicalFields.at(index).get('mappings') as FormArray<FormGroup>;
   }
 
+  mappingTransformations(fieldIndex: number, mappingIndex: number): FormArray<FormGroup> {
+    return this.sourceMappings(fieldIndex)
+      .at(mappingIndex)
+      .get('transformations') as FormArray<FormGroup>;
+  }
+
+  pipelineSteps(fieldIndex: number, mappingIndex: number, transformationIndex: number): FormArray<FormGroup> {
+    return this.mappingTransformations(fieldIndex, mappingIndex)
+      .at(transformationIndex)
+      .get('pipelineSteps') as FormArray<FormGroup>;
+  }
+
+  pipelineStepArgs(
+    fieldIndex: number,
+    mappingIndex: number,
+    transformationIndex: number,
+    stepIndex: number
+  ): FormArray<FormControl<string | null>> {
+    return this.pipelineSteps(fieldIndex, mappingIndex, transformationIndex)
+      .at(stepIndex)
+      .get('args') as FormArray<FormControl<string | null>>;
+  }
+
   reportColumns(index: number): FormArray<FormGroup> {
     return this.reportTemplates.at(index).get('columns') as FormArray<FormGroup>;
   }
@@ -222,19 +269,66 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     const index = this.canonicalFields.length - 1;
     if (!field || !field.mappings || field.mappings.length === 0) {
       this.addMapping(index);
+    } else {
+      this.sourceMappings(index).controls.forEach((_, mappingIndex) => this.ensurePreviewState(index, mappingIndex));
     }
   }
 
   removeCanonicalField(index: number): void {
     this.canonicalFields.removeAt(index);
+    this.rebuildPreviewState();
   }
 
   addMapping(fieldIndex: number, mapping?: AdminCanonicalFieldMapping): void {
-    this.sourceMappings(fieldIndex).push(this.createMappingGroup(mapping));
+    const mappings = this.sourceMappings(fieldIndex);
+    mappings.push(this.createMappingGroup(mapping));
+    this.ensurePreviewState(fieldIndex, mappings.length - 1);
   }
 
   removeMapping(fieldIndex: number, mappingIndex: number): void {
     this.sourceMappings(fieldIndex).removeAt(mappingIndex);
+    this.rebuildPreviewState();
+  }
+
+  addTransformation(
+    fieldIndex: number,
+    mappingIndex: number,
+    transformation?: AdminCanonicalFieldTransformation
+  ): void {
+    this.mappingTransformations(fieldIndex, mappingIndex).push(this.createTransformationGroup(transformation));
+  }
+
+  removeTransformation(fieldIndex: number, mappingIndex: number, transformationIndex: number): void {
+    this.mappingTransformations(fieldIndex, mappingIndex).removeAt(transformationIndex);
+  }
+
+  addPipelineStep(fieldIndex: number, mappingIndex: number, transformationIndex: number): void {
+    this.pipelineSteps(fieldIndex, mappingIndex, transformationIndex).push(this.createPipelineStepGroup());
+  }
+
+  removePipelineStep(fieldIndex: number, mappingIndex: number, transformationIndex: number, stepIndex: number): void {
+    this.pipelineSteps(fieldIndex, mappingIndex, transformationIndex).removeAt(stepIndex);
+  }
+
+  addPipelineArg(
+    fieldIndex: number,
+    mappingIndex: number,
+    transformationIndex: number,
+    stepIndex: number
+  ): void {
+    this.pipelineStepArgs(fieldIndex, mappingIndex, transformationIndex, stepIndex).push(
+      this.fb.control('')
+    );
+  }
+
+  removePipelineArg(
+    fieldIndex: number,
+    mappingIndex: number,
+    transformationIndex: number,
+    stepIndex: number,
+    argIndex: number
+  ): void {
+    this.pipelineStepArgs(fieldIndex, mappingIndex, transformationIndex, stepIndex).removeAt(argIndex);
   }
 
   addReportTemplate(report?: AdminReportTemplate): void {
@@ -255,6 +349,23 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
 
   removeReportColumn(reportIndex: number, columnIndex: number): void {
     this.reportColumns(reportIndex).removeAt(columnIndex);
+  }
+
+  onTransformationTypeChange(fieldIndex: number, mappingIndex: number, transformationIndex: number): void {
+    const group = this.mappingTransformations(fieldIndex, mappingIndex).at(transformationIndex) as FormGroup;
+    const type = group.get('type')?.value as TransformationType;
+    if (type === 'FUNCTION_PIPELINE') {
+      const steps = this.pipelineSteps(fieldIndex, mappingIndex, transformationIndex);
+      if (steps.length === 0) {
+        steps.push(this.createPipelineStepGroup());
+      }
+    } else {
+      this.pipelineSteps(fieldIndex, mappingIndex, transformationIndex).clear();
+      if (type === 'GROOVY_SCRIPT') {
+        group.get('expression')?.setValue(group.get('expression')?.value ?? 'return value');
+      }
+    }
+    group.get('validationMessage')?.setValue('');
   }
 
   addAccessEntry(entry?: AdminAccessControlEntry): void {
@@ -281,6 +392,123 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
 
   previousStep(): void {
     this.goToStep(this.currentStep - 1);
+  }
+
+  validateTransformation(fieldIndex: number, mappingIndex: number, transformationIndex: number): void {
+    const group = this.mappingTransformations(fieldIndex, mappingIndex).at(transformationIndex) as FormGroup;
+    const payload = this.buildTransformationValidationPayload(group);
+    this.state
+      .validateTransformation(payload)
+      .pipe(take(1))
+      .subscribe({
+        next: (response) => {
+          group.get('validationMessage')?.setValue(response.valid ? 'Transformation is valid.' : response.message);
+        },
+        error: (error) => {
+          const message = error?.error || 'Validation failed.';
+          group.get('validationMessage')?.setValue(message);
+        }
+      });
+  }
+
+  previewMapping(fieldIndex: number, mappingIndex: number): void {
+    const key = this.previewKey(fieldIndex, mappingIndex);
+    this.ensurePreviewState(fieldIndex, mappingIndex);
+    const state = this.previewState[key];
+    let rawRecord: Record<string, unknown> = {};
+    if (state.raw) {
+      try {
+        rawRecord = state.raw.trim().length === 0 ? {} : (JSON.parse(state.raw) as Record<string, unknown>);
+      } catch (error) {
+        this.previewState[key] = {
+          ...state,
+          error: 'Sample row must be valid JSON (e.g. { "column": "value" }).'
+        };
+        return;
+      }
+    }
+
+    const transformations = this.buildTransformationsPayload(fieldIndex, mappingIndex);
+    const request: TransformationPreviewRequest = {
+      value: state.value,
+      rawRecord,
+      transformations: transformations.map((transformation) => ({
+        type: transformation.type,
+        expression: transformation.expression ?? undefined,
+        configuration: transformation.configuration ?? undefined,
+        displayOrder: transformation.displayOrder ?? undefined,
+        active: transformation.active
+      }))
+    };
+
+    this.state
+      .previewTransformation(request)
+      .pipe(take(1))
+      .subscribe({
+        next: (response) => {
+          this.previewState[key] = {
+            ...state,
+            result: this.toDisplayResult(response),
+            error: undefined
+          };
+        },
+        error: (error) => {
+          const details = error?.error?.details ?? error?.error ?? 'Preview failed.';
+          this.previewState[key] = { ...state, error: details };
+        }
+      });
+  }
+
+  updatePreviewValue(
+    fieldIndex: number,
+    mappingIndex: number,
+    property: 'value' | 'raw',
+    newValue: string
+  ): void {
+    const key = this.previewKey(fieldIndex, mappingIndex);
+    this.ensurePreviewState(fieldIndex, mappingIndex);
+    this.previewState[key] = {
+      ...this.previewState[key],
+      [property]: newValue
+    };
+  }
+
+  handlePreviewInput(
+    fieldIndex: number,
+    mappingIndex: number,
+    property: 'value' | 'raw',
+    event: Event
+  ): void {
+    const target = event.target as HTMLInputElement | HTMLTextAreaElement | null;
+    this.updatePreviewValue(fieldIndex, mappingIndex, property, target?.value ?? '');
+  }
+
+  previewKey(fieldIndex: number, mappingIndex: number): string {
+    return `${fieldIndex}:${mappingIndex}`;
+  }
+
+  private ensurePreviewState(fieldIndex: number, mappingIndex: number): void {
+    const key = this.previewKey(fieldIndex, mappingIndex);
+    if (!this.previewState[key]) {
+      this.previewState[key] = { value: '', raw: '{}' };
+    }
+  }
+
+  private rebuildPreviewState(): void {
+    const next: Record<string, { value: string; raw: string; result?: string; error?: string }> = {};
+    this.canonicalFields.controls.forEach((_, fieldIndex) => {
+      this.sourceMappings(fieldIndex).controls.forEach((__, mappingIndex) => {
+        const key = this.previewKey(fieldIndex, mappingIndex);
+        const previous = this.previewState[key];
+        next[key] = {
+          value: previous?.value ?? '',
+          raw: previous?.raw ?? '{}',
+          result: previous?.result,
+          error: undefined
+        };
+      });
+    });
+    this.previewState = next;
   }
 
   save(): void {
@@ -340,6 +568,8 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     this.canonicalFields.clear();
     detail.canonicalFields.forEach((field) => this.addCanonicalField(field));
 
+    this.rebuildPreviewState();
+
     this.reportTemplates.clear();
     detail.reportTemplates.forEach((report) => this.addReportTemplate(report));
 
@@ -377,9 +607,20 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       this.addCanonicalField({
         ...field,
         id: null,
-        mappings: field.mappings?.map((mapping) => ({ ...mapping, id: null })) ?? []
+        mappings:
+          field.mappings?.map((mapping) => ({
+            ...mapping,
+            id: null,
+            transformations:
+              mapping.transformations?.map((transformation) => ({
+                ...transformation,
+                id: null
+              })) ?? []
+          })) ?? []
       })
     );
+
+    this.rebuildPreviewState();
 
     this.reportTemplates.clear();
     detail.reportTemplates.forEach((report) =>
@@ -444,8 +685,155 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       transformationExpression: [mapping?.transformationExpression ?? ''],
       defaultValue: [mapping?.defaultValue ?? ''],
       ordinalPosition: [mapping?.ordinalPosition ?? null],
-      required: [mapping?.required ?? false]
+      required: [mapping?.required ?? false],
+      transformations: this.fb.array<FormGroup>(
+        (mapping?.transformations ?? []).map((transformation) => this.createTransformationGroup(transformation))
+      )
     });
+  }
+
+  private createTransformationGroup(transformation?: AdminCanonicalFieldTransformation): FormGroup {
+    const type: TransformationType = transformation?.type ?? 'FUNCTION_PIPELINE';
+    const group = this.fb.group({
+      id: [transformation?.id ?? null],
+      type: [type, Validators.required],
+      expression: [transformation?.expression ?? ''],
+      configuration: [transformation?.configuration ?? null],
+      displayOrder: [transformation?.displayOrder ?? null],
+      active: [transformation?.active ?? true],
+      validationMessage: [''],
+      pipelineSteps: this.fb.array<FormGroup>([])
+    });
+    if (type === 'FUNCTION_PIPELINE') {
+      const steps = this.deserializePipelineConfiguration(transformation?.configuration);
+      const target = group.get('pipelineSteps') as FormArray<FormGroup>;
+      if (steps.length === 0) {
+        target.push(this.createPipelineStepGroup());
+      } else {
+        steps.forEach((step) => target.push(this.createPipelineStepGroup(step.function, step.args)));
+      }
+    }
+    return group;
+  }
+
+  private createPipelineStepGroup(fn: string = 'TRIM', args: string[] = []): FormGroup {
+    return this.fb.group({
+      function: [fn, Validators.required],
+      args: this.fb.array<FormControl<string | null>>(
+        args.length > 0
+          ? args.map((value) => this.fb.control(value))
+          : [this.fb.control('')]
+      )
+    });
+  }
+
+  private deserializePipelineConfiguration(
+    configuration?: string | null
+  ): Array<{ function: string; args: string[] }> {
+    if (!configuration) {
+      return [];
+    }
+    try {
+      const parsed = JSON.parse(configuration) as {
+        steps?: Array<{ function?: string; args?: string[] }>;
+      };
+      if (!parsed || !Array.isArray(parsed.steps)) {
+        return [];
+      }
+      return parsed.steps
+        .filter((step) => typeof step.function === 'string')
+        .map((step) => ({
+          function: step.function as string,
+          args: Array.isArray(step.args)
+            ? step.args
+                .filter((arg) => arg !== undefined && arg !== null)
+                .map((arg) => String(arg))
+            : []
+        }));
+    } catch (error) {
+      console.warn('Failed to parse pipeline configuration', error);
+      return [];
+    }
+  }
+
+  private pipelineStepsFromGroup(group: FormGroup): FormArray<FormGroup> {
+    return group.get('pipelineSteps') as FormArray<FormGroup>;
+  }
+
+  private pipelineArgsFromGroup(stepGroup: FormGroup): FormArray<FormControl<string | null>> {
+    return stepGroup.get('args') as FormArray<FormControl<string | null>>;
+  }
+
+  private serializePipeline(group: FormGroup): string | null {
+    const stepsArray = this.pipelineStepsFromGroup(group).controls
+      .map((stepGroup) => {
+        const fn = stepGroup.get('function')?.value as string;
+        const args = this.pipelineArgsFromGroup(stepGroup)
+          .controls.map((ctrl) => (ctrl.value ?? '').toString())
+          .filter((value) => value.length > 0);
+        return fn ? { function: fn, args } : null;
+      })
+      .filter((step): step is { function: string; args: string[] } => step !== null);
+
+    return JSON.stringify({ steps: stepsArray });
+  }
+
+  private buildTransformationValidationPayload(group: FormGroup): TransformationValidationRequest {
+    const type = group.get('type')?.value as TransformationType;
+    let expression = this.normalize(group.get('expression')?.value);
+    let configuration = this.normalize(group.get('configuration')?.value);
+    if (type === 'FUNCTION_PIPELINE') {
+      configuration = this.serializePipeline(group);
+      expression = null;
+    }
+    return {
+      type,
+      expression: expression ?? undefined,
+      configuration: configuration ?? undefined
+    };
+  }
+
+  private buildTransformationsPayload(
+    fieldIndex: number,
+    mappingIndex: number
+  ): AdminCanonicalFieldTransformation[] {
+    return this.mappingTransformations(fieldIndex, mappingIndex).controls.map((group, index) => {
+      return this.toTransformationRequestPayload(group as FormGroup, index);
+    });
+  }
+
+  private toTransformationRequestPayload(group: FormGroup, fallbackIndex: number): AdminCanonicalFieldTransformation {
+    const type = group.get('type')?.value as TransformationType;
+    const active = !!group.get('active')?.value;
+    const displayOrder = this.normalizeNumber(group.get('displayOrder')?.value) ?? fallbackIndex;
+    let expression = this.normalize(group.get('expression')?.value);
+    let configuration = this.normalize(group.get('configuration')?.value);
+    if (type === 'FUNCTION_PIPELINE') {
+      configuration = this.serializePipeline(group);
+      expression = null;
+    }
+    return {
+      id: group.get('id')?.value ?? null,
+      type,
+      expression: expression ?? null,
+      configuration: configuration ?? null,
+      displayOrder,
+      active
+    };
+  }
+
+  private toDisplayResult(response: TransformationPreviewResponse): string {
+    if (response.result === null || response.result === undefined) {
+      return 'null';
+    }
+    if (typeof response.result === 'object') {
+      try {
+        return JSON.stringify(response.result);
+      } catch (error) {
+        return String(response.result);
+      }
+    }
+    return String(response.result);
   }
 
   private createReportGroup(report?: AdminReportTemplate): FormGroup {
@@ -531,6 +919,92 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       version?: number | null;
     };
 
+    const sourcesPayload = this.sources.controls.map((group) => {
+      const value = group.value as AdminSource;
+      return {
+        id: value.id ?? null,
+        code: value.code,
+        displayName: value.displayName,
+        adapterType: value.adapterType,
+        anchor: !!value.anchor,
+        description: this.normalize(value.description),
+        connectionConfig: this.normalize(value.connectionConfig),
+        arrivalExpectation: this.normalize(value.arrivalExpectation),
+        arrivalTimezone: this.normalize(value.arrivalTimezone),
+        arrivalSlaMinutes: this.normalizeNumber(value.arrivalSlaMinutes),
+        adapterOptions: this.normalize(value.adapterOptions) ?? null
+      } as AdminSource;
+    });
+
+    const canonicalFieldsPayload = this.canonicalFields.controls.map((fieldGroup, fieldIndex) => {
+      const value = fieldGroup.value as AdminCanonicalField;
+      return {
+        id: value.id ?? null,
+        canonicalName: value.canonicalName,
+        displayName: value.displayName,
+        role: value.role,
+        dataType: value.dataType,
+        comparisonLogic: value.comparisonLogic,
+        thresholdPercentage: this.normalizeNumber(value.thresholdPercentage),
+        classifierTag: this.normalize(value.classifierTag),
+        formattingHint: this.normalize(value.formattingHint),
+        displayOrder: this.normalizeNumber(value.displayOrder),
+        required: !!value.required,
+        mappings: this.sourceMappings(fieldIndex).controls.map((mappingGroup, mappingIndex) => {
+          const mappingValue = mappingGroup.value as AdminCanonicalFieldMapping;
+          return {
+            id: mappingValue.id ?? null,
+            sourceCode: mappingValue.sourceCode,
+            sourceColumn: mappingValue.sourceColumn,
+            transformationExpression: this.normalize(mappingValue.transformationExpression),
+            defaultValue: this.normalize(mappingValue.defaultValue),
+            ordinalPosition: this.normalizeNumber(mappingValue.ordinalPosition),
+            required: !!mappingValue.required,
+            transformations: this.buildTransformationsPayload(fieldIndex, mappingIndex)
+          };
+        })
+      } as AdminCanonicalField;
+    });
+
+    const reportTemplatesPayload = this.reportTemplates.controls.map((group, reportIndex) => {
+      const value = group.value as AdminReportTemplate;
+      return {
+        id: value.id ?? null,
+        name: value.name,
+        description: value.description,
+        includeMatched: !!value.includeMatched,
+        includeMismatched: !!value.includeMismatched,
+        includeMissing: !!value.includeMissing,
+        highlightDifferences: !!value.highlightDifferences,
+        columns: this.reportColumns(reportIndex).controls.map((columnGroup) => {
+          const columnValue = columnGroup.value as AdminReportColumn;
+          return {
+            id: columnValue.id ?? null,
+            header: columnValue.header,
+            source: columnValue.source,
+            sourceField: this.normalize(columnValue.sourceField),
+            displayOrder: columnValue.displayOrder,
+            highlightDifferences: !!columnValue.highlightDifferences
+          };
+        })
+      } as AdminReportTemplate;
+    });
+
+    const accessEntriesPayload = this.accessControlEntries.controls.map((group) => {
+      const value = group.value as AdminAccessControlEntry;
+      return {
+        id: value.id ?? null,
+        ldapGroupDn: value.ldapGroupDn,
+        role: value.role,
+        product: this.normalize(value.product),
+        subProduct: this.normalize(value.subProduct),
+        entityName: this.normalize(value.entityName),
+        notifyOnPublish: !!value.notifyOnPublish,
+        notifyOnIngestionFailure: !!value.notifyOnIngestionFailure,
+        notificationChannel: this.normalize(value.notificationChannel)
+      } as AdminAccessControlEntry;
+    });
+
     return {
       code: definitionValue.code,
       name: definitionValue.name,
@@ -542,46 +1016,12 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       autoTriggerEnabled: definitionValue.autoTriggerEnabled,
       autoTriggerCron: this.normalize(definitionValue.autoTriggerCron),
       autoTriggerTimezone: this.normalize(definitionValue.autoTriggerTimezone),
-      autoTriggerGraceMinutes: this.normalizeNumber(
-        definitionValue.autoTriggerGraceMinutes
-      ),
+      autoTriggerGraceMinutes: this.normalizeNumber(definitionValue.autoTriggerGraceMinutes),
       version: definitionValue.version ?? null,
-      sources: this.sources.value.map((source) => ({
-        ...source,
-        description: this.normalize(source.description),
-        connectionConfig: this.normalize(source.connectionConfig),
-        arrivalExpectation: this.normalize(source.arrivalExpectation),
-        arrivalTimezone: this.normalize(source.arrivalTimezone),
-        arrivalSlaMinutes: this.normalizeNumber(source.arrivalSlaMinutes),
-        adapterOptions: this.normalize(source.adapterOptions)
-      })),
-      canonicalFields: this.canonicalFields.value.map((field) => ({
-        ...field,
-        classifierTag: this.normalize(field.classifierTag),
-        formattingHint: this.normalize(field.formattingHint),
-        thresholdPercentage: this.normalizeNumber(field.thresholdPercentage),
-        displayOrder: this.normalizeNumber(field.displayOrder),
-        mappings: field.mappings?.map((mapping: AdminCanonicalFieldMapping) => ({
-          ...mapping,
-          transformationExpression: this.normalize(mapping.transformationExpression),
-          defaultValue: this.normalize(mapping.defaultValue),
-          ordinalPosition: this.normalizeNumber(mapping.ordinalPosition)
-        })) ?? []
-      })),
-      reportTemplates: this.reportTemplates.value.map((report) => ({
-        ...report,
-        columns: report.columns?.map((column: AdminReportColumn) => ({
-          ...column,
-          sourceField: this.normalize(column.sourceField)
-        })) ?? []
-      })),
-      accessControlEntries: this.accessControlEntries.value.map((entry) => ({
-        ...entry,
-        product: this.normalize(entry.product),
-        subProduct: this.normalize(entry.subProduct),
-        entityName: this.normalize(entry.entityName),
-        notificationChannel: this.normalize(entry.notificationChannel)
-      }))
+      sources: sourcesPayload,
+      canonicalFields: canonicalFieldsPayload,
+      reportTemplates: reportTemplatesPayload,
+      accessControlEntries: accessEntriesPayload
     } as AdminReconciliationRequest;
   }
 

@@ -2,11 +2,13 @@ package com.universal.reconciliation.service.admin;
 
 import com.universal.reconciliation.domain.dto.admin.AdminCanonicalFieldMappingRequest;
 import com.universal.reconciliation.domain.dto.admin.AdminCanonicalFieldRequest;
+import com.universal.reconciliation.domain.dto.admin.AdminCanonicalFieldTransformationRequest;
 import com.universal.reconciliation.domain.dto.admin.AdminReconciliationRequest;
 import com.universal.reconciliation.domain.dto.admin.AdminReportTemplateRequest;
 import com.universal.reconciliation.domain.dto.admin.AdminSourceRequest;
 import com.universal.reconciliation.domain.enums.ComparisonLogic;
 import com.universal.reconciliation.domain.enums.FieldRole;
+import com.universal.reconciliation.domain.enums.TransformationType;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -134,6 +136,38 @@ public class AdminReconciliationValidator {
                 throw new IllegalArgumentException(
                         "Source column is required for mapping on field " + field.canonicalName());
             }
+            ensureTransformationsValid(field.canonicalName(), mapping);
+        }
+    }
+
+    private void ensureTransformationsValid(String canonicalFieldName, AdminCanonicalFieldMappingRequest mapping) {
+        List<AdminCanonicalFieldTransformationRequest> transformations = mapping.transformations();
+        if (transformations == null || transformations.isEmpty()) {
+            return;
+        }
+        int index = 0;
+        for (AdminCanonicalFieldTransformationRequest transformation : transformations) {
+            if (transformation.type() == null) {
+                throw new IllegalArgumentException(
+                        "Transformation type is required for mapping on field " + canonicalFieldName);
+            }
+            if (transformation.displayOrder() != null && transformation.displayOrder() < 0) {
+                throw new IllegalArgumentException(
+                        "Transformation display order cannot be negative for field " + canonicalFieldName);
+            }
+            TransformationType type = transformation.type();
+            boolean requiresExpression = type == TransformationType.GROOVY_SCRIPT || type == TransformationType.EXCEL_FORMULA;
+            if (requiresExpression && !StringUtils.hasText(transformation.expression())) {
+                throw new IllegalArgumentException(
+                        "Transformation expression is required for type " + type + " on field " + canonicalFieldName);
+            }
+            if (type == TransformationType.FUNCTION_PIPELINE && !StringUtils.hasText(transformation.configuration())) {
+                throw new IllegalArgumentException(
+                        "Function pipeline configuration is required for field " + canonicalFieldName);
+            }
+            if (transformation.displayOrder() == null) {
+                index++;
+            }
         }
     }
 
@@ -171,4 +205,3 @@ public class AdminReconciliationValidator {
         return value == null ? null : value.trim().toLowerCase(Locale.ROOT);
     }
 }
-

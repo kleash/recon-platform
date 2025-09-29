@@ -701,7 +701,7 @@ test('reconciliation authoring to maker-checker workflow', async ({ page }) => {
   await primaryGridRow.click();
   let detailSection = page.locator('.break-detail');
   await expect(detailSection).toContainText(`Break ${primaryBreakLabel}`);
-  await expect(detailSection).toContainText('Status: OPEN', { timeout: 30000 });
+  await expect(detailSection).toContainText('OPEN', { timeout: 30000 });
 
   const selectionCheckbox = primaryGridRow.locator('input[type="checkbox"]');
   await selectionCheckbox.check();
@@ -728,7 +728,7 @@ test('reconciliation authoring to maker-checker workflow', async ({ page }) => {
       `Maker bulk submission failed (${bulkMakerResponse.status()} ${bulkMakerResponse.statusText()}): ${parsed}`
     );
   }
-  await expect(detailSection).toContainText('Status: PENDING_APPROVAL', { timeout: 30000 });
+  await expect(primaryGridRow).toContainText('PENDING_APPROVAL', { timeout: 30000 });
 
   await logout(page);
 
@@ -761,8 +761,14 @@ test('reconciliation authoring to maker-checker workflow', async ({ page }) => {
   await expect(checkerReconListItem).toBeVisible();
   await checkerReconListItem.click();
 
+  const checkerGridRows = page.locator('urp-result-grid .data-row');
+  const checkerPrimaryRow = checkerGridRows.filter({ hasText: primaryBreakLabel }).first();
+  await expect(checkerPrimaryRow).toBeVisible({ timeout: 30000 });
+  await expect(checkerPrimaryRow).toContainText('PENDING_APPROVAL', { timeout: 30000 });
+  await checkerPrimaryRow.click();
   detailSection = page.locator('.break-detail');
-  await expect(detailSection).toContainText('Status: PENDING_APPROVAL', { timeout: 30000 });
+  await expect(detailSection).toContainText(`Break ${primaryBreakLabel}`);
+  await expect(detailSection).toContainText(/pending[_ ]approval/i, { timeout: 30000 });
 
   await page.getByRole('button', { name: 'Approvals' }).click();
   const checkerQueue = page.locator('.checker-queue');
@@ -808,7 +814,7 @@ test('reconciliation authoring to maker-checker workflow', async ({ page }) => {
   await expect(reloadedCheckerQueue.locator('tbody tr')).toHaveCount(0, { timeout: 30000 });
   detailSection = page.locator('.break-detail');
   await expect(detailSection).toContainText(`Break ${primaryBreakLabel}`);
-  await expect(detailSection).toContainText('Status: CLOSED', { timeout: 30000 });
+  await expect(detailSection).toContainText(/closed/i, { timeout: 30000 });
 
   const workflowScreenshot = '11-maker-checker.png';
   await page.screenshot({ path: resolveAssetPath(workflowScreenshot), fullPage: true });

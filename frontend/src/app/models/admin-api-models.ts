@@ -29,6 +29,8 @@ export type AccessRole = 'VIEWER' | 'MAKER' | 'CHECKER';
 
 export type DataBatchStatus = 'PENDING' | 'LOADING' | 'COMPLETE' | 'FAILED' | 'ARCHIVED';
 
+export type TransformationType = 'GROOVY_SCRIPT' | 'EXCEL_FORMULA' | 'FUNCTION_PIPELINE';
+
 export interface AdminReconciliationSummary {
   id: number;
   code: string;
@@ -73,6 +75,16 @@ export interface AdminCanonicalFieldMapping {
   defaultValue?: string | null;
   ordinalPosition?: number | null;
   required: boolean;
+  transformations: AdminCanonicalFieldTransformation[];
+}
+
+export interface AdminCanonicalFieldTransformation {
+  id?: number | null;
+  type: TransformationType;
+  expression?: string | null;
+  configuration?: string | null;
+  displayOrder?: number | null;
+  active: boolean;
 }
 
 export interface AdminCanonicalField {
@@ -203,7 +215,15 @@ export interface AdminReconciliationSchema {
     thresholdPercentage?: number | null;
     formattingHint?: string | null;
     required: boolean;
-    mappings: AdminCanonicalFieldMapping[];
+    mappings: {
+      sourceCode: string;
+      sourceColumn: string;
+      transformationExpression?: string | null;
+      defaultValue?: string | null;
+      ordinalPosition?: number | null;
+      required: boolean;
+      transformations: SchemaFieldTransformation[];
+    }[];
   }[];
 }
 
@@ -211,4 +231,42 @@ export interface AdminIngestionRequestMetadata {
   adapterType: IngestionAdapterType;
   options?: Record<string, unknown>;
   label?: string;
+}
+
+export interface SchemaFieldTransformation {
+  id?: number | null;
+  type: TransformationType;
+  expression?: string | null;
+  configuration?: string | null;
+  displayOrder?: number | null;
+  active: boolean;
+}
+
+export interface TransformationValidationRequest {
+  type: TransformationType;
+  expression?: string | null;
+  configuration?: string | null;
+}
+
+export interface TransformationValidationResponse {
+  valid: boolean;
+  message: string;
+}
+
+export interface PreviewTransformationDto {
+  type: TransformationType;
+  expression?: string | null;
+  configuration?: string | null;
+  displayOrder?: number | null;
+  active?: boolean;
+}
+
+export interface TransformationPreviewRequest {
+  value: unknown;
+  rawRecord: Record<string, unknown>;
+  transformations: PreviewTransformationDto[];
+}
+
+export interface TransformationPreviewResponse {
+  result: unknown;
 }

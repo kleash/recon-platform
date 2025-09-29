@@ -28,6 +28,10 @@ import {
   AdminReconciliationRequest,
   AdminReconciliationSchema,
   AdminReconciliationSummaryPage,
+  TransformationPreviewRequest,
+  TransformationPreviewResponse,
+  TransformationValidationRequest,
+  TransformationValidationResponse,
   ReconciliationLifecycleStatus
 } from '../models/admin-api-models';
 
@@ -234,6 +238,24 @@ export class ApiService {
     return this.http.post<AdminIngestionBatch>(
       `${BASE_URL}/admin/reconciliations/${definitionId}/sources/${encodeURIComponent(sourceCode)}/batches`,
       formData
+    );
+  }
+
+  validateTransformation(
+    payload: TransformationValidationRequest
+  ): Observable<TransformationValidationResponse> {
+    return this.http.post<TransformationValidationResponse>(
+      `${BASE_URL}/admin/transformations/validate`,
+      payload
+    );
+  }
+
+  previewTransformation(
+    payload: TransformationPreviewRequest
+  ): Observable<TransformationPreviewResponse> {
+    return this.http.post<TransformationPreviewResponse>(
+      `${BASE_URL}/admin/transformations/preview`,
+      payload
     );
   }
 

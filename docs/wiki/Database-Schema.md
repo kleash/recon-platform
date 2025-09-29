@@ -1,21 +1,33 @@
 ### 5.4 Database Schema Reference
-The reconciliation service persists metadata, operational results, and workflow artefacts in MariaDB. The tables below list the
-most frequently touched entities along with their key columns.
+
+The reconciliation service persists configuration metadata, source ingestion telemetry, run outcomes, and workflow artefacts in
+MariaDB. The tables below reflect the current JPA model. Column types are expressed using logical types—adjust precision/length
+for the target environment as needed.
 
 #### Table: `reconciliation_definitions`
 | Column | Type | Nullable | Notes |
 | --- | --- | --- | --- |
 | `id` | BIGINT (PK) | No | Auto-increment primary key. |
-| `code` | VARCHAR(64) | No | Human-friendly unique identifier used by APIs and UI routes. |
-| `name` | VARCHAR(128) | No | Display label shown to end users. |
-| `description` | VARCHAR(512) | No | Business context and scope of the reconciliation. |
-| `status` | ENUM(`DRAFT`,`PUBLISHED`,`RETIRED`) | No | Lifecycle state maintained by the admin configurator. |
-| `version` | BIGINT | No | Increments on every publish to support optimistic locking. |
-| `owner` | VARCHAR(128) | Yes | Owning team or operations group. |
-| `maker_checker_enabled` | BOOLEAN | No | Enables dual-approval workflow when `true`. |
+| `code` | VARCHAR(64) | No | Unique business identifier referenced by APIs and UI routes. |
+| `name` | VARCHAR(128) | No | Display label for end users. |
+| `description` | VARCHAR(512) | No | Business context for the reconciliation. |
+| `maker_checker_enabled` | BOOLEAN | No | Enables dual-control workflow when true. |
+| `status` | ENUM(`DRAFT`,`PUBLISHED`,`RETIRED`) | No | Lifecycle state managed by admins. |
+| `notes` | TEXT | Yes | Rich notes captured during configuration reviews. |
+| `owned_by` | VARCHAR(128) | Yes | Owning team or cost centre. |
+| `created_by` | VARCHAR(128) | Yes | LDAP user that created the definition. |
+| `updated_by` | VARCHAR(128) | Yes | LDAP user that last modified the draft. |
+| `auto_trigger_enabled` | BOOLEAN | No | When true the definition is eligible for cron triggers. |
+| `auto_trigger_cron` | VARCHAR(64) | Yes | Cron expression interpreted in `auto_trigger_timezone`. |
+| `auto_trigger_timezone` | VARCHAR(64) | Yes | Olson timezone for the schedule. |
+| `auto_trigger_grace_minutes` | INT | Yes | Delay tolerated after the cron fires before alerting. |
 | `created_at` | TIMESTAMP | No | Creation timestamp (UTC). |
-| `updated_at` | TIMESTAMP | No | Last updated timestamp (UTC). |
-| `updated_by` | VARCHAR(128) | Yes | LDAP user that last published the definition. |
+| `updated_at` | TIMESTAMP | No | Last update timestamp (UTC). |
+| `published_at` | TIMESTAMP | Yes | Populated on publish. |
+| `published_by` | VARCHAR(128) | Yes | Actor that published the definition. |
+| `retired_at` | TIMESTAMP | Yes | Populated on retirement. |
+| `retired_by` | VARCHAR(128) | Yes | Actor that retired the definition. |
+| `version` | BIGINT | No | Optimistic locking token incremented on update. |
 
 #### Table: `reconciliation_sources`
 | Column | Type | Nullable | Notes |
@@ -23,124 +35,62 @@ most frequently touched entities along with their key columns.
 | `id` | BIGINT (PK) | No | Auto-increment primary key. |
 | `definition_id` | BIGINT (FK) | No | References `reconciliation_definitions.id`. |
 | `code` | VARCHAR(64) | No | Short identifier (e.g., `CASH`, `GL`). |
-| `adapter_type` | ENUM(`CSV`,`JDBC`,`API`) | No | Drives ingestion behaviour. |
-| `anchor` | BOOLEAN | No | Marks the source used as the primary match anchor. |
-| `options_json` | CLOB | Yes | Adapter-specific options such as delimiter, connection string, or endpoint URL. |
-| `retired_at` | TIMESTAMP | Yes | Soft-delete marker when a source is removed. |
+| `display_name` | VARCHAR(128) | No | Friendly label shown in the admin UI. |
+| `adapter_type` | ENUM(`CSV`,`JDBC`,`API`) | No | Ingestion adapter implementation. |
+| `anchor` | BOOLEAN | No | Identifies the primary matching source. |
+| `description` | VARCHAR(512) | Yes | Business description for operators. |
+| `connection_config` | TEXT | Yes | Connection metadata for JDBC/API adapters. |
+| `arrival_expectation` | VARCHAR(256) | Yes | Human-readable SLA descriptor. |
+| `arrival_timezone` | VARCHAR(64) | Yes | Timezone for the arrival SLA. |
+| `arrival_sla_minutes` | INT | Yes | SLA window in minutes. |
+| `adapter_options` | TEXT | Yes | Adapter-specific options (CSV delimiter, authentication tokens, etc.). |
+| `created_at` | TIMESTAMP | No | Creation timestamp. |
+| `updated_at` | TIMESTAMP | No | Last modification timestamp. |
 
-#### Table: `reconciliation_fields`
-| Column | Type | Nullable | Notes |
-| --- | --- | --- | --- |
-| `id` | BIGINT (PK) | No | Auto-increment primary key. |
-| `definition_id` | BIGINT (FK) | No | References `reconciliation_definitions.id`. Indexed for fast joins. |
-| `canonical_name` | VARCHAR(128) | No | Internal name used by matching and reporting. |
-| `source_field` | VARCHAR(128) | No | Raw column identifier from source feeds. |
-| `display_name` | VARCHAR(128) | No | Friendly label rendered in the UI and reports. |
-| `role` | ENUM(`KEY`,`COMPARE`,`DISPLAY`,`PRODUCT`,`SUB_PRODUCT`,`ENTITY`) | No | Drives grouping, matching, or descriptive behaviour. |
-| `data_type` | ENUM(`STRING`,`DECIMAL`,`INTEGER`,`DATE`,`BOOLEAN`) | No | Controls parsing and tolerance rules. |
-| `comparison_logic` | ENUM(`EXACT_MATCH`,`CASE_INSENSITIVE`,`NUMERIC_THRESHOLD`,`DATE_ONLY`,`CUSTOM`) | No | Names the evaluator strategy applied during matching. |
-| `threshold_percentage` | DECIMAL(5,2) | Yes | Optional tolerance applied by numeric comparison strategies. |
-
-#### Table: `report_templates`
+#### Table: `canonical_fields`
 | Column | Type | Nullable | Notes |
 | --- | --- | --- | --- |
 | `id` | BIGINT (PK) | No | Auto-increment primary key. |
 | `definition_id` | BIGINT (FK) | No | References `reconciliation_definitions.id`. |
-| `name` | VARCHAR(128) | No | Template label shown to users. |
-| `description` | VARCHAR(256) | No | Business usage description. |
-| `include_matched` | BOOLEAN | No | Include matched records when `true`. |
-| `include_mismatched` | BOOLEAN | No | Include mismatched records when `true`. |
-| `include_missing` | BOOLEAN | No | Include missing records when `true`. |
-| `highlight_differences` | BOOLEAN | No | Toggle for conditional formatting. |
+| `canonical_name` | VARCHAR(128) | No | Internal attribute key used across sources. |
+| `display_name` | VARCHAR(128) | No | Label surfaced in UI grids and reports. |
+| `role` | ENUM(`KEY`,`COMPARE`,`DISPLAY`,`PRODUCT`,`SUB_PRODUCT`,`ENTITY`) | No | Drives matching, filtering, and entitlements. |
+| `data_type` | ENUM(`STRING`,`DECIMAL`,`INTEGER`,`DATE`,`BOOLEAN`) | No | Influences parsing and formatting. |
+| `comparison_logic` | ENUM(`EXACT_MATCH`,`CASE_INSENSITIVE`,`NUMERIC_THRESHOLD`,`DATE_ONLY`,`CUSTOM`) | No | Comparator applied during matching. |
+| `threshold_percentage` | DECIMAL(7,3) | Yes | Tolerance for numeric comparisons. |
+| `classifier_tag` | VARCHAR(64) | Yes | Optional tag used for downstream grouping. |
+| `formatting_hint` | VARCHAR(128) | Yes | Presentation hint for UI/export rendering. |
+| `display_order` | INT | Yes | Suggested ordering for UI grids. |
+| `required` | BOOLEAN | No | Indicates whether the field must be populated for matching. |
+| `created_at` | TIMESTAMP | No | Creation timestamp. |
+| `updated_at` | TIMESTAMP | No | Last modification timestamp. |
 
-#### Table: `report_columns`
+#### Table: `canonical_field_mappings`
 | Column | Type | Nullable | Notes |
 | --- | --- | --- | --- |
 | `id` | BIGINT (PK) | No | Auto-increment primary key. |
-| `template_id` | BIGINT (FK) | No | References `report_templates.id`. |
-| `header` | VARCHAR(128) | No | Column header text. |
-| `source` | ENUM(`SOURCE_A`,`SOURCE_B`,`BREAK_METADATA`) | No | Determines the data source for the column value. |
-| `source_field` | VARCHAR(128) | Yes | Field key when sourcing from A/B datasets. |
-| `display_order` | INT | No | Zero-based ordering for Excel generation. |
-| `highlight_differences` | BOOLEAN | No | Overrides template-level highlight if necessary. |
+| `canonical_field_id` | BIGINT (FK) | No | References `canonical_fields.id`. |
+| `source_id` | BIGINT (FK) | No | References `reconciliation_sources.id`. |
+| `source_column` | VARCHAR(128) | No | Raw column or attribute from the source payload. |
+| `transformation_expression` | TEXT | Yes | Script or DSL fragment to normalise data. |
+| `default_value` | VARCHAR(256) | Yes | Applied when the source column is missing. |
+| `ordinal_position` | INT | Yes | Ordering when multiple mappings exist for the same field. |
+| `required` | BOOLEAN | No | Enforced during ingestion. |
+| `created_at` | TIMESTAMP | No | Creation timestamp. |
+| `updated_at` | TIMESTAMP | No | Last modification timestamp. |
 
-#### Table: `reconciliation_runs`
+#### Table: `canonical_field_transformations`
 | Column | Type | Nullable | Notes |
 | --- | --- | --- | --- |
 | `id` | BIGINT (PK) | No | Auto-increment primary key. |
-| `definition_id` | BIGINT (FK) | No | References `reconciliation_definitions.id`. |
-| `run_date_time` | TIMESTAMP | No | Execution start time. |
-| `trigger_type` | ENUM(`MANUAL_UI`,`MANUAL_API`,`SCHEDULED_CRON`,`EXTERNAL_API`,`KAFKA_EVENT`) | No | Origin of the run. |
-| `status` | ENUM(`SUCCESS`,`FAILED`) | No | Aggregated lifecycle state. |
-| `triggered_by` | VARCHAR(128) | Yes | User DN or service principal. |
-| `trigger_comments` | VARCHAR(512) | Yes | Operator-supplied context. |
-| `trigger_correlation_id` | VARCHAR(64) | Yes | External reference for tracking (e.g., job ID). |
-| `matched_count` | INT | No | Number of records matched in the run. |
-| `mismatched_count` | INT | No | Number of breaks created due to mismatches. |
-| `missing_count` | INT | No | Number of missing records detected. |
-
-#### Table: `ingestion_batches`
-| Column | Type | Nullable | Notes |
-| --- | --- | --- | --- |
-| `id` | BIGINT (PK) | No | Auto-increment primary key. |
-| `definition_id` | BIGINT (FK) | No | Reconciliation that owns the batch. |
-| `source_code` | VARCHAR(64) | No | Source identifier the batch was uploaded for. |
-| `external_reference` | VARCHAR(128) | Yes | Optional upstream reference (file name, job ID). |
-| `status` | ENUM(`RECEIVED`,`PROCESSING`,`PROCESSED`,`FAILED`) | No | Tracks ingestion lifecycle. |
-| `record_count` | INT | Yes | Populated after processing completes. |
-| `checksum` | VARCHAR(128) | Yes | Hash used for idempotency and audit. |
-| `received_at` | TIMESTAMP | No | Timestamp when the batch was created. |
-| `completed_at` | TIMESTAMP | Yes | Populated when the batch leaves `PROCESSING`. |
-
-#### Table: `break_items`
-| Column | Type | Nullable | Notes |
-| --- | --- | --- | --- |
-| `id` | BIGINT (PK) | No | Auto-increment primary key. |
-| `run_id` | BIGINT (FK) | No | References `reconciliation_runs.id`. |
-| `break_type` | ENUM(`MISMATCH`,`MISSING_IN_SOURCE_A`,`MISSING_IN_SOURCE_B`) | No | Source of discrepancy. |
-| `status` | ENUM(`OPEN`,`PENDING_APPROVAL`,`REJECTED`,`CLOSED`) | No | Workflow state; updated by maker/checker transitions. |
-| `product` | VARCHAR(64) | Yes | Optional classification dimension. |
-| `sub_product` | VARCHAR(64) | Yes | Secondary classification. |
-| `entity_name` | VARCHAR(128) | Yes | Legal entity or fund name. |
-| `submitted_by_dn` | VARCHAR(256) | Yes | Maker LDAP DN captured when requesting approval. |
-| `submitted_by_group` | VARCHAR(256) | Yes | Maker LDAP group recorded for audit separation. |
-| `detected_at` | TIMESTAMP | No | Time the break was generated. |
-| `source_a_json` | CLOB | Yes | Serialized source A payload used for audit and drill-down. |
-| `source_b_json` | CLOB | Yes | Serialized source B payload used for audit and drill-down. |
-
-#### Table: `break_workflow_audit`
-| Column | Type | Nullable | Notes |
-| --- | --- | --- | --- |
-| `id` | BIGINT (PK) | No | Auto-increment primary key. |
-| `break_id` | BIGINT (FK) | No | References `break_items.id`. |
-| `previous_status` | ENUM(`OPEN`,`PENDING_APPROVAL`,`REJECTED`,`CLOSED`) | No | Status before the transition. |
-| `new_status` | ENUM(`OPEN`,`PENDING_APPROVAL`,`REJECTED`,`CLOSED`) | No | Status after the transition. |
-| `actor_dn` | VARCHAR(256) | No | LDAP distinguished name of the actor. |
-| `actor_role` | ENUM(`MAKER`,`CHECKER`,`SYSTEM`) | No | Resolved role at the time of the transition. |
-| `comment` | VARCHAR(2000) | Yes | Mandatory for approvals/rejections. |
-| `correlation_id` | VARCHAR(64) | Yes | Correlates bulk transitions. |
-| `created_at` | TIMESTAMP | No | Audit timestamp in UTC. |
-
-#### Table: `break_comments`
-| Column | Type | Nullable | Notes |
-| --- | --- | --- | --- |
-| `id` | BIGINT (PK) | No | Auto-increment primary key. |
-| `break_item_id` | BIGINT (FK) | No | References `break_items.id`. |
-| `actor_dn` | VARCHAR(256) | No | LDAP distinguished name of the actor. |
-| `action` | VARCHAR(64) | No | Action code (e.g., `COMMENT`, `ASSIGN`, `CLOSE`). |
-| `comment` | VARCHAR(2000) | No | Free-form text content. |
-| `created_at` | TIMESTAMP | No | Audit timestamp in UTC. |
-
-#### Table: `break_attachments`
-| Column | Type | Nullable | Notes |
-| --- | --- | --- | --- |
-| `id` | BIGINT (PK) | No | Auto-increment primary key. |
-| `break_item_id` | BIGINT (FK) | No | References `break_items.id`. |
-| `file_name` | VARCHAR(256) | No | Original filename uploaded. |
-| `content_type` | VARCHAR(128) | No | MIME type. |
-| `storage_key` | VARCHAR(256) | No | Location in object storage. |
-| `uploaded_by` | VARCHAR(256) | No | LDAP DN of the uploader. |
-| `uploaded_at` | TIMESTAMP | No | Upload timestamp. |
+| `mapping_id` | BIGINT (FK) | No | References `canonical_field_mappings.id`. |
+| `type` | ENUM(`UPPERCASE`,`TRIM`,`GROOVY_SCRIPT`,...) | No | Transformation type (see `TransformationType`). |
+| `expression` | TEXT | Yes | Expression content (Groovy script, regex, etc.). |
+| `configuration` | TEXT | Yes | Serialized configuration map. |
+| `display_order` | INT | No | Execution order within the transformation chain. |
+| `active` | BOOLEAN | No | Toggle for staged transformations. |
+| `created_at` | TIMESTAMP | No | Creation timestamp. |
+| `updated_at` | TIMESTAMP | No | Last modification timestamp. |
 
 #### Table: `access_control_entries`
 | Column | Type | Nullable | Notes |
@@ -148,17 +98,175 @@ most frequently touched entities along with their key columns.
 | `id` | BIGINT (PK) | No | Auto-increment primary key. |
 | `ldap_group_dn` | VARCHAR(256) | No | Group distinguished name mapped from LDAP. |
 | `definition_id` | BIGINT (FK) | No | References `reconciliation_definitions.id`. |
-| `product` | VARCHAR(64) | Yes | Optional dimension filter for entitlements. |
-| `sub_product` | VARCHAR(64) | Yes | Optional secondary dimension filter. |
-| `entity_name` | VARCHAR(128) | Yes | Optional legal entity filter. |
-| `role` | ENUM(`VIEWER`,`MAKER`,`CHECKER`) | No | Determines UI capabilities and API scopes. |
+| `product` | VARCHAR(64) | Yes | Optional entitlement filter. |
+| `sub_product` | VARCHAR(64) | Yes | Secondary entitlement filter. |
+| `entity_name` | VARCHAR(128) | Yes | Legal entity or fund filter. |
+| `role` | ENUM(`VIEWER`,`MAKER`,`CHECKER`) | No | Determines UI capabilities and workflow permissions. |
+| `notify_on_publish` | BOOLEAN | No | Sends notifications when configuration is published. |
+| `notify_on_ingestion_failure` | BOOLEAN | No | Sends notifications when batch ingestion fails. |
+| `notification_channel` | VARCHAR(256) | Yes | Optional Teams/Slack/Email channel reference. |
+
+#### Table: `report_templates`
+| Column | Type | Nullable | Notes |
+| --- | --- | --- | --- |
+| `id` | BIGINT (PK) | No | Auto-increment primary key. |
+| `definition_id` | BIGINT (FK) | No | References `reconciliation_definitions.id`. |
+| `name` | VARCHAR(128) | No | Template name displayed in UI. |
+| `description` | VARCHAR(256) | No | Business usage description. |
+| `include_matched` | BOOLEAN | No | Include matched rows when true. |
+| `include_mismatched` | BOOLEAN | No | Include mismatched rows when true. |
+| `include_missing` | BOOLEAN | No | Include missing rows when true. |
+| `highlight_differences` | BOOLEAN | No | Enables conditional formatting. |
+
+#### Table: `report_columns`
+| Column | Type | Nullable | Notes |
+| --- | --- | --- | --- |
+| `id` | BIGINT (PK) | No | Auto-increment primary key. |
+| `template_id` | BIGINT (FK) | No | References `report_templates.id`. |
+| `header` | VARCHAR(128) | No | Column header text. |
+| `source` | ENUM(`SOURCE_A`,`SOURCE_B`,`BREAK_METADATA`) | No | Data source for column values. |
+| `source_field` | VARCHAR(128) | Yes | Source key when pulling from A/B payloads or break metadata. |
+| `display_order` | INT | No | Zero-based ordering. |
+| `highlight_differences` | BOOLEAN | No | Overrides template-level highlight behaviour. |
+
+#### Table: `reconciliation_runs`
+| Column | Type | Nullable | Notes |
+| --- | --- | --- | --- |
+| `id` | BIGINT (PK) | No | Auto-increment primary key. |
+| `definition_id` | BIGINT (FK) | No | References `reconciliation_definitions.id`. |
+| `run_date_time` | TIMESTAMP | No | Execution start time (UTC). |
+| `trigger_type` | ENUM(`MANUAL_UI`,`MANUAL_API`,`SCHEDULED_CRON`,`EXTERNAL_API`,`KAFKA_EVENT`) | No | Trigger origin. |
+| `status` | ENUM(`SUCCESS`,`FAILED`) | No | Run outcome. |
+| `triggered_by` | VARCHAR(128) | Yes | User DN or service principal. |
+| `trigger_comments` | VARCHAR(512) | Yes | Operator-supplied comments. |
+| `trigger_correlation_id` | VARCHAR(64) | Yes | External reference ID. |
+| `matched_count` | INT | No | Number of matched records. |
+| `mismatched_count` | INT | No | Number of mismatches promoted to breaks. |
+| `missing_count` | INT | No | Number of missing records. |
+
+#### Table: `break_items`
+| Column | Type | Nullable | Notes |
+| --- | --- | --- | --- |
+| `id` | BIGINT (PK) | No | Auto-increment primary key. |
+| `run_id` | BIGINT (FK) | No | References `reconciliation_runs.id`. |
+| `break_type` | ENUM(`MISMATCH`,`MISSING_IN_SOURCE_A`,`MISSING_IN_SOURCE_B`) | No | Type of exception. |
+| `status` | ENUM(`OPEN`,`PENDING_APPROVAL`,`REJECTED`,`CLOSED`) | No | Workflow state. |
+| `detected_at` | TIMESTAMP | No | Detection timestamp. |
+| `submitted_by_dn` | VARCHAR(256) | Yes | Maker identity for approvals. |
+| `submitted_by_group` | VARCHAR(256) | Yes | Maker group at submission time. |
+| `submitted_at` | TIMESTAMP | Yes | When approval was requested. |
+| `product` | VARCHAR(64) | Yes | Classification dimension. |
+| `sub_product` | VARCHAR(64) | Yes | Secondary classification. |
+| `entity_name` | VARCHAR(128) | Yes | Entity dimension. |
+| `source_payload_json` | LONGTEXT | Yes | Consolidated source payload for UI drill-down. |
+| `classification_json` | LONGTEXT | Yes | Serialized classification map. |
+| `missing_sources_json` | LONGTEXT | Yes | Serialised list of missing sources. |
+| `source_a_json` | LONGTEXT | Yes | Legacy payload for source A (deprecated). |
+| `source_b_json` | LONGTEXT | Yes | Legacy payload for source B (deprecated). |
+
+#### Table: `break_classification_values`
+| Column | Type | Nullable | Notes |
+| --- | --- | --- | --- |
+| `id` | BIGINT (PK) | No | Auto-increment primary key. |
+| `break_item_id` | BIGINT (FK) | No | References `break_items.id`. |
+| `attribute_key` | VARCHAR(128) | No | Flattened key for analytics queries. |
+| `attribute_value` | VARCHAR(256) | Yes | Value used for aggregations and filters. |
+
+#### Table: `break_workflow_audit`
+| Column | Type | Nullable | Notes |
+| --- | --- | --- | --- |
+| `id` | BIGINT (PK) | No | Auto-increment primary key. |
+| `break_item_id` | BIGINT (FK) | No | References `break_items.id`. |
+| `previous_status` | ENUM(`OPEN`,`PENDING_APPROVAL`,`REJECTED`,`CLOSED`) | No | Status before transition. |
+| `new_status` | ENUM(`OPEN`,`PENDING_APPROVAL`,`REJECTED`,`CLOSED`) | No | Status after transition. |
+| `actor_dn` | VARCHAR(256) | No | LDAP DN of the actor. |
+| `actor_role` | ENUM(`VIEWER`,`MAKER`,`CHECKER`) | No | Role resolved at execution time. |
+| `comment` | VARCHAR(2000) | Yes | Approval/rejection commentary. |
+| `correlation_id` | VARCHAR(64) | Yes | Correlates bulk operations. |
+| `created_at` | TIMESTAMP | No | Audit timestamp. |
+
+#### Table: `break_comments`
+| Column | Type | Nullable | Notes |
+| --- | --- | --- | --- |
+| `id` | BIGINT (PK) | No | Auto-increment primary key. |
+| `break_item_id` | BIGINT (FK) | No | References `break_items.id`. |
+| `actor_dn` | VARCHAR(256) | No | LDAP DN of the actor. |
+| `action` | VARCHAR(64) | No | Action code (COMMENT, ASSIGN, etc.). |
+| `comment` | VARCHAR(2000) | No | Free-form note. |
+| `created_at` | TIMESTAMP | No | Timestamp recorded in UTC. |
+
+#### Table: `analyst_saved_views`
+| Column | Type | Nullable | Notes |
+| --- | --- | --- | --- |
+| `id` | BIGINT (PK) | No | Auto-increment primary key. |
+| `definition_id` | BIGINT (FK) | No | References `reconciliation_definitions.id`. |
+| `owner` | VARCHAR(128) | No | Username of the view owner. |
+| `name` | VARCHAR(120) | No | Saved view name. |
+| `description` | TEXT | Yes | Optional description shown in UI. |
+| `settings_json` | LONGTEXT | No | Serialized grid configuration (filters, column order, density). |
+| `shared_token` | VARCHAR(64) | Yes | Unique token used for shareable links. |
+| `is_shared` | BOOLEAN | No | Controls visibility beyond the owner. |
+| `is_default` | BOOLEAN | No | Marks the owner’s default view. |
+| `created_at` | TIMESTAMP | No | Creation timestamp. |
+| `updated_at` | TIMESTAMP | No | Last update timestamp. |
+
+#### Table: `export_jobs`
+| Column | Type | Nullable | Notes |
+| --- | --- | --- | --- |
+| `id` | BIGINT (PK) | No | Auto-increment primary key. |
+| `definition_id` | BIGINT (FK) | No | References `reconciliation_definitions.id`. |
+| `owner` | VARCHAR(128) | No | Username that queued the export. |
+| `job_type` | ENUM(`RESULT_DATASET`) | No | Export job type. |
+| `format` | ENUM(`CSV`,`JSONL`,`XLSX`,`PDF`) | No | Output format. |
+| `status` | ENUM(`QUEUED`,`PROCESSING`,`COMPLETED`,`FAILED`) | No | Job lifecycle status. |
+| `filters_json` | LONGTEXT | Yes | Snapshot of applied filters. |
+| `settings_json` | LONGTEXT | Yes | Additional export settings (include metadata, timezone, etc.). |
+| `owner_groups_json` | LONGTEXT | Yes | Caller’s groups persisted for entitlement validation. |
+| `payload` | LONGBLOB | Yes | Generated file content (null until completion). |
+| `file_name` | VARCHAR(256) | Yes | Suggested filename for downloads. |
+| `content_hash` | VARCHAR(128) | Yes | SHA-256 hash of the payload. |
+| `row_count` | BIGINT | Yes | Number of rows exported. |
+| `timezone` | VARCHAR(64) | Yes | Timezone applied to timestamps inside the export. |
+| `error_message` | TEXT | Yes | Populated if the job fails. |
+| `created_at` | TIMESTAMP | No | Creation timestamp. |
+| `updated_at` | TIMESTAMP | No | Last update timestamp. |
+| `completed_at` | TIMESTAMP | Yes | Completion timestamp. |
 
 #### Table: `system_activity_logs`
 | Column | Type | Nullable | Notes |
 | --- | --- | --- | --- |
 | `id` | BIGINT (PK) | No | Auto-increment primary key. |
-| `event_type` | ENUM(`RECONCILIATION_RUN`,`BREAK_STATUS_CHANGE`,`BREAK_COMMENT`,`BREAK_BULK_ACTION`,`REPORT_EXPORT`,`INGESTION_BATCH`,`CONFIGURATION_PUBLISH`) | No | Categorises the event for filtering. |
-| `details` | VARCHAR(2000) | No | Human-readable summary or JSON payload. |
-| `recorded_at` | TIMESTAMP | No | Event time captured in UTC. |
+| `event_type` | ENUM(`RECONCILIATION_RUN`,`BREAK_STATUS_CHANGE`,`BREAK_COMMENT`,`BREAK_BULK_ACTION`,`REPORT_EXPORT`,`INGESTION_BATCH`,`CONFIGURATION_PUBLISH`) | No | Event classification. |
+| `details` | VARCHAR(2000) | No | Summary or JSON payload used in dashboards. |
+| `recorded_at` | TIMESTAMP | No | Event timestamp (UTC). |
 
-> ℹ️ **Indexing guidance:** Create composite indexes on `(definition_id, product, sub_product)` for break and access tables to accelerate entitlement filtering. When using JPA auto-DDL, apply these indexes manually in production databases to preserve query performance. Ingestion batch lookups benefit from `(definition_id, source_code, status)` indexes for run orchestration dashboards.
+#### Table: `source_data_batches`
+| Column | Type | Nullable | Notes |
+| --- | --- | --- | --- |
+| `id` | BIGINT (PK) | No | Auto-increment primary key. |
+| `source_id` | BIGINT (FK) | No | References `reconciliation_sources.id`. |
+| `label` | VARCHAR(128) | No | Human-readable batch name (often the business date). |
+| `status` | ENUM(`PENDING`,`PROCESSING`,`PROCESSED`,`FAILED`) | No | Batch lifecycle status. |
+| `ingested_at` | TIMESTAMP | No | Ingestion timestamp. |
+| `record_count` | BIGINT | Yes | Row count populated on completion. |
+| `checksum` | VARCHAR(128) | Yes | Hash for idempotency. |
+
+#### Table: `source_data_records`
+| Column | Type | Nullable | Notes |
+| --- | --- | --- | --- |
+| `id` | BIGINT (PK) | No | Auto-increment primary key. |
+| `batch_id` | BIGINT (FK) | No | References `source_data_batches.id`. |
+| `external_reference` | VARCHAR(128) | Yes | Optional upstream identifier (file name, trade ID). |
+| `canonical_key` | VARCHAR(256) | No | Pre-computed matching key used by the engine. |
+| `payload_json` | TEXT | No | Normalised source payload. |
+| `metadata_json` | TEXT | Yes | Additional metadata (ingestion diagnostics, lineage). |
+| `ingested_at` | TIMESTAMP | No | Record ingestion timestamp. |
+
+#### Legacy Sample Tables
+The sample ETL pipelines that seed demonstration data still populate `source_a_records` and `source_b_records`. These tables mirror
+the canonical model but are considered transitional and will be removed once all reconciliations rely on canonical fields.
+
+> ℹ️ **Indexing guidance:** Create composite indexes on `(definition_id, product, sub_product)` for `break_items` and
+> `access_control_entries` to accelerate entitlement filtering. For high-volume exports add `(definition_id, owner, status)` indexes
+> on `export_jobs`. Cursor pagination over break searches relies on covering indexes for `run_id` and `status` in tandem with the
+> canonical classification values.

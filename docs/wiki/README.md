@@ -24,6 +24,7 @@ Use these guides to understand common development workflows and learn how to ext
 - **[Tutorial: Creating a New Reconciliation](./Tutorial-Creating-a-New-Reconciliation.md)**: A hands-on tutorial for adding a new reconciliation pipeline to the platform via configuration-driven metadata.
 - **[Development Workflow Guide](./Development-Workflow.md)**: Information on building, testing, debugging, and other common development tasks.
 - **[Admin Reconciliation Configurator Guide](./Admin-Configurator-Guide.md)**: Step-by-step instructions for using the admin workspace, schema exports, and ingestion helpers.
+- **[Ingestion SDK](./ingestion-sdk.md)**: How to build Spring Boot ingestion jars using the reusable SDK, including JDBC and API adapters.
 - **[Automation Regression Guide](../../automation/regression/README.md)**: How to execute the Playwright end-to-end suite and interpret reports.
 
 ## 4. Process & Governance

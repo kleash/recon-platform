@@ -27,6 +27,8 @@ an operations team would execute in production.
 - `scripts/run_multi_example_e2e.sh` – orchestration script that builds the binaries, launches the
   platform, applies admin payloads, runs the ingestion CLI, validates run summaries, and tears the
   process down.
+- `scripts/run_ingestion_library_e2e.sh` – targeted flow that exercises the ingestion SDK example
+  application against the cash vs GL scenario to verify the reusable library end-to-end.
 
 ## Prerequisites
 

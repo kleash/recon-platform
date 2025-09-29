@@ -15,7 +15,6 @@
     <description>Aggregated Spring Boot launcher that exposes multiple reconciliation examples simultaneously.</description>
     <properties>
         <java.version>17</java.version>
-        <okhttp.version>4.12.0</okhttp.version>
         <assembly.plugin.version>3.6.0</assembly.plugin.version>
     </properties>
     <dependencies>
@@ -25,13 +24,9 @@
             <version>0.1.0</version>
         </dependency>
         <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp</artifactId>
-            <version>${okhttp.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
+            <groupId>com.universal.reconciliation.libraries</groupId>
+            <artifactId>ingestion-sdk</artifactId>
+            <version>0.1.0</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

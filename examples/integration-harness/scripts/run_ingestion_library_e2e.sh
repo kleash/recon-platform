@@ -5,21 +5,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 BACKEND_DIR="$PROJECT_ROOT/backend"
 HARNESS_DIR="$PROJECT_ROOT/examples/integration-harness"
-COMMON_DIR="$PROJECT_ROOT/examples/common"
+EXAMPLE_DIR="$PROJECT_ROOT/examples/ingestion-sdk-example"
 LIB_DIR="$PROJECT_ROOT/libraries/ingestion-sdk"
+PAYLOAD_DIR="$HARNESS_DIR/payloads"
+LOG_DIR="$(mktemp -d)"
+APP_LOG="$LOG_DIR/platform.log"
 APP_PORT="${APP_PORT:-8080}"
 BASE_URL="http://localhost:${APP_PORT}"
 JWT_SECRET_VALUE="MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE="
-LOG_DIR="$(mktemp -d)"
-APP_LOG="$LOG_DIR/platform.log"
 APP_PID=""
-
-PAYLOAD_DIR="$HARNESS_DIR/payloads"
-PAYLOADS=(
-  "$PAYLOAD_DIR/cash-vs-gl.json"
-  "$PAYLOAD_DIR/custodian-trade.json"
-  "$PAYLOAD_DIR/securities-position.json"
-)
 
 ADMIN_USERNAME="admin1"
 ADMIN_PASSWORD="password"
@@ -47,6 +41,10 @@ require_binary() {
 require_binary curl
 require_binary jq
 
+log() {
+    printf '[%s] %s\n' "$(date +%H:%M:%S)" "$1"
+}
+
 ensure_port_available() {
     if command -v lsof >/dev/null 2>&1; then
         if lsof -nPi :"$APP_PORT" >/dev/null 2>&1; then
@@ -65,27 +63,21 @@ ensure_port_available() {
     log "Skipping port availability check because neither lsof nor ss is installed"
 }
 
-log() {
-    printf '[%s] %s\n' "$(date +%H:%M:%S)" "$1"
-}
-
 build_artifacts() {
     log "Installing ingestion SDK"
     "$BACKEND_DIR/mvnw" -f "$LIB_DIR/pom.xml" clean install -DskipTests >/dev/null
 
-    log "Building backend platform artifact"
+    log "Building backend platform"
     "$BACKEND_DIR/mvnw" -f "$BACKEND_DIR/pom.xml" clean install -DskipTests -Dspring-boot.repackage.skip=true >/dev/null
 
     log "Installing shared example support library"
-    "$BACKEND_DIR/mvnw" -f "$COMMON_DIR/pom.xml" clean install -DskipTests >/dev/null
+    "$BACKEND_DIR/mvnw" -f "$PROJECT_ROOT/examples/common/pom.xml" clean install -DskipTests >/dev/null
 
-    log "Packaging integration harness application and ingestion CLI"
+    log "Packaging integration harness"
     "$BACKEND_DIR/mvnw" -f "$HARNESS_DIR/pom.xml" package -DskipTests >/dev/null
 
-    local assembly_jar="$HARNESS_DIR/target/multi-example-harness-0.1.0-jar-with-dependencies.jar"
-    if [[ -f "$assembly_jar" ]]; then
-        cp "$assembly_jar" "$HARNESS_DIR/target/integration-ingestion-cli.jar"
-    fi
+    log "Packaging ingestion SDK example"
+    "$BACKEND_DIR/mvnw" -f "$EXAMPLE_DIR/pom.xml" package -DskipTests >/dev/null
 }
 
 start_platform() {
@@ -188,23 +180,23 @@ upsert_reconciliation() {
         expected_status=201
     fi
 
-    local response status
-    response=$(mktemp "$LOG_DIR/curl_response.XXXXXX")
-    status=$(curl -sS -o "$response" -w '%{http_code}' -X "$method" "$url" \
+    local response status tmp
+    tmp=$(mktemp "$LOG_DIR/curl_response.XXXXXX")
+    status=$(curl -sS -o "$tmp" -w '%{http_code}' -X "$method" "$url" \
         -H "Authorization: Bearer $token" \
         -H 'Content-Type: application/json' \
         -d @"$payload_path")
     if [[ "$status" -ne "$expected_status" ]]; then
         echo "Failed to submit reconciliation payload for $code (status $status)" >&2
-        cat "$response" >&2 || true
-        rm -f "$response"
+        cat "$tmp" >&2 || true
+        rm -f "$tmp"
         exit 1
     fi
 
     if [[ "$method" == "POST" ]]; then
-        recon_id=$(jq -r '.id' "$response")
+        recon_id=$(jq -r '.id' "$tmp")
     fi
-    rm -f "$response"
+    rm -f "$tmp"
 
     if [[ -z "$recon_id" || "$recon_id" == "null" ]]; then
         echo "Unable to determine reconciliation id for $code" >&2
@@ -223,7 +215,7 @@ trigger_run() {
     status=$(curl -sS -o "$tmp" -w '%{http_code}' -X POST "$BASE_URL/api/reconciliations/$recon_id/run" \
         -H "Authorization: Bearer $token" \
         -H 'Content-Type: application/json' \
-        -d "{\"triggerType\":\"MANUAL_API\",\"comments\":\"$comments\",\"initiatedBy\":\"integration-harness\"}")
+        -d "{\"triggerType\":\"MANUAL_API\",\"comments\":\"$comments\",\"initiatedBy\":\"ingestion-sdk-example\"}")
     if [[ "$status" -ne 200 ]]; then
         echo "Trigger run request failed for reconciliation $recon_id (status $status)" >&2
         cat "$tmp" >&2 || true
@@ -234,30 +226,26 @@ trigger_run() {
     rm -f "$tmp"
 }
 
-validate_summary() {
+validate_cash_vs_gl_summary() {
     local payload="$1"
-    local code="$2"
-    local expr
-    case "$code" in
-        CASH_VS_GL_SIMPLE)
-            expr='(.summary.matched // 0) > 0 and (.summary.mismatched // 0) > 0 and (.summary.missing // 0) > 0'
-            ;;
-        CUSTODIAN_TRADE_COMPLEX)
-            expr='(.summary.missing // 0) > 0'
-            ;;
-        SEC_POSITION_COMPLEX)
-            expr='(.summary.matched // 0) > 0 and (.summary.mismatched // 0) > 0'
-            ;;
-        *)
-            expr='true'
-            ;;
-    esac
-
-    if ! echo "$payload" | jq -e "$expr" >/dev/null; then
-        echo "Run summary validation failed for $code" >&2
+    if ! echo "$payload" | jq -e '(.summary.matched // 0) > 0 and (.summary.mismatched // 0) > 0 and (.summary.missing // 0) > 0' >/dev/null; then
+        echo "Cash vs GL run summary validation failed" >&2
         echo "$payload" | jq '.' >&2 || true
         exit 1
     fi
+}
+
+run_ingestion_example() {
+    local example_jar="$EXAMPLE_DIR/target/ingestion-sdk-example-0.1.0.jar"
+    if [[ ! -f "$example_jar" ]]; then
+        echo "Example jar not found at $example_jar" >&2
+        exit 1
+    fi
+    log "Running ingestion SDK example"
+    java -jar "$example_jar" \
+        --reconciliation.ingestion.base-url="$BASE_URL" \
+        --reconciliation.ingestion.username="$ADMIN_USERNAME" \
+        --reconciliation.ingestion.password="$ADMIN_PASSWORD"
 }
 
 main() {
@@ -272,28 +260,10 @@ main() {
         exit 1
     fi
 
-    local -a CODES=()
-    local -a IDS=()
-    for payload in "${PAYLOADS[@]}"; do
-        log "Installing reconciliation from $(basename "$payload")"
-        recon_id=$(upsert_reconciliation "$payload" "$ADMIN_TOKEN")
-        code=$(jq -r '.code' "$payload")
-        CODES+=("$code")
-        IDS+=("$recon_id")
-    done
+    log "Installing cash vs GL reconciliation"
+    CASH_RECON_ID=$(upsert_reconciliation "$PAYLOAD_DIR/cash-vs-gl.json" "$ADMIN_TOKEN")
 
-    local cli_jar="$HARNESS_DIR/target/integration-ingestion-cli.jar"
-    if [[ ! -f "$cli_jar" ]]; then
-        echo "Ingestion CLI jar not found at $cli_jar" >&2
-        exit 1
-    fi
-
-    log "Running ingestion CLI to load all scenarios"
-    java -jar "$cli_jar" \
-        --base-url "$BASE_URL" \
-        --username "$ADMIN_USERNAME" \
-        --password "$ADMIN_PASSWORD" \
-        --scenario all
+    run_ingestion_example
 
     log "Authenticating operations user"
     if ! OPS_TOKEN=$(login "$OPS_USERNAME" "$OPS_PASSWORD"); then
@@ -301,20 +271,12 @@ main() {
         exit 1
     fi
 
-    for idx in "${!CODES[@]}"; do
-        code="${CODES[$idx]}"
-        recon_id="${IDS[$idx]}"
-        log "Triggering reconciliation run for $code"
-        run_payload=$(trigger_run "$recon_id" "$OPS_TOKEN" "Harness validation")
-        summary_json=$(echo "$run_payload" | jq -c '.summary // empty')
-        if [[ -z "$summary_json" ]]; then
-            log "Run payload for $code: $(echo "$run_payload" | jq -c '.')"
-        fi
-        log "Run summary for $code: ${summary_json:-<unavailable>}"
-        validate_summary "$run_payload" "$code"
-    done
+    log "Triggering reconciliation run for CASH_VS_GL_SIMPLE"
+    run_payload=$(trigger_run "$CASH_RECON_ID" "$OPS_TOKEN" "ingestion-sdk-example validation")
+    log "Run summary: $(echo "$run_payload" | jq -c '.summary // empty')"
+    validate_cash_vs_gl_summary "$run_payload"
 
-    log "Integration harness validation completed successfully"
+    log "Ingestion SDK example validation completed successfully"
 }
 
 main "$@"

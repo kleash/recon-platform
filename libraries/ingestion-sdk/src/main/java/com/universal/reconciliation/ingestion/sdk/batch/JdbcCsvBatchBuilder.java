@@ -1,12 +1,18 @@
 package com.universal.reconciliation.ingestion.sdk.batch;
 
 import com.universal.reconciliation.ingestion.sdk.IngestionBatch;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 
 /**
  * Converts the result of a SQL query into a CSV-backed {@link IngestionBatch}.
@@ -24,16 +30,23 @@ public final class JdbcCsvBatchBuilder {
     }
 
     public IngestionBatch build(String sourceCode, String label, String sql, Map<String, Object> params, List<String> columns, Map<String, Object> options) {
-        List<Map<String, Object>> rows = jdbcTemplate.query(sql, params == null ? Map.of() : params, (rs, rowNum) -> {
-            int columnCount = rs.getMetaData().getColumnCount();
-            Map<String, Object> row = new java.util.LinkedHashMap<>();
-            for (int i = 1; i <= columnCount; i++) {
-                String column = rs.getMetaData().getColumnLabel(i);
-                row.put(column, rs.getObject(i));
-            }
-            return CsvRenderer.normalizeKeys(row);
-        });
-        byte[] payload = CsvRenderer.render(rows, columns == null ? null : new ArrayList<>(columns));
+        Map<String, Object> effectiveParams = params == null ? Map.of() : params;
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (OutputStreamWriter writer = new OutputStreamWriter(output, StandardCharsets.UTF_8)) {
+            jdbcTemplate.query(sql, new MapSqlParameterSource(effectiveParams), rs -> {
+                try {
+                    CsvRenderer.streamRows(rs, columns == null ? null : new ArrayList<>(columns), writer);
+                } catch (IOException ioException) {
+                    throw new UncheckedIOException("Failed to render CSV payload", ioException);
+                }
+                return null;
+            });
+        } catch (UncheckedIOException e) {
+            throw e;
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to render CSV payload", e);
+        }
+        byte[] payload = output.toByteArray();
         return IngestionBatch.builder(sourceCode, label)
                 .mediaType("text/csv")
                 .payload(payload)

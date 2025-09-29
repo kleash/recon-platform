@@ -12,6 +12,7 @@ transform the results into CSV batches, and stream them to the platform using a 
 | `IngestionPipeline` | Convenience orchestrator for running scenarios composed of multiple batches. |
 | `JdbcCsvBatchBuilder` | Turns SQL query results into CSV payloads. |
 | `RestApiCsvBatchBuilder` | Converts JSON arrays returned by REST endpoints into CSV payloads, supporting nested paths and custom extractors. |
+| `StructuredDataBatchBuilder` | Converts JSON arrays, Excel worksheets, delimited text, or in-memory records into CSV batches. |
 | `ClasspathCsvBatchLoader` | Loads static CSV fixtures from the classpath (useful for smoke tests). |
 
 Auto-configuration registers the client and pipeline when the dependency is present. Provide the
@@ -75,8 +76,8 @@ credentials and base URL through `reconciliation.ingestion.*` properties.
 
 For wrapped or paginated APIs, supply either a JSON Pointer (e.g. `"/payload/entries"`) or a custom
 extractor. The dot-separated convenience syntax (e.g. `"payload.entries"`) resolves simple property
-paths and does not implement the full JSON Pointer escaping rules. The extractor receives the root
-`JsonNode` and returns the iterable of records to render:
+paths and does not implement the full JSON Pointer escaping rules. The extractor receives the
+response as a Jackson `JsonParser`, enabling fully streaming extraction for large documents:
 
 ```java
 RestApiCsvBatchBuilder api = new RestApiCsvBatchBuilder(restTemplate);
@@ -86,12 +87,84 @@ IngestionBatch glBatch = api.get(
         URI.create("https://example.org/api/gl"),
         List.of("transactionId", "amount"),
         Map.of(),
-        root -> {
-            List<JsonNode> combined = new ArrayList<>();
-            root.path("payload").path("entries").forEach(combined::add);
-            root.path("payload").path("adjustments").forEach(combined::add);
-            return combined;
+        (parser, mapper) -> {
+            JsonNode root = mapper.readTree(parser);
+            List<Map<String, Object>> combined = new ArrayList<>();
+            root.path("payload").path("entries")
+                    .forEach(node -> combined.add(mapper.convertValue(node, Map.class)));
+            root.path("payload").path("adjustments")
+                    .forEach(node -> combined.add(mapper.convertValue(node, Map.class)));
+            return combined.iterator();
         });
+```
+
+### Structured files and staged records
+
+Use `StructuredDataBatchBuilder` when the ingestion job has access to files or staged records and
+needs to convert them into CSV payloads. The builder closes supplied streams and normalizes header
+names, making it safe to work with JSON arrays, Excel workbooks, and other delimited feeds. The
+snippet below shows how Apache POI can generate an in-memory workbook for conversion:
+
+```java
+StructuredDataBatchBuilder structured = new StructuredDataBatchBuilder();
+
+// Build an Excel worksheet with Apache POI
+byte[] custodianWorkbook;
+try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
+    Sheet sheet = workbook.createSheet("Positions");
+    Row header = sheet.createRow(0);
+    header.createCell(0).setCellValue("positionId");
+    header.createCell(1).setCellValue("quantity");
+    header.createCell(2).setCellValue("symbol");
+
+    Row first = sheet.createRow(1);
+    first.createCell(0).setCellValue("POS-1");
+    first.createCell(1).setCellValue(250);
+    first.createCell(2).setCellValue("AAPL");
+
+    Row second = sheet.createRow(2);
+    second.createCell(0).setCellValue("POS-2");
+    second.createCell(1).setCellValue(125.5);
+    second.createCell(2).setCellValue("MSFT");
+
+    workbook.write(buffer);
+    custodianWorkbook = buffer.toByteArray();
+}
+
+IngestionBatch excelBatch = structured.fromExcel(
+        "CUSTODIAN_XLSX",
+        "custodian-positions",
+        new ByteArrayInputStream(custodianWorkbook),
+        "Positions",
+        true,
+        List.of(),
+        Map.of());
+
+String pipeDelimited = """
+        tradeId|tradeDate|symbol|quantity|price
+        TR-1001|2024-05-15|AAPL|150|185.42
+        TR-1002|2024-05-15|MSFT|250|312.18
+        TR-1003|2024-05-16|GOOGL|75|132.55
+        """;
+IngestionBatch tradesBatch = structured.fromDelimitedText(
+        "TRADES_PIPE",
+        "trades-psv",
+        new StringReader(pipeDelimited),
+        '|',
+        true,
+        List.of(),
+        Map.of("ingestionMode", "append"));
+
+String jsonArray = """
+        [{"transactionId":"TXN-1001","amount":1550.45,"currency":"USD"},
+         {"transactionId":"TXN-1002","amount":-320.10,"currency":"EUR"}]
+        """;
+IngestionBatch jsonBatch = structured.fromJsonArray(
+        "CASH_JSON",
+        "cash-ledger-json",
+        new ByteArrayInputStream(jsonArray.getBytes(StandardCharsets.UTF_8)),
+        List.of("transactionId", "amount", "currency"),
+        Map.of());
 ```
 
 ## Example application

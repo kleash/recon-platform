@@ -33,6 +33,10 @@ class CashVsGlIngestionRunner implements CommandLineRunner {
             "subProduct",
             "entityName");
 
+    private static final String CASH_LEDGER_QUERY =
+            "SELECT transaction_id AS transactionId, amount, currency, trade_date AS tradeDate, "
+                    + "product, sub_product AS subProduct, entity_name AS entityName FROM cash_ledger ORDER BY transaction_id";
+
     private final IngestionPipeline pipeline;
     private final JdbcTemplate jdbcTemplate;
     private final RestTemplate restTemplate;
@@ -65,7 +69,7 @@ class CashVsGlIngestionRunner implements CommandLineRunner {
         return builder.build(
                 "CASH",
                 "cash-ledger",
-                "SELECT transaction_id AS transactionId, amount, currency, trade_date AS tradeDate, product, sub_product AS subProduct, entity_name AS entityName FROM cash_ledger ORDER BY transaction_id",
+                CASH_LEDGER_QUERY,
                 Map.of(),
                 CANONICAL_COLUMNS,
                 Map.of());

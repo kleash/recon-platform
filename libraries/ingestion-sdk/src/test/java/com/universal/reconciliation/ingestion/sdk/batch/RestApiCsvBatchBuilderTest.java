@@ -103,11 +103,14 @@ class RestApiCsvBatchBuilderTest {
                     server.url("/custom").uri(),
                     List.of("transactionId", "amount"),
                     Map.of(),
-                    root -> {
-                        java.util.List<JsonNode> merged = new java.util.ArrayList<>();
-                        root.path("payload").path("items").forEach(merged::add);
-                        root.path("payload").path("corrections").forEach(merged::add);
-                        return merged;
+                    (parser, mapper) -> {
+                        JsonNode root = mapper.readTree(parser);
+                        java.util.List<Map<String, Object>> merged = new java.util.ArrayList<>();
+                        root.path("payload").path("items")
+                                .forEach(node -> merged.add(mapper.convertValue(node, Map.class)));
+                        root.path("payload").path("corrections")
+                                .forEach(node -> merged.add(mapper.convertValue(node, Map.class)));
+                        return merged.iterator();
                     });
 
             String csv = readCsv(batch);

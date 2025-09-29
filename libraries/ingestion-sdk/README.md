@@ -15,6 +15,8 @@ a lightweight HTTP client that streams those batches through the admin ingestion
   handling.
 - Tunable HTTP client timeouts (`connect`, `read`, and `write`) exposed via
   `reconciliation.ingestion.*` properties.
+- `StructuredDataBatchBuilder` utilities for turning JSON arrays, Excel worksheets, or other
+  delimited text feeds into CSV batches.
 
 ## Quick start
 
@@ -102,7 +104,7 @@ complete runnable sample that combines JDBC and REST sources.
 
 `RestApiCsvBatchBuilder` supports nested responses and custom pagination flows. Point it at a nested
 array using JSON Pointer syntax (`"payload.entries"` or `"/payload/entries"`), or supply a
-`Function<JsonNode, Iterable<JsonNode>>` when the records span multiple fields/pages:
+`RecordExtractor` when the records span multiple fields/pages:
 
 ```java
 RestApiCsvBatchBuilder api = new RestApiCsvBatchBuilder(restTemplate);
@@ -112,12 +114,94 @@ IngestionBatch glBatch = api.get(
         URI.create("https://example.org/api/gl"),
         List.of("transactionId", "amount"),
         Map.of(),
-        root -> {
-            List<JsonNode> combined = new ArrayList<>();
-            root.path("payload").path("entries").forEach(combined::add);
-            root.path("payload").path("adjustments").forEach(combined::add);
-            return combined;
+        (parser, mapper) -> {
+            JsonNode root = mapper.readTree(parser);
+            List<Map<String, Object>> combined = new ArrayList<>();
+            root.path("payload").path("entries")
+                    .forEach(node -> combined.add(mapper.convertValue(node, Map.class)));
+            root.path("payload").path("adjustments")
+                    .forEach(node -> combined.add(mapper.convertValue(node, Map.class)));
+            return combined.iterator();
         });
+```
+
+### Structured data helpers
+
+`StructuredDataBatchBuilder` centralizes conversions for local files and in-memory datasets that are
+already structured as records. Each helper produces a CSV-backed `IngestionBatch` so the platform
+can ingest the data alongside JDBC or REST sources:
+
+```java
+StructuredDataBatchBuilder structured = new StructuredDataBatchBuilder();
+
+// JSON array generated in-memory
+String jsonArray = """
+        [{"transactionId":"TXN-1001","amount":1550.45,"currency":"USD","tradeDate":"2024-05-15"},
+         {"transactionId":"TXN-1002","amount":-320.10,"currency":"EUR","tradeDate":"2024-05-16"}]
+        """;
+IngestionBatch jsonBatch = structured.fromJsonArray(
+        "CASH_JSON",
+        "cash-ledger-json",
+        new ByteArrayInputStream(jsonArray.getBytes(StandardCharsets.UTF_8)),
+        List.of("transactionId", "amount", "currency", "tradeDate"),
+        Map.of("format", "json-array"));
+
+// Excel worksheet generated with Apache POI
+byte[] custodianWorkbook;
+try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+    Sheet sheet = workbook.createSheet("Positions");
+    Row header = sheet.createRow(0);
+    header.createCell(0).setCellValue("positionId");
+    header.createCell(1).setCellValue("quantity");
+    header.createCell(2).setCellValue("symbol");
+
+    Row first = sheet.createRow(1);
+    first.createCell(0).setCellValue("POS-1");
+    first.createCell(1).setCellValue(250);
+    first.createCell(2).setCellValue("AAPL");
+
+    Row second = sheet.createRow(2);
+    second.createCell(0).setCellValue("POS-2");
+    second.createCell(1).setCellValue(125.5);
+    second.createCell(2).setCellValue("MSFT");
+
+    workbook.write(out);
+    custodianWorkbook = out.toByteArray();
+}
+
+IngestionBatch excelBatch = structured.fromExcel(
+        "CUSTODIAN_XLSX",
+        "custodian-positions",
+        new ByteArrayInputStream(custodianWorkbook),
+        "Positions",
+        true,
+        List.of(),
+        Map.of("format", "excel"));
+
+// Pipe-delimited text
+String pipeDelimited = """
+        tradeId|tradeDate|symbol|quantity|price
+        TR-1001|2024-05-15|AAPL|150|185.42
+        TR-1002|2024-05-15|MSFT|250|312.18
+        TR-1003|2024-05-16|GOOGL|75|132.55
+        """;
+IngestionBatch pipeBatch = structured.fromDelimitedText(
+        "TRADES_PIPE",
+        "trades-psv",
+        new StringReader(pipeDelimited),
+        '|',
+        true,
+        List.of(),
+        Map.of("format", "pipe-delimited"));
+
+// Directly from in-memory records
+List<Map<String, Object>> stagingRows = fetchRowsFromSomewhere();
+IngestionBatch stagingBatch = structured.fromRecords(
+        "STAGING",
+        "staging-records",
+        stagingRows,
+        List.of("id", "amount"),
+        Map.of());
 ```
 
 ## Build & test

@@ -96,7 +96,24 @@
           <label>Timezone<input type="text" formControlName="arrivalTimezone" placeholder="UTC" /></label>
           <label>SLA minutes<input type="number" formControlName="arrivalSlaMinutes" /></label>
         </div>
-        <label>Adapter options<textarea formControlName="adapterOptions" rows="2" placeholder="Adapter-specific options (JSON)"></textarea></label>
+        <ng-container *ngIf="group.get('adapterType')?.value === 'LLM_DOCUMENT'; else adapterOptionsFallback">
+          <div formGroupName="llmOptions" class="llm-options">
+            <h4>LLM adapter options</h4>
+            <label>Prompt template<textarea formControlName="promptTemplate" rows="4" placeholder="Describe how to extract records from {{document}}"></textarea></label>
+            <p class="hint">Use {{document}} for the extracted text and {{schema}} if you reference the JSON schema.</p>
+            <label>JSON schema<textarea formControlName="extractionSchema" rows="4" placeholder="{ &quot;type&quot;: &quot;array&quot;, ... }"></textarea></label>
+            <label>Record path<input type="text" formControlName="recordPath" placeholder="e.g. records" /></label>
+            <div class="grid">
+              <label>Model<input type="text" formControlName="model" placeholder="Defaults to backend setting" /></label>
+              <label>Temperature<input type="number" formControlName="temperature" step="0.1" /></label>
+              <label>Max output tokens<input type="number" formControlName="maxOutputTokens" /></label>
+            </div>
+            <p class="hint">Adapter options are stored as JSON automatically.</p>
+          </div>
+        </ng-container>
+        <ng-template #adapterOptionsFallback>
+          <label>Adapter options<textarea formControlName="adapterOptions" rows="2" placeholder="Adapter-specific options (JSON)"></textarea></label>
+        </ng-template>
       </article>
       <button type="button" class="secondary" (click)="addSource()">Add source</button>
     </section>
@@ -259,6 +276,18 @@
                         </button>
                       </div>
                       <button type="button" class="secondary" (click)="addPipelineStep(i, m, t)">Add step</button>
+                    </div>
+                    <div *ngSwitchCase="'LLM_PROMPT'" class="transformation-editor" formGroupName="llmConfig">
+                      <label>Prompt template<textarea formControlName="promptTemplate" rows="4" placeholder="Normalize the value '{{value}}'"></textarea></label>
+                      <p class="hint">Use {{value}} for the incoming value and {{rawRecord}} for the JSON representation of the source row.</p>
+                      <label>JSON schema<textarea formControlName="jsonSchema" rows="4" placeholder="{ &quot;type&quot;: &quot;object&quot;, ... }"></textarea></label>
+                      <label>Result path<input type="text" formControlName="resultPath" placeholder="normalizedValue" /></label>
+                      <div class="grid">
+                        <label>Model<input type="text" formControlName="model" placeholder="Defaults to backend setting" /></label>
+                        <label>Temperature<input type="number" step="0.1" formControlName="temperature" /></label>
+                        <label>Max output tokens<input type="number" formControlName="maxOutputTokens" /></label>
+                      </div>
+                      <label class="checkbox"><input type="checkbox" formControlName="includeRawRecord" /> Include raw record context</label>
                     </div>
                   </ng-container>
                 </div>

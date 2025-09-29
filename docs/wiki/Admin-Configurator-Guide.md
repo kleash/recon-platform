@@ -29,6 +29,7 @@ zero to a production-ready reconciliation with confidence.
 > payload formats and the [Development Workflow](./Development-Workflow.md#81-onboarding-a-new-reconciliation-definition)
 > for the broader delivery process.
 
+
 ---
 
 ## 2. Touring the Administration Workspace
@@ -86,9 +87,23 @@ you can pause and resume.
 
 - Add each data source with adapter type (CSV, JDBC, REST, S3, etc.). Adapter-specific options are
   stored as JSON and surfaced in the API.
+- Selecting the **LLM_DOCUMENT** adapter unlocks a prompt-driven editor for unstructured sources.
+  Configure the prompt template, optional JSON schema hints, model overrides, and record-path
+  extraction so PDFs, emails, and other freeform payloads can be normalised via OpenAI without
+  hand-authoring JSON.
 - Mark at least one **anchor** source; the wizard enforces this.
 - Configure arrival expectations (e.g., daily by 09:00 in New York). This metadata powers ingestion
   alerts and dashboards.
+
+#### LLM ingestion adapter quick tips
+
+- The wizard auto-generates adapter options JSON as you tweak the prompt, schema, and runtime
+  parameters. Advanced admins can still adjust the JSON through the API or database when necessary.
+- Use the `{{document}}` token for the extracted text and `{{schema}}` for the configured JSON
+  schema. Documents are truncated using the backend `document-character-limit` setting before
+  submitting to OpenAI, and a snippet is persisted in each record's `_llm` metadata.
+- Responses may return arrays or objects; set **Record path** (dot-separated) to isolate the desired
+  structure when the LLM wraps the payload.
 
 ### 4.3 Schema & Transformations
 
@@ -100,10 +115,22 @@ you can pause and resume.
   - Groovy scripts (multi-statement supported)
   - Excel-style formulas
   - UI-based function pipelines
+  - LLM prompt templates that call OpenAI to normalise or enrich field values
 - Use **Validate** to compile transformations immediately. Errors display inline with actionable
   messages.
 - **Groovy tester:** After ingesting at least one batch, click *Load sample rows* to fetch live
   records, edit the script, and hit *Run test* to see the evaluated result beside the raw payload.
+
+#### LLM prompt transformations
+
+- Author the prompt template, optional JSON schema, and result path directly in the wizard. Inline
+  validation checks compilation, JSON schema structure, and OpenAI client configuration before you
+  save.
+- Tokens such as `{{value}}`, `{{rawRecord}}`, and `{{schema}}` expose the current field, full source
+  payload, and shape hints to the prompt. Toggle **Include raw record context** off when you only want
+  the current value sent to the LLM.
+- Use sample rows with the preview panel to exercise prompts and inspect the returned JSON before
+  publishing.
 
 ### 4.4 Reports (Optional)
 
@@ -272,4 +299,3 @@ Keep automation outputs for audit evidence when rolling out new configurations.
 
 Keep this guide bookmarked. Update it whenever new transformation types or governance controls are
 introduced so new administrators always have an up-to-date, authoritative reference.
-

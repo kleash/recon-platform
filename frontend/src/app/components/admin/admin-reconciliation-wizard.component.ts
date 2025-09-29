@@ -42,6 +42,25 @@ interface WizardStep {
   label: string;
 }
 
+type LlmAdapterOptionsFormValue = {
+  model: string;
+  promptTemplate: string;
+  extractionSchema: string;
+  recordPath: string;
+  temperature: number | null;
+  maxOutputTokens: number | null;
+};
+
+type LlmTransformationConfigFormValue = {
+  promptTemplate: string;
+  jsonSchema: string;
+  resultPath: string;
+  model: string;
+  temperature: number | null;
+  maxOutputTokens: number | null;
+  includeRawRecord: boolean;
+};
+
 @Component({
   selector: 'urp-admin-reconciliation-wizard',
   standalone: true,
@@ -67,7 +86,8 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     'JSON_FILE',
     'DATABASE',
     'REST_API',
-    'MESSAGE_QUEUE'
+    'MESSAGE_QUEUE',
+    'LLM_DOCUMENT'
   ];
   readonly fieldRoles: FieldRole[] = [
     'KEY',
@@ -86,7 +106,8 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
   readonly transformationTypes: TransformationType[] = [
     'GROOVY_SCRIPT',
     'EXCEL_FORMULA',
-    'FUNCTION_PIPELINE'
+    'FUNCTION_PIPELINE',
+    'LLM_PROMPT'
   ];
   readonly pipelineFunctionOptions: { value: string; label: string }[] = [
     { value: 'TRIM', label: 'Trim whitespace' },
@@ -364,10 +385,27 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       if (steps.length === 0) {
         steps.push(this.createPipelineStepGroup());
       }
+      this.llmConfigFromGroup(group).disable({ emitEvent: false });
     } else {
       this.pipelineSteps(fieldIndex, mappingIndex, transformationIndex).clear();
       if (type === 'GROOVY_SCRIPT') {
         group.get('expression')?.setValue(group.get('expression')?.value ?? 'return value');
+      }
+      if (type === 'LLM_PROMPT') {
+        const llmGroup = this.llmConfigFromGroup(group);
+        llmGroup.enable({ emitEvent: false });
+        if (!llmGroup.get('promptTemplate')?.value) {
+          llmGroup.patchValue(
+            {
+              promptTemplate: 'Normalize the value "{{value}}" using the provided context.',
+              includeRawRecord: true
+            },
+            { emitEvent: false }
+          );
+        }
+        group.get('expression')?.setValue('', { emitEvent: false });
+      } else {
+        this.llmConfigFromGroup(group).disable({ emitEvent: false });
       }
     }
     group.get('validationMessage')?.setValue('');
@@ -829,7 +867,7 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
   }
 
   private createSourceGroup(source?: AdminSource): FormGroup {
-    return this.fb.group({
+    const group = this.fb.group({
       id: [source?.id ?? null],
       code: [source?.code ?? '', Validators.required],
       displayName: [source?.displayName ?? '', Validators.required],
@@ -840,8 +878,212 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       arrivalExpectation: [source?.arrivalExpectation ?? ''],
       arrivalTimezone: [source?.arrivalTimezone ?? ''],
       arrivalSlaMinutes: [source?.arrivalSlaMinutes ?? null, [Validators.min(0)]],
-      adapterOptions: [source?.adapterOptions ?? '']
+      adapterOptions: [source?.adapterOptions ?? ''],
+      llmOptions: this.createLlmAdapterOptionsGroup()
     });
+    this.setupLlmAdapterOptions(group, source?.adapterOptions ?? null, source?.adapterType ?? 'CSV_FILE');
+    return group;
+  }
+
+  private createLlmAdapterOptionsGroup(initial?: Partial<LlmAdapterOptionsFormValue>): FormGroup {
+    return this.fb.group({
+      model: [initial?.model ?? ''],
+      promptTemplate: [initial?.promptTemplate ?? ''],
+      extractionSchema: [initial?.extractionSchema ?? ''],
+      recordPath: [initial?.recordPath ?? ''],
+      temperature: [initial?.temperature ?? null],
+      maxOutputTokens: [initial?.maxOutputTokens ?? null]
+    });
+  }
+
+  private hasText(value?: string | null): value is string {
+    return value !== undefined && value !== null && value.trim().length > 0;
+  }
+
+  private isNumber(value: number | null | undefined): value is number {
+    return typeof value === 'number' && !Number.isNaN(value);
+  }
+
+  private coerceString(value: unknown): string {
+    if (value === undefined || value === null) {
+      return '';
+    }
+    return String(value);
+  }
+
+  private coerceNumber(value: unknown): number | null {
+    if (typeof value === 'number') {
+      return Number.isNaN(value) ? null : value;
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed.length === 0) {
+        return null;
+      }
+      const parsed = Number(trimmed);
+      return Number.isNaN(parsed) ? null : parsed;
+    }
+    return null;
+  }
+
+  private coerceInteger(value: unknown): number | null {
+    const parsed = this.coerceNumber(value);
+    return parsed === null ? null : Math.trunc(parsed);
+  }
+
+  private coerceBoolean(value: unknown, fallback: boolean): boolean {
+    if (typeof value === 'boolean') {
+      return value;
+    }
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      if (normalized === 'true') {
+        return true;
+      }
+      if (normalized === 'false') {
+        return false;
+      }
+    }
+    return fallback;
+  }
+
+  private parseJsonOrWarn(text: string, warning: string): unknown {
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      console.warn(warning, error);
+      return text;
+    }
+  }
+
+  private parseLlmAdapterOptions(raw?: string | null): LlmAdapterOptionsFormValue {
+    const defaults: LlmAdapterOptionsFormValue = {
+      model: '',
+      promptTemplate: '',
+      extractionSchema: '',
+      recordPath: '',
+      temperature: null,
+      maxOutputTokens: null
+    };
+    if (!raw) {
+      return { ...defaults };
+    }
+    try {
+      const parsed = JSON.parse(raw) as Record<string, unknown>;
+      const result: LlmAdapterOptionsFormValue = { ...defaults };
+      const model = parsed['model'];
+      if (model !== undefined && model !== null) {
+        result.model = this.coerceString(model);
+      }
+      const promptTemplate = parsed['promptTemplate'];
+      if (promptTemplate !== undefined && promptTemplate !== null) {
+        result.promptTemplate = this.coerceString(promptTemplate);
+      }
+      const extractionSchema = parsed['extractionSchema'];
+      if (extractionSchema !== undefined && extractionSchema !== null) {
+        result.extractionSchema = this.stringifyMaybeJson(extractionSchema);
+      }
+      const recordPath = parsed['recordPath'];
+      if (recordPath !== undefined && recordPath !== null) {
+        result.recordPath = this.coerceString(recordPath);
+      }
+      const temperature = parsed['temperature'];
+      if (temperature !== undefined && temperature !== null) {
+        result.temperature = this.coerceNumber(temperature);
+      }
+      const maxOutputTokens = parsed['maxOutputTokens'];
+      if (maxOutputTokens !== undefined && maxOutputTokens !== null) {
+        result.maxOutputTokens = this.coerceInteger(maxOutputTokens);
+      }
+      return result;
+    } catch (error) {
+      console.warn('Failed to parse LLM adapter options', error);
+      return {
+        ...defaults,
+        promptTemplate: raw ?? ''
+      };
+    }
+  }
+
+  private buildLlmAdapterOptionsJson(value: LlmAdapterOptionsFormValue): string {
+    const payload: Record<string, unknown> = {};
+    if (this.hasText(value.model)) {
+      payload['model'] = value.model.trim();
+    }
+    if (this.hasText(value.promptTemplate)) {
+      payload['promptTemplate'] = value.promptTemplate;
+    }
+    if (this.hasText(value.recordPath)) {
+      payload['recordPath'] = value.recordPath.trim();
+    }
+    if (this.isNumber(value.temperature)) {
+      payload['temperature'] = value.temperature;
+    }
+    if (this.isNumber(value.maxOutputTokens)) {
+      payload['maxOutputTokens'] = value.maxOutputTokens;
+    }
+    if (this.hasText(value.extractionSchema)) {
+      payload['extractionSchema'] = this.parseJsonOrWarn(
+        value.extractionSchema,
+        'LLM extraction schema is not valid JSON; storing raw string'
+      );
+    }
+    if (Object.keys(payload).length === 0) {
+      return '';
+    }
+    return JSON.stringify(payload, null, 2);
+  }
+
+  private setupLlmAdapterOptions(
+    group: FormGroup,
+    adapterOptions: string | null,
+    adapterType: IngestionAdapterType
+  ): void {
+    const adapterTypeControl = group.get('adapterType');
+    const adapterOptionsControl = group.get('adapterOptions');
+    const llmGroup = group.get('llmOptions') as FormGroup;
+
+    const applyOptionsToForm = (raw: string | null) => {
+      const parsed = this.parseLlmAdapterOptions(raw);
+      llmGroup.patchValue(parsed, { emitEvent: false });
+    };
+
+    if (adapterType === 'LLM_DOCUMENT') {
+      applyOptionsToForm(adapterOptions);
+    } else {
+      llmGroup.patchValue(this.createLlmAdapterOptionsGroup().getRawValue(), { emitEvent: false });
+    }
+
+    adapterTypeControl
+      ?.valueChanges.pipe(takeUntil(this.destroy$))
+      .subscribe((nextType: IngestionAdapterType) => {
+        if (nextType === 'LLM_DOCUMENT') {
+          applyOptionsToForm(adapterOptionsControl?.value ?? null);
+        }
+      });
+
+    llmGroup.valueChanges.pipe(takeUntil(this.destroy$)).subscribe((value) => {
+      const currentType = adapterTypeControl?.value as IngestionAdapterType;
+      if (currentType !== 'LLM_DOCUMENT') {
+        return;
+      }
+      const json = this.buildLlmAdapterOptionsJson(value as LlmAdapterOptionsFormValue);
+      adapterOptionsControl?.setValue(json, { emitEvent: false });
+    });
+  }
+
+  private stringifyMaybeJson(schema: unknown): string {
+    if (!schema) {
+      return '';
+    }
+    if (typeof schema === 'string') {
+      return schema;
+    }
+    try {
+      return JSON.stringify(schema, null, 2);
+    } catch (error) {
+      return String(schema);
+    }
   }
 
   private createFieldGroup(field?: AdminCanonicalField): FormGroup {
@@ -888,7 +1130,8 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       displayOrder: [transformation?.displayOrder ?? null],
       active: [transformation?.active ?? true],
       validationMessage: [''],
-      pipelineSteps: this.fb.array<FormGroup>([])
+      pipelineSteps: this.fb.array<FormGroup>([]),
+      llmConfig: this.createLlmTransformationConfigGroup()
     });
     if (type === 'FUNCTION_PIPELINE') {
       const steps = this.deserializePipelineConfiguration(transformation?.configuration);
@@ -898,6 +1141,14 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       } else {
         steps.forEach((step) => target.push(this.createPipelineStepGroup(step.function, step.args)));
       }
+      (group.get('llmConfig') as FormGroup).disable({ emitEvent: false });
+    } else if (type === 'LLM_PROMPT') {
+      const config = this.parseLlmTransformationConfig(transformation?.configuration);
+      const llmGroup = group.get('llmConfig') as FormGroup;
+      llmGroup.patchValue(config, { emitEvent: false });
+      llmGroup.enable({ emitEvent: false });
+    } else {
+      (group.get('llmConfig') as FormGroup).disable({ emitEvent: false });
     }
     return group;
   }
@@ -964,12 +1215,119 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     return JSON.stringify({ steps: stepsArray });
   }
 
+  private createLlmTransformationConfigGroup(initial?: Partial<LlmTransformationConfigFormValue>): FormGroup {
+    return this.fb.group({
+      promptTemplate: [initial?.promptTemplate ?? '', Validators.required],
+      jsonSchema: [initial?.jsonSchema ?? ''],
+      resultPath: [initial?.resultPath ?? ''],
+      model: [initial?.model ?? ''],
+      temperature: [initial?.temperature ?? null],
+      maxOutputTokens: [initial?.maxOutputTokens ?? null],
+      includeRawRecord: [initial?.includeRawRecord ?? true]
+    });
+  }
+
+  private parseLlmTransformationConfig(configuration?: string | null): LlmTransformationConfigFormValue {
+    const defaults: LlmTransformationConfigFormValue = {
+      promptTemplate: '',
+      jsonSchema: '',
+      resultPath: '',
+      model: '',
+      temperature: null,
+      maxOutputTokens: null,
+      includeRawRecord: true
+    };
+    if (!configuration) {
+      return { ...defaults };
+    }
+    try {
+      const parsed = JSON.parse(configuration) as Record<string, unknown>;
+      const result: LlmTransformationConfigFormValue = { ...defaults };
+      const promptTemplate = parsed['promptTemplate'];
+      if (promptTemplate !== undefined && promptTemplate !== null) {
+        result.promptTemplate = this.coerceString(promptTemplate);
+      }
+      const jsonSchema = parsed['jsonSchema'];
+      if (jsonSchema !== undefined && jsonSchema !== null) {
+        result.jsonSchema = this.stringifyMaybeJson(jsonSchema);
+      }
+      const resultPath = parsed['resultPath'];
+      if (resultPath !== undefined && resultPath !== null) {
+        result.resultPath = this.coerceString(resultPath);
+      }
+      const model = parsed['model'];
+      if (model !== undefined && model !== null) {
+        result.model = this.coerceString(model);
+      }
+      const temperature = parsed['temperature'];
+      if (temperature !== undefined && temperature !== null) {
+        result.temperature = this.coerceNumber(temperature);
+      }
+      const maxOutputTokens = parsed['maxOutputTokens'];
+      if (maxOutputTokens !== undefined && maxOutputTokens !== null) {
+        result.maxOutputTokens = this.coerceInteger(maxOutputTokens);
+      }
+      const includeRawRecord = parsed['includeRawRecord'];
+      if (includeRawRecord !== undefined && includeRawRecord !== null) {
+        result.includeRawRecord = this.coerceBoolean(includeRawRecord, defaults.includeRawRecord);
+      }
+      return result;
+    } catch (error) {
+      console.warn('Failed to parse LLM transformation configuration', error);
+      return {
+        ...defaults,
+        promptTemplate: configuration ?? ''
+      };
+    }
+  }
+
+  private llmConfigFromGroup(group: FormGroup): FormGroup {
+    return group.get('llmConfig') as FormGroup;
+  }
+
+  private serializeLlmTransformation(group: FormGroup): string | null {
+    const llmGroup = this.llmConfigFromGroup(group);
+    const value = llmGroup.getRawValue() as LlmTransformationConfigFormValue;
+    const payload: Record<string, unknown> = {};
+    if (this.hasText(value.promptTemplate)) {
+      payload['promptTemplate'] = value.promptTemplate;
+    }
+    if (this.hasText(value.jsonSchema)) {
+      payload['jsonSchema'] = this.parseJsonOrWarn(
+        value.jsonSchema,
+        'LLM transformation schema is not valid JSON; storing raw string'
+      );
+    }
+    if (this.hasText(value.resultPath)) {
+      payload['resultPath'] = value.resultPath.trim();
+    }
+    if (this.hasText(value.model)) {
+      payload['model'] = value.model.trim();
+    }
+    if (this.isNumber(value.temperature)) {
+      payload['temperature'] = value.temperature;
+    }
+    if (this.isNumber(value.maxOutputTokens)) {
+      payload['maxOutputTokens'] = value.maxOutputTokens;
+    }
+    if (value.includeRawRecord === false) {
+      payload['includeRawRecord'] = false;
+    }
+    if (Object.keys(payload).length === 0) {
+      return null;
+    }
+    return JSON.stringify(payload, null, 2);
+  }
+
   private buildTransformationValidationPayload(group: FormGroup): TransformationValidationRequest {
     const type = group.get('type')?.value as TransformationType;
     let expression = this.normalize(group.get('expression')?.value);
     let configuration = this.normalize(group.get('configuration')?.value);
     if (type === 'FUNCTION_PIPELINE') {
       configuration = this.serializePipeline(group);
+      expression = null;
+    } else if (type === 'LLM_PROMPT') {
+      configuration = this.serializeLlmTransformation(group);
       expression = null;
     }
     return {
@@ -996,6 +1354,9 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     let configuration = this.normalize(group.get('configuration')?.value);
     if (type === 'FUNCTION_PIPELINE') {
       configuration = this.serializePipeline(group);
+      expression = null;
+    } else if (type === 'LLM_PROMPT') {
+      configuration = this.serializeLlmTransformation(group);
       expression = null;
     }
     return {
@@ -1106,7 +1467,8 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     };
 
     const sourcesPayload = this.sources.controls.map((group) => {
-      const value = group.value as AdminSource;
+      const rawValue = group.getRawValue() as AdminSource & { llmOptions?: LlmAdapterOptionsFormValue };
+      const { llmOptions: _llmOptions, ...value } = rawValue;
       return {
         id: value.id ?? null,
         code: value.code,

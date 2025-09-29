@@ -165,6 +165,10 @@ public class AdminReconciliationValidator {
                 throw new IllegalArgumentException(
                         "Function pipeline configuration is required for field " + canonicalFieldName);
             }
+            if (type == TransformationType.LLM_PROMPT && !StringUtils.hasText(transformation.configuration())) {
+                throw new IllegalArgumentException(
+                        "LLM prompt configuration is required for field " + canonicalFieldName);
+            }
             if (transformation.displayOrder() == null) {
                 index++;
             }

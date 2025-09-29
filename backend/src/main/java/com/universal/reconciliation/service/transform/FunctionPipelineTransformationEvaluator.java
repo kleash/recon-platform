@@ -5,7 +5,6 @@ import com.universal.reconciliation.domain.entity.CanonicalFieldTransformation;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -148,7 +147,7 @@ class FunctionPipelineTransformationEvaluator {
             if (function == null || function.isBlank()) {
                 throw new TransformationEvaluationException("Function name cannot be empty");
             }
-            args = args == null ? new ArrayList<>() : List.copyOf(args);
+            args = args == null ? List.of() : List.copyOf(args);
         }
     }
 

@@ -41,7 +41,7 @@ class GroovyTransformationEvaluator {
             binding.setVariable("raw", rawRecord);
             script.setBinding(binding);
             Object result = script.run();
-            return result != null ? result : currentValue;
+            return result;
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException ex) {
             throw new TransformationEvaluationException("Failed to execute Groovy transformation", ex);
         } catch (TransformationEvaluationException ex) {

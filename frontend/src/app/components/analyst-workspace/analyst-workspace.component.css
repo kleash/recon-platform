@@ -19,7 +19,7 @@
   min-width: 0;
 }
 
-.workspace button:not(.mat-icon-button):not(.pill-button):not(.clear-button):not(.page-size-option) {
+.workspace button:not(:is(.mat-icon-button, .pill-button, .clear-button, .page-size-option)) {
   border-radius: 10px;
   border: 1px solid #d2d9f3;
   background: linear-gradient(135deg, #ffffff 0%, #f3f6ff 100%);
@@ -30,18 +30,18 @@
   transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
-.workspace button:not(.mat-icon-button):not(.pill-button):not(.clear-button):not(.page-size-option):hover:not(:disabled) {
+.workspace button:not(:is(.mat-icon-button, .pill-button, .clear-button, .page-size-option)):hover:not(:disabled) {
   transform: translateY(-1px);
   border-color: #94a3f3;
   box-shadow: 0 8px 16px rgba(79, 70, 229, 0.18);
 }
 
-.workspace button:not(.mat-icon-button):not(.pill-button):not(.clear-button):not(.page-size-option):focus-visible {
+.workspace button:not(:is(.mat-icon-button, .pill-button, .clear-button, .page-size-option)):focus-visible {
   outline: 3px solid rgba(79, 70, 229, 0.35);
   outline-offset: 2px;
 }
 
-.workspace button:not(.mat-icon-button):not(.pill-button):not(.clear-button):not(.page-size-option):disabled {
+.workspace button:not(:is(.mat-icon-button, .pill-button, .clear-button, .page-size-option)):disabled {
   cursor: not-allowed;
   color: #94a3b8;
   border-color: #e2e8f0;
@@ -145,6 +145,18 @@
   background: #fff;
   border-radius: 8px;
   border: 1px solid #e1e1e1;
+}
+
+.sr-only-break {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .filters label {

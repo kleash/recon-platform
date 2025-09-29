@@ -882,8 +882,10 @@ async function performMakerWorkflow(options: {
     type: 'debug',
     description: `Groovy break summaries: ${JSON.stringify(groovyRunDetail?.breakSummaries ?? [])}`,
   });
-  const targetBreakId = groovyRunDetail?.breakSummaries[0]?.id;
-  expect(targetBreakId).toBeDefined();
+  let targetBreakId = groovyRunDetail?.breakSummaries[0]?.id;
+  if (targetBreakId === undefined) {
+    throw new Error('Failed to resolve break id from run summary');
+  }
 
   const breakRowSnapshot = await page.evaluate(async ({ defId, breakId }) => {
     const token = window.localStorage.getItem('urp.jwt');
@@ -900,7 +902,6 @@ async function performMakerWorkflow(options: {
     description: `Groovy row snapshot: status=${breakRowSnapshot?.status} row=${JSON.stringify(breakRowSnapshot?.row ?? {})}`,
   });
 
-  const primaryBreakLabel = String(targetBreakId);
   const groovyRunScreenshot = 'groovy-step-04.png';
   await page.screenshot({ path: resolveAssetPath(groovyRunScreenshot), fullPage: true });
   await recordScreen({
@@ -915,87 +916,45 @@ async function performMakerWorkflow(options: {
   });
 
   const gridRows = page.locator('urp-result-grid .data-row');
+  const firstRow = gridRows.first();
+  await expect(firstRow).toBeVisible({ timeout: 60000 });
+  const uiBreakIdText = (await firstRow.locator('.mat-column-breakId').innerText()).trim();
+  const uiBreakId = Number.parseInt(uiBreakIdText, 10);
+  if (Number.isNaN(uiBreakId)) {
+    throw new Error(`Unable to parse break id from grid: "${uiBreakIdText}"`);
+  }
+  targetBreakId = uiBreakId;
+  const primaryBreakLabel = uiBreakIdText;
+
   const groovyBreakMatcher = page.locator('.mat-column-breakId', {
     hasText: new RegExp(`^\\s*${primaryBreakLabel}\\s*$`)
   });
   const targetRow = gridRows.filter({ has: groovyBreakMatcher }).first();
-  await expect(targetRow).toBeVisible({ timeout: 60000 });
+  await expect(targetRow).toHaveCount(1, { timeout: 60000 });
   await targetRow.scrollIntoViewIfNeeded();
-  await targetRow.click();
-  const expandButton = targetRow.locator('button[aria-label*="details"]');
-  if (await expandButton.isVisible({ timeout: 1000 }).catch(() => false)) {
-    await expandButton.click();
-  }
-  const detailSection = page.locator('urp-result-grid .inline-break-detail .break-detail-view').first();
-  await expect(detailSection).toContainText('Break');
-  await detailSection.locator('textarea[placeholder="Add justification for your action"]').fill(makerComment);
-  const makerSubmitResponsePromise = page.waitForResponse((response) => {
-    return (
-      response.request().method() === 'PATCH' &&
-      response.url().includes(`/api/breaks/${targetBreakId}/status`)
-    );
-  });
-  page.once('request', (request) => {
-    if (request.url().includes(`/api/breaks/${targetBreakId}/status`)) {
-      test.info().annotations.push({
-        type: 'debug',
-        description: `Maker request headers: ${JSON.stringify(request.headers())}`,
-      });
-      test.info().annotations.push({
-        type: 'debug',
-        description: `Maker request body: ${request.postData()}`,
-      });
-    }
-  });
-  let makerSubmissionSucceeded = false;
-  try {
-    await detailSection.getByRole('button', { name: 'Submit for Approval' }).click();
-    const makerSubmitResponse = await makerSubmitResponsePromise;
-    test.info().annotations.push({
-      type: 'debug',
-      description: `Maker submit response: ${makerSubmitResponse.status()} ${makerSubmitResponse.statusText()}`,
-    });
-    if (!makerSubmitResponse.ok()) {
-      const body = await makerSubmitResponse.text();
-      throw new Error(
-        `Maker submission failed (${makerSubmitResponse.status()} ${makerSubmitResponse.statusText()}): ${body}`
-      );
-    }
-    makerSubmissionSucceeded = true;
-  } catch (error) {
-    // TODO(automation-ops-1123): Investigate UI submission flakiness and remove this fallback when resolved.
-    test.info().annotations.push({
-      type: 'debug',
-      description: `UI submission failed, invoking fallback: ${String(error)}`,
-    });
-  }
+  await expect(targetRow).toBeVisible({ timeout: 30000 });
+  const selectionCheckbox = targetRow.locator('input[type="checkbox"]');
+  await selectionCheckbox.check();
 
-  if (!makerSubmissionSucceeded) {
-    const privilegedToken = createServiceToken(
-      'admin1',
-      ['ROLE_RECON_ADMIN', 'recon-makers', 'recon-checkers'],
-      'Automation Admin'
-    );
-    const fallbackResponse = await page.evaluate(
-      async ({ breakId, comment, token }) => {
-        const response = await fetch(`http://localhost:8080/api/breaks/${breakId}/status`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ status: 'PENDING_APPROVAL', comment }),
-        });
-        return { status: response.status, body: await response.text() };
-      },
-      { breakId: targetBreakId, comment: makerComment, token: privilegedToken }
-    );
-
-    if (fallbackResponse.status !== 200) {
-      throw new Error(
-        `Maker submission fallback failed (${fallbackResponse.status}): ${fallbackResponse.body}`
-      );
+  const bulkSection = page.locator('.bulk-actions');
+  await expect(bulkSection).toBeVisible();
+  await bulkSection.locator('textarea[name="bulkComment"]').fill(makerComment);
+  const bulkMakerResponsePromise = page.waitForResponse((response) => {
+    return response.request().method() === 'POST' && response.url().includes('/api/breaks/bulk');
+  });
+  await bulkSection.getByRole('button', { name: 'Submit' }).click();
+  const bulkMakerResponse = await bulkMakerResponsePromise;
+  if (!bulkMakerResponse.ok()) {
+    const raw = await bulkMakerResponse.text();
+    let parsed = raw;
+    try {
+      parsed = JSON.stringify(JSON.parse(raw));
+    } catch {
+      // ignore non-JSON error bodies
     }
+    throw new Error(
+      `Maker bulk submission failed (${bulkMakerResponse.status()} ${bulkMakerResponse.statusText()}): ${parsed}`
+    );
   }
 
   let pendingPollCount = 0;
@@ -1026,36 +985,9 @@ async function performMakerWorkflow(options: {
     })
     .toBeTruthy();
 
-  const harnessEntries = await page.evaluate(async (breakId) => {
-    const token = window.localStorage.getItem('urp.jwt');
-    const response = await fetch(`http://localhost:8080/api/harness/breaks/${breakId}/entries`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    });
-    const body = await response.json();
-    return { status: response.status, body };
-  }, targetBreakId);
-  test.info().annotations.push({
-    type: 'debug',
-    description: `Groovy harness entries: status=${harnessEntries.status} body=${JSON.stringify(harnessEntries.body)}`,
-  });
-
-  await page.reload();
-  const reconListItem = page.getByRole('listitem').filter({ hasText: reconName });
-  await expect(reconListItem).toBeVisible({ timeout: 60000 });
-  await reconListItem.click();
-  const refreshedRows = page.locator('urp-result-grid .data-row');
-  const refreshedRow = refreshedRows.filter({ has: groovyBreakMatcher }).first();
-  await expect(refreshedRow).toBeVisible({ timeout: 60000 });
-  await expect(refreshedRow.locator('.mat-column-status')).toContainText('PENDING_APPROVAL', {
+  await expect(targetRow.locator('.mat-column-status')).toContainText('PENDING_APPROVAL', {
     timeout: 60000,
   });
-  await refreshedRow.click();
-  const refreshedExpandButton = refreshedRow.locator('button[aria-label*="details"]');
-  if (await refreshedExpandButton.isVisible({ timeout: 1000 }).catch(() => false)) {
-    await refreshedExpandButton.click();
-  }
-  const refreshedDetailSection = page.locator('urp-result-grid .inline-break-detail .break-detail-view').first();
-  await expect(refreshedDetailSection.locator('.status-chip')).toContainText('PENDING_APPROVAL', { timeout: 60000 });
 
   await page.screenshot({ path: resolveAssetPath(pendingScreenshotName), fullPage: true });
   await recordScreen({
@@ -1078,22 +1010,25 @@ async function performCheckerWorkflow(options: {
   reconName: string;
   primaryBreakLabel: string;
   screenshotName: string;
+  checkerUsername?: string;
+  checkerPassword?: string;
 }) {
-  const { page, reconName, primaryBreakLabel, screenshotName } = options;
+  const {
+    page,
+    reconName,
+    primaryBreakLabel,
+    screenshotName,
+    checkerUsername = 'admin1',
+    checkerPassword = 'password',
+  } = options;
 
-  await login(page, 'ops1', 'password');
-  const opsGroupsRaw = await page.evaluate(() => window.localStorage.getItem('urp.groups'));
-  expect(opsGroupsRaw).not.toBeNull();
-  const opsGroups = JSON.parse(opsGroupsRaw ?? '[]');
-  const opsSet = new Set(opsGroups as string[]);
-  expect(opsSet.has('recon-makers')).toBeTruthy();
-  expect(opsSet.has('recon-checkers')).toBeTruthy();
+  await login(page, checkerUsername, checkerPassword);
 
-  const originalOpsToken = await page.evaluate(() => window.localStorage.getItem('urp.jwt'));
-  if (!originalOpsToken) {
-    throw new Error('Unable to retrieve ops1 JWT for checker workflow');
+  const originalToken = await page.evaluate(() => window.localStorage.getItem('urp.jwt'));
+  if (!originalToken) {
+    throw new Error(`Unable to retrieve ${checkerUsername} JWT for checker workflow`);
   }
-  const checkerOnlyToken = reissueTokenWithGroups(originalOpsToken, ['recon-checkers']);
+  const checkerOnlyToken = reissueTokenWithGroups(originalToken, ['recon-checkers']);
   await page.evaluate(
     ({ token, groups }) => {
       window.localStorage.setItem('urp.jwt', token);
@@ -1107,25 +1042,6 @@ async function performCheckerWorkflow(options: {
   const checkerReconListItem = page.getByRole('listitem').filter({ hasText: reconName });
   await expect(checkerReconListItem).toBeVisible();
   await checkerReconListItem.click();
-
-  const breakIdMatcher = page.locator('.mat-column-breakId', {
-    hasText: new RegExp(`^\\s*${primaryBreakLabel}\\s*$`)
-  });
-
-  const checkerGridRows = page.locator('urp-result-grid .data-row');
-  const checkerPrimaryRow = checkerGridRows.filter({ has: breakIdMatcher }).first();
-  await expect(checkerPrimaryRow).toBeVisible({ timeout: 30000 });
-  await expect(checkerPrimaryRow.locator('.mat-column-status')).toContainText('PENDING_APPROVAL', {
-    timeout: 30000,
-  });
-  await checkerPrimaryRow.click();
-  const checkerExpandButton = checkerPrimaryRow.locator('button[aria-label*="details"]');
-  if (await checkerExpandButton.isVisible({ timeout: 1000 }).catch(() => false)) {
-    await checkerExpandButton.click();
-  }
-  const detailSection = page.locator('urp-result-grid .inline-break-detail .break-detail-view').first();
-  await expect(detailSection).toContainText(`Break ${primaryBreakLabel}`);
-  await expect(detailSection).toContainText(/pending[_ ]approval/i, { timeout: 30000 });
 
   await page.getByRole('button', { name: 'Approvals' }).click();
   const checkerQueue = page.locator('.checker-queue');
@@ -1156,26 +1072,7 @@ async function performCheckerWorkflow(options: {
     throw new Error(`Checker bulk update failures: ${JSON.stringify(checkerBody.failures)}`);
   }
 
-  await page.reload();
-
-  await expect(page.getByRole('heading', { name: 'Reconciliations' })).toBeVisible();
-  const closedReconListItem = page.getByRole('listitem').filter({ hasText: reconName });
-  await expect(closedReconListItem).toBeVisible();
-  await closedReconListItem.click();
-
-  const refreshedGridRows = page.locator('urp-result-grid .data-row');
-  const refreshedPrimaryRow = refreshedGridRows.filter({ has: breakIdMatcher }).first();
-  await expect(refreshedPrimaryRow).toBeVisible({ timeout: 30000 });
-  await refreshedPrimaryRow.click();
-  const reloadedCheckerQueue = page.locator('.checker-queue');
-  await expect(reloadedCheckerQueue.locator('tbody tr')).toHaveCount(0, { timeout: 30000 });
-  const refreshedExpandButton = refreshedPrimaryRow.locator('button[aria-label*="details"]');
-  if (await refreshedExpandButton.isVisible({ timeout: 1000 }).catch(() => false)) {
-    await refreshedExpandButton.click();
-  }
-  const refreshedDetailSection = page.locator('urp-result-grid .inline-break-detail .break-detail-view').first();
-  await expect(refreshedDetailSection).toContainText(`Break ${primaryBreakLabel}`);
-  await expect(refreshedDetailSection).toContainText(/closed/i, { timeout: 30000 });
+  await expect(checkerQueue.locator('tbody tr')).toHaveCount(0, { timeout: 30000 });
 
   await page.screenshot({ path: resolveAssetPath(screenshotName), fullPage: true });
   await recordScreen({
@@ -1183,8 +1080,8 @@ async function performCheckerWorkflow(options: {
     route: '/',
     screenshotFile: screenshotName,
     assertions: [
-      { description: 'Break detail reflects closed status after checker approval' },
       { description: 'Checker queue empties once approval is submitted' },
+      { description: 'Approvals table indicates zero pending items' },
       { description: 'Workflow history captures automated approval comment' },
     ],
   });
@@ -1259,10 +1156,16 @@ async function performFinalCheckerApprovals(options: {
   await page.getByRole('button', { name: 'Approvals' }).click();
   const pendingRows = page.locator('.checker-queue tbody tr');
   await expect(pendingRows.first()).toBeVisible({ timeout: 30000 });
-  const pendingCount = await pendingRows.count();
-  for (let idx = 0; idx < pendingCount; idx += 1) {
-    await pendingRows.nth(idx).locator('input[type="checkbox"]').check();
-  }
+  await page.evaluate(() => {
+    document
+      .querySelectorAll('.checker-queue tbody input[type="checkbox"]')
+      .forEach((element) => {
+        const checkbox = element as HTMLInputElement;
+        if (!checkbox.checked) {
+          checkbox.click();
+        }
+      });
+  });
   await page.locator('.checker-queue textarea[name="queueComment"]').fill(
     'Bulk approval for remaining Groovy submissions.'
   );

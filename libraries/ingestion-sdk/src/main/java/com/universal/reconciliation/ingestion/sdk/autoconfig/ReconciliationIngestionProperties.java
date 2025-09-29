@@ -27,7 +27,7 @@ public class ReconciliationIngestionProperties {
             @DefaultValue("30s") Duration connectTimeout,
             @DefaultValue("60s") Duration readTimeout,
             @DefaultValue("60s") Duration writeTimeout) {
-        this.baseUrl = sanitizeBaseUrl(baseUrl);
+        this.baseUrl = baseUrl;
         this.username = username;
         this.password = password;
         this.connectTimeout = connectTimeout;
@@ -59,11 +59,4 @@ public class ReconciliationIngestionProperties {
         return writeTimeout;
     }
 
-    private static String sanitizeBaseUrl(String raw) {
-        if (raw == null || raw.isBlank()) {
-            return "http://localhost:8080";
-        }
-        String trimmed = raw.trim();
-        return trimmed.endsWith("/") ? trimmed.substring(0, trimmed.length() - 1) : trimmed;
-    }
 }

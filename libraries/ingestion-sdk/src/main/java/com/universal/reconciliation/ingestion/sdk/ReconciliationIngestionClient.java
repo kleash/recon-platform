@@ -16,6 +16,7 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
+import okio.BufferedSink;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,31 +63,34 @@ public class ReconciliationIngestionClient implements Closeable {
                 .addQueryParameter("size", "50")
                 .build();
 
-        Request request = new Request.Builder()
-                .url(url)
-                .header("Authorization", "Bearer " + ensureToken())
-                .build();
+        for (int attempt = 0; attempt < 2; attempt++) {
+            Request request = new Request.Builder()
+                    .url(url)
+                    .header("Authorization", "Bearer " + ensureToken())
+                    .build();
 
-        try (Response response = client.newCall(request).execute()) {
-            if (response.code() == 401) {
-                synchronized (this) {
-                    this.token = null;
-                }
-                return resolveDefinitionId(reconciliationCode);
-            }
-            if (!response.isSuccessful()) {
-                throw new IOException("Failed to look up reconciliation '" + reconciliationCode + "' (status " + response.code() + ")");
-            }
-            JsonNode tree = mapper.readTree(Objects.requireNonNull(response.body()).bytes());
-            JsonNode items = tree.path("items");
-            for (JsonNode item : items) {
-                if (reconciliationCode.equalsIgnoreCase(item.path("code").asText())) {
-                    long id = item.path("id").asLong(-1);
-                    if (id <= 0) {
-                        throw new IOException("Invalid id returned for reconciliation '" + reconciliationCode + "'");
+            try (Response response = client.newCall(request).execute()) {
+                if (response.code() == 401) {
+                    synchronized (this) {
+                        this.token = null;
                     }
-                    definitionCache.put(reconciliationCode, id);
-                    return id;
+                    continue;
+                }
+                if (!response.isSuccessful()) {
+                    throw new IOException("Failed to look up reconciliation '" + reconciliationCode + "' (status "
+                            + response.code() + ")");
+                }
+                JsonNode tree = mapper.readTree(Objects.requireNonNull(response.body()).bytes());
+                JsonNode items = tree.path("items");
+                for (JsonNode item : items) {
+                    if (reconciliationCode.equalsIgnoreCase(item.path("code").asText())) {
+                        long id = item.path("id").asLong(-1);
+                        if (id <= 0) {
+                            throw new IOException("Invalid id returned for reconciliation '" + reconciliationCode + "'");
+                        }
+                        definitionCache.put(reconciliationCode, id);
+                        return id;
+                    }
                 }
             }
         }
@@ -107,45 +111,74 @@ public class ReconciliationIngestionClient implements Closeable {
 
         RequestBody metadataBody = RequestBody.create(mapper.writeValueAsBytes(metadata), JSON);
         MediaType contentType = MediaType.get(batch.getMediaType());
-        RequestBody fileBody = RequestBody.create(batch.getPayload(), contentType);
-
-        MultipartBody requestBody = new MultipartBody.Builder()
-                .setType(MultipartBody.FORM)
-                .addFormDataPart("metadata", "metadata.json", metadataBody)
-                .addFormDataPart("file", buildFilename(batch), fileBody)
-                .build();
-
         String url = String.format(Locale.ROOT,
                 "%s/api/admin/reconciliations/%d/sources/%s/batches",
                 baseUrl,
                 reconciliationId,
                 batch.getSourceCode());
 
-        Request request = new Request.Builder()
-                .url(url)
-                .header("Authorization", "Bearer " + ensureToken())
-                .post(requestBody)
-                .build();
-
-        try (Response response = client.newCall(request).execute()) {
-            if (response.code() == 401) {
-                synchronized (this) {
-                    this.token = null;
+        IOException lastFailure = null;
+        for (int attempt = 0; attempt < 2; attempt++) {
+            RequestBody fileBody = new RequestBody() {
+                @Override
+                public MediaType contentType() {
+                    return contentType;
                 }
-                return ingestBatch(reconciliationId, batch);
-            }
-            if (!response.isSuccessful()) {
-                String responseBody = response.body() != null ? response.body().string() : "<no body>";
-                throw new IOException(String.format(Locale.ROOT,
-                        "Ingestion failed for source %s (%s): %s",
-                        batch.getSourceCode(),
-                        response.code(),
-                        responseBody));
-            }
 
-            JsonNode result = mapper.readTree(Objects.requireNonNull(response.body()).bytes());
-            return new IngestionResult(result.path("status").asText("UNKNOWN"), result.path("recordCount").asLong(0));
+                @Override
+                public long contentLength() {
+                    return batch.getContentLength();
+                }
+
+                @Override
+                public void writeTo(BufferedSink sink) throws IOException {
+                    batch.writePayload(sink.outputStream());
+                }
+            };
+
+            MultipartBody requestBody = new MultipartBody.Builder()
+                    .setType(MultipartBody.FORM)
+                    .addFormDataPart("metadata", "metadata.json", metadataBody)
+                    .addFormDataPart("file", buildFilename(batch), fileBody)
+                    .build();
+
+            Request request = new Request.Builder()
+                    .url(url)
+                    .header("Authorization", "Bearer " + ensureToken())
+                    .post(requestBody)
+                    .build();
+
+            try (Response response = client.newCall(request).execute()) {
+                if (response.code() == 401) {
+                    synchronized (this) {
+                        this.token = null;
+                    }
+                    continue;
+                }
+                if (!response.isSuccessful()) {
+                    String responseBody = response.body() != null ? response.body().string() : "<no body>";
+                    lastFailure = new IOException(String.format(Locale.ROOT,
+                            "Ingestion failed for source %s (%s): %s",
+                            batch.getSourceCode(),
+                            response.code(),
+                            responseBody));
+                    break;
+                }
+
+                JsonNode result = mapper.readTree(Objects.requireNonNull(response.body()).bytes());
+                batch.discardPayload();
+                return new IngestionResult(result.path("status").asText("UNKNOWN"), result.path("recordCount").asLong(0));
+            } catch (IOException ioException) {
+                lastFailure = ioException;
+                break;
+            }
         }
+
+        batch.discardPayload();
+        if (lastFailure != null) {
+            throw lastFailure;
+        }
+        throw new IOException("Authentication failed after retry while ingesting batch for source " + batch.getSourceCode());
     }
 
     private synchronized String ensureToken() throws IOException {

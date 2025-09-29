@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.universal.reconciliation.ingestion.sdk.IngestionBatch;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -34,7 +35,7 @@ class RestApiCsvBatchBuilderTest {
                     List.of("transactionId", "amount"),
                     Map.of());
 
-            String csv = new String(batch.getPayload(), StandardCharsets.UTF_8);
+            String csv = readCsv(batch);
             assertThat(csv).contains("transactionId,amount");
             assertThat(csv).contains("T-1,100.25");
             assertThat(csv).contains("T-2,50.75");
@@ -58,7 +59,7 @@ class RestApiCsvBatchBuilderTest {
                     Map.of(),
                     "data.items");
 
-            String csv = new String(batch.getPayload(), StandardCharsets.UTF_8);
+            String csv = readCsv(batch);
             assertThat(csv).contains("transactionId,amount");
             assertThat(csv).contains("T-3,5.0");
         }
@@ -109,9 +110,17 @@ class RestApiCsvBatchBuilderTest {
                         return merged;
                     });
 
-            String csv = new String(batch.getPayload(), StandardCharsets.UTF_8);
+            String csv = readCsv(batch);
             assertThat(csv).contains("T-4,10.0");
             assertThat(csv).contains("T-5,3.14");
         }
+    }
+
+    private static String readCsv(IngestionBatch batch) throws IOException {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        batch.writePayload(buffer);
+        String csv = buffer.toString(StandardCharsets.UTF_8);
+        batch.discardPayload();
+        return csv;
     }
 }

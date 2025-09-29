@@ -46,18 +46,18 @@ credentials and base URL through `reconciliation.ingestion.*` properties.
        "CASH",
        "cash-ledger",
        "SELECT transaction_id AS transactionId, amount, currency, trade_date AS tradeDate FROM cash_ledger",
-       Map.of(),
-       List.of("transactionId", "amount", "currency", "tradeDate"),
-       Map.of());
+        Map.of(), // params for the SQL query
+        List.of("transactionId", "amount", "currency", "tradeDate"),
+        Map.of()); // options forwarded to the ingestion adapter
 
    RestApiCsvBatchBuilder api = new RestApiCsvBatchBuilder(restTemplate);
    IngestionBatch glBatch = api.get(
        "GL",
        "general-ledger",
        URI.create("https://example.org/api/gl"),
-       List.of("transactionId", "amount", "currency", "tradeDate"),
-       Map.of(),
-       "payload.entries");
+        List.of("transactionId", "amount", "currency", "tradeDate"),
+        Map.of(), // options forwarded to the ingestion adapter
+        "payload.entries");
 
    IngestionScenario scenario = IngestionScenario.builder("cash-vs-gl")
        .reconciliationCode("CASH_VS_GL_SIMPLE")
@@ -74,7 +74,9 @@ credentials and base URL through `reconciliation.ingestion.*` properties.
 ### Advanced REST extraction
 
 For wrapped or paginated APIs, supply either a JSON Pointer (e.g. `"/payload/entries"`) or a custom
-extractor. The extractor receives the root `JsonNode` and returns the iterable of records to render:
+extractor. The dot-separated convenience syntax (e.g. `"payload.entries"`) resolves simple property
+paths and does not implement the full JSON Pointer escaping rules. The extractor receives the root
+`JsonNode` and returns the iterable of records to render:
 
 ```java
 RestApiCsvBatchBuilder api = new RestApiCsvBatchBuilder(restTemplate);

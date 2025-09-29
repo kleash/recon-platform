@@ -7,12 +7,14 @@ import com.fasterxml.jackson.databind.MappingIterator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import com.universal.reconciliation.ingestion.sdk.IngestionBatch;
-import java.io.ByteArrayOutputStream;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStreamWriter;
-import java.nio.charset.StandardCharsets;
+import java.io.Writer;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -171,9 +173,10 @@ public final class RestApiCsvBatchBuilder {
         if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
             throw new IOException("API call failed with status " + response.getStatusCode());
         }
+        Path tempFile = Files.createTempFile("ingestion-rest-", ".csv");
+        tempFile.toFile().deleteOnExit();
         try (InputStream bodyStream = response.getBody();
-                ByteArrayOutputStream output = new ByteArrayOutputStream();
-                OutputStreamWriter writer = new OutputStreamWriter(output, StandardCharsets.UTF_8)) {
+                BufferedWriter writer = Files.newBufferedWriter(tempFile, StandardCharsets.UTF_8)) {
             if (recordExtractor != null || (recordPointer != null && !recordPointer.isBlank())) {
                 JsonNode root = objectMapper.readTree(bodyStream);
                 Iterable<JsonNode> records = selectRecords(root, recordPointer, recordExtractor);
@@ -182,16 +185,23 @@ public final class RestApiCsvBatchBuilder {
                 streamJsonArray(bodyStream, columns == null ? null : new ArrayList<>(columns), writer);
             }
             writer.flush();
-            byte[] payload = output.toByteArray();
-            return IngestionBatch.builder(sourceCode, label)
-                    .mediaType("text/csv")
-                    .payload(payload)
-                    .options(options == null ? Map.of() : options)
-                    .build();
+        } catch (IOException | RuntimeException e) {
+            try {
+                Files.deleteIfExists(tempFile);
+            } catch (IOException suppressed) {
+                e.addSuppressed(suppressed);
+            }
+            throw e;
         }
+
+        return IngestionBatch.builder(sourceCode, label)
+                .mediaType("text/csv")
+                .payloadFile(tempFile, true)
+                .options(options == null ? Map.of() : options)
+                .build();
     }
 
-    private void streamJsonArray(InputStream bodyStream, List<String> columns, OutputStreamWriter writer) throws IOException {
+    private void streamJsonArray(InputStream bodyStream, List<String> columns, Writer writer) throws IOException {
         JsonParser parser = objectMapper.getFactory().createParser(bodyStream);
         JsonToken firstToken = parser.nextToken();
         if (firstToken == null) {
@@ -214,7 +224,7 @@ public final class RestApiCsvBatchBuilder {
         }
     }
 
-    private void streamJsonNodes(Iterable<JsonNode> nodes, List<String> columns, OutputStreamWriter writer)
+    private void streamJsonNodes(Iterable<JsonNode> nodes, List<String> columns, Writer writer)
             throws IOException {
         Iterator<JsonNode> iterator = nodes.iterator();
         if (iterator == null) {
@@ -236,7 +246,7 @@ public final class RestApiCsvBatchBuilder {
         }, columns, writer);
     }
 
-    private void streamMaps(Iterator<Map<String, Object>> iterator, List<String> columns, OutputStreamWriter writer)
+    private void streamMaps(Iterator<Map<String, Object>> iterator, List<String> columns, Writer writer)
             throws IOException {
         List<String> headers = columns != null && !columns.isEmpty() ? new ArrayList<>(columns) : null;
         CSVPrinter printer;
@@ -286,6 +296,11 @@ public final class RestApiCsvBatchBuilder {
         return root;
     }
 
+    /**
+     * Converts the SDK's simplified dot-notation (e.g. {@code payload.entries}) into a JSON Pointer.
+     * This helper only supports basic property names and escapes {@code /} and {@code ~} characters to
+     * maintain compatibility with RFC 6901 but does not implement the full pointer specification.
+     */
     private static String normalizePointer(String pointer) {
         String trimmed = pointer.trim();
         if (trimmed.isEmpty()) {

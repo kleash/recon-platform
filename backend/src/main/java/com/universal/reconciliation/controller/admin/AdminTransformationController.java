@@ -2,6 +2,8 @@ package com.universal.reconciliation.controller.admin;
 
 import com.universal.reconciliation.domain.dto.admin.GroovyScriptTestRequest;
 import com.universal.reconciliation.domain.dto.admin.GroovyScriptTestResponse;
+import com.universal.reconciliation.domain.dto.admin.TransformationFilePreviewResponse;
+import com.universal.reconciliation.domain.dto.admin.TransformationFilePreviewUploadRequest;
 import com.universal.reconciliation.domain.dto.admin.TransformationPreviewRequest;
 import com.universal.reconciliation.domain.dto.admin.TransformationPreviewResponse;
 import com.universal.reconciliation.domain.dto.admin.TransformationSampleResponse;
@@ -17,9 +19,11 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/admin/transformations")
@@ -42,6 +46,13 @@ public class AdminTransformationController {
     public TransformationPreviewResponse preview(
             @Valid @RequestBody TransformationPreviewRequest request) {
         return transformationService.preview(request);
+    }
+
+    @PostMapping(value = "/preview/upload", consumes = {"multipart/form-data"})
+    public TransformationFilePreviewResponse previewFromFile(
+            @Valid @RequestPart("request") TransformationFilePreviewUploadRequest request,
+            @RequestPart("file") MultipartFile file) {
+        return transformationService.previewFromSampleFile(request, file);
     }
 
     @PostMapping("/groovy/test")

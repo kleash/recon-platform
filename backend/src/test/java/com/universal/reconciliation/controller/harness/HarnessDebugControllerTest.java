@@ -30,6 +30,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
+import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -59,7 +60,9 @@ class HarnessDebugControllerTest {
     void setUp() {
         HarnessDebugController controller =
                 new HarnessDebugController(breakItemRepository, breakAccessService, userContext, breakService);
-        mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(controller)
+                .setMessageConverters(new MappingJackson2HttpMessageConverter())
+                .build();
 
         definition = new ReconciliationDefinition();
         definition.setId(42L);
@@ -163,4 +166,3 @@ class HarnessDebugControllerTest {
                 .andExpect(jsonPath("$.message").value("Not allowed"));
     }
 }
-

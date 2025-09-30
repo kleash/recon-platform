@@ -13,6 +13,8 @@ import {
   TransformationValidationResponse,
   TransformationPreviewRequest,
   TransformationPreviewResponse,
+  TransformationFilePreviewUploadRequest,
+  TransformationFilePreviewResponse,
   TransformationSampleResponse,
   GroovyScriptTestRequest,
   GroovyScriptTestResponse
@@ -276,6 +278,19 @@ export class AdminReconciliationStateService {
       catchError((error) => {
         console.error('Groovy script execution failed', error);
         this.notifications.push('Groovy test execution failed.', 'error');
+        return throwError(() => error);
+      })
+    );
+  }
+
+  previewTransformationFromFile(
+    payload: TransformationFilePreviewUploadRequest,
+    file: File
+  ): Observable<TransformationFilePreviewResponse> {
+    return this.api.previewTransformationFromFile(payload, file).pipe(
+      catchError((error) => {
+        console.error('Failed to preview transformations from file', error);
+        this.notifications.push('Unable to preview transformations from the uploaded file.', 'error');
         return throwError(() => error);
       })
     );

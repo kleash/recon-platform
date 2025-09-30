@@ -119,6 +119,7 @@
     </section>
 
     <section *ngSwitchCase="'schema'" formArrayName="canonicalFields" class="schema-step">
+      <p class="error" *ngIf="schemaPreviewWarning">{{ schemaPreviewWarning }}</p>
       <article *ngFor="let fieldGroup of canonicalFields.controls; let i = index" [formGroupName]="i" class="field-card">
         <header>
           <h3>Field {{ i + 1 }}</h3>
@@ -154,8 +155,14 @@
           <h4>Mappings</h4>
           <div *ngFor="let mappingGroup of sourceMappings(i).controls; let m = index" [formGroupName]="m" class="mapping-row">
             <div class="mapping-grid">
-              <label>Source<input type="text" formControlName="sourceCode" /></label>
-              <label>Column<input type="text" formControlName="sourceColumn" /></label>
+              <label>Source<input type="text" formControlName="sourceCode" (input)="invalidateMappingPreview(i, m)" /></label>
+              <label
+                >Column<input
+                  type="text"
+                  formControlName="sourceColumn"
+                  (input)="onSourceColumnChange(i, m, $any($event.target).value)"
+                />
+              </label>
               <label>Legacy expression
                 <input type="text" formControlName="transformationExpression" placeholder="Optional legacy expression" />
               </label>
@@ -189,7 +196,14 @@
                 <div class="transformation-body">
                   <ng-container [ngSwitch]="transformationGroup.get('type')?.value">
                     <div *ngSwitchCase="'GROOVY_SCRIPT'" class="transformation-editor">
-                      <label>Groovy script<textarea formControlName="expression" rows="4" placeholder="return value"></textarea></label>
+                      <label
+                        >Groovy script<textarea
+                          formControlName="expression"
+                          rows="4"
+                          placeholder="return value"
+                          (input)="invalidateMappingPreview(i, m)"
+                        ></textarea
+                      ></label>
                       <div class="groovy-tools">
                         <div class="groovy-actions">
                           <button
@@ -241,7 +255,14 @@
                       </div>
                     </div>
                     <div *ngSwitchCase="'EXCEL_FORMULA'" class="transformation-editor">
-                      <label>Excel formula<input type="text" formControlName="expression" placeholder="=VALUE" /></label>
+                      <label
+                        >Excel formula<input
+                          type="text"
+                          formControlName="expression"
+                          placeholder="=VALUE"
+                          (input)="invalidateMappingPreview(i, m)"
+                        />
+                      </label>
                       <p class="hint">Use VALUE or column names (e.g. CASH_AMOUNT) as named references.</p>
                     </div>
                     <div *ngSwitchCase="'FUNCTION_PIPELINE'" class="transformation-editor" formArrayName="pipelineSteps">
@@ -252,7 +273,7 @@
                       >
                         <label>
                           Function
-                          <select formControlName="function">
+                          <select formControlName="function" (change)="invalidateMappingPreview(i, m)">
                             <option *ngFor="let fn of pipelineFunctionOptions" [value]="fn.value">{{ fn.label }}</option>
                           </select>
                         </label>
@@ -261,7 +282,13 @@
                             *ngFor="let argCtrl of pipelineStepArgs(i, m, t, s).controls; let a = index"
                             class="arg-row"
                           >
-                            <label>Arg {{ a + 1 }}<input [formControlName]="a" placeholder="Value or {{column}}" /></label>
+                            <label
+                              >Arg {{ a + 1 }}<input
+                                [formControlName]="a"
+                                placeholder="Value or {{column}}"
+                                (input)="invalidateMappingPreview(i, m)"
+                              />
+                            </label>
                             <button type="button" class="link" (click)="removePipelineArg(i, m, t, s, a)">Remove</button>
                           </div>
                           <button type="button" class="secondary" (click)="addPipelineArg(i, m, t, s)">Add argument</button>
@@ -278,16 +305,64 @@
                       <button type="button" class="secondary" (click)="addPipelineStep(i, m, t)">Add step</button>
                     </div>
                     <div *ngSwitchCase="'LLM_PROMPT'" class="transformation-editor" formGroupName="llmConfig">
-                      <label>Prompt template<textarea formControlName="promptTemplate" rows="4" placeholder="Normalize the value '{{value}}'"></textarea></label>
+                      <label
+                        >Prompt template<textarea
+                          formControlName="promptTemplate"
+                          rows="4"
+                          placeholder="Normalize the value '{{value}}'"
+                          (input)="invalidateMappingPreview(i, m)"
+                        ></textarea
+                      ></label>
                       <p class="hint">Use {{value}} for the incoming value and {{rawRecord}} for the JSON representation of the source row.</p>
-                      <label>JSON schema<textarea formControlName="jsonSchema" rows="4" placeholder="{ &quot;type&quot;: &quot;object&quot;, ... }"></textarea></label>
-                      <label>Result path<input type="text" formControlName="resultPath" placeholder="normalizedValue" /></label>
+                      <label
+                        >JSON schema<textarea
+                          formControlName="jsonSchema"
+                          rows="4"
+                          placeholder="{ &quot;type&quot;: &quot;object&quot;, ... }"
+                          (input)="invalidateMappingPreview(i, m)"
+                        ></textarea
+                      ></label>
+                      <label
+                        >Result path<input
+                          type="text"
+                          formControlName="resultPath"
+                          placeholder="normalizedValue"
+                          (input)="invalidateMappingPreview(i, m)"
+                        />
+                      </label>
                       <div class="grid">
-                        <label>Model<input type="text" formControlName="model" placeholder="Defaults to backend setting" /></label>
-                        <label>Temperature<input type="number" step="0.1" formControlName="temperature" /></label>
-                        <label>Max output tokens<input type="number" formControlName="maxOutputTokens" /></label>
+                        <label
+                          >Model<input
+                            type="text"
+                            formControlName="model"
+                            placeholder="Defaults to backend setting"
+                            (input)="invalidateMappingPreview(i, m)"
+                          />
+                        </label>
+                        <label
+                          >Temperature<input
+                            type="number"
+                            step="0.1"
+                            formControlName="temperature"
+                            (input)="invalidateMappingPreview(i, m)"
+                          />
+                        </label>
+                        <label
+                          >Max output tokens<input
+                            type="number"
+                            formControlName="maxOutputTokens"
+                            (input)="invalidateMappingPreview(i, m)"
+                          />
+                        </label>
                       </div>
-                      <label class="checkbox"><input type="checkbox" formControlName="includeRawRecord" /> Include raw record context</label>
+                      <label class="checkbox"
+                        ><input
+                          type="checkbox"
+                          formControlName="includeRawRecord"
+                          (change)="invalidateMappingPreview(i, m)"
+                        />
+                        Include raw record context</label
+                      >
                     </div>
                   </ng-container>
                 </div>
@@ -330,6 +405,129 @@
               <p class="error" *ngIf="previewState[previewKey(i, m)]?.error">
                 {{ previewState[previewKey(i, m)]?.error }}
               </p>
+              <p class="success" *ngIf="isMappingPreviewConfirmed(i, m) && !isMappingPreviewStale(i, m)">
+                Latest preview confirmed.
+              </p>
+              <p class="warning" *ngIf="isMappingPreviewStale(i, m)">
+                Preview is out of date. Re-run a sample preview to continue.
+              </p>
+              <div class="upload-tools">
+                <h6>Upload sample file</h6>
+                <label>
+                  File type
+                  <select
+                    [value]="sampleUploadStateFor(i, m).fileType"
+                    (change)="setSampleUploadOption(i, m, 'fileType', $any($event.target).value)"
+                  >
+                    <option value="CSV">CSV</option>
+                    <option value="DELIMITED">Delimited TXT</option>
+                    <option value="EXCEL">Excel</option>
+                    <option value="JSON">JSON</option>
+                    <option value="XML">XML</option>
+                  </select>
+                </label>
+                <label class="checkbox" *ngIf="['CSV', 'DELIMITED', 'EXCEL'].includes(sampleUploadStateFor(i, m).fileType)">
+                  <input
+                    type="checkbox"
+                    [checked]="sampleUploadStateFor(i, m).hasHeader"
+                    (change)="setSampleUploadOption(i, m, 'hasHeader', $any($event.target).checked)"
+                  />
+                  Has header row
+                </label>
+                <label *ngIf="['CSV', 'DELIMITED'].includes(sampleUploadStateFor(i, m).fileType)">
+                  Delimiter
+                  <input
+                    type="text"
+                    maxlength="1"
+                    [value]="sampleUploadStateFor(i, m).delimiter || ','"
+                    (input)="setSampleUploadOption(i, m, 'delimiter', $any($event.target).value)"
+                  />
+                </label>
+                <label *ngIf="sampleUploadStateFor(i, m).fileType === 'EXCEL'">
+                  Sheet name
+                  <input
+                    type="text"
+                    [value]="sampleUploadStateFor(i, m).sheetName || ''"
+                    (input)="setSampleUploadOption(i, m, 'sheetName', $any($event.target).value)"
+                  />
+                </label>
+                <label *ngIf="['JSON', 'XML'].includes(sampleUploadStateFor(i, m).fileType)">
+                  Record path
+                  <input
+                    type="text"
+                    placeholder="e.g. data.items"
+                    [value]="sampleUploadStateFor(i, m).recordPath || ''"
+                    (input)="setSampleUploadOption(i, m, 'recordPath', $any($event.target).value)"
+                  />
+                </label>
+                <label>
+                  Value column
+                  <input
+                    type="text"
+                    placeholder="COLUMN_1"
+                    [value]="sampleUploadStateFor(i, m).valueColumn || ''"
+                    (input)="setSampleUploadOption(i, m, 'valueColumn', $any($event.target).value)"
+                  />
+                </label>
+                <label>
+                  Encoding
+                  <input
+                    type="text"
+                    placeholder="UTF-8"
+                    [value]="sampleUploadStateFor(i, m).encoding || ''"
+                    (input)="setSampleUploadOption(i, m, 'encoding', $any($event.target).value)"
+                  />
+                </label>
+                <label>
+                  Max rows
+                  <input
+                    type="number"
+                    min="1"
+                    max="10"
+                    [value]="sampleUploadStateFor(i, m).limit"
+                    (input)="setSampleUploadOption(i, m, 'limit', $any($event.target).value)"
+                  />
+                </label>
+                <label>
+                  Sample file
+                  <input type="file" (change)="onSampleFileSelected(i, m, $event)" />
+                </label>
+                <p class="hint" *ngIf="sampleUploadStateFor(i, m).fileName">
+                  Selected: {{ sampleUploadStateFor(i, m).fileName }}
+                </p>
+                <div class="upload-actions">
+                  <button
+                    type="button"
+                    class="secondary"
+                    (click)="uploadSampleFile(i, m)"
+                    [disabled]="sampleUploadStateFor(i, m).uploading"
+                  >
+                    {{ sampleUploadStateFor(i, m).uploading ? 'Previewing…' : 'Upload & Preview' }}
+                  </button>
+                </div>
+                <p class="error" *ngIf="sampleUploadStateFor(i, m).error">
+                  {{ sampleUploadStateFor(i, m).error }}
+                </p>
+                <p class="hint" *ngIf="sampleUploadStateFor(i, m).rows.length === 10">
+                  Showing first 10 rows from the uploaded file.
+                </p>
+                <div class="upload-results" *ngIf="sampleUploadStateFor(i, m).rows.length">
+                  <div class="upload-result" *ngFor="let row of sampleUploadStateFor(i, m).rows">
+                    <header>Row {{ row.rowNumber }}</header>
+                    <p><strong>Input:</strong> {{ stringifyResult(row.valueBefore) }}</p>
+                    <p class="success" *ngIf="!row.error">
+                      <strong>Transformed:</strong> {{ stringifyResult(row.transformedValue) }}
+                    </p>
+                    <p class="error" *ngIf="row.error">
+                      <strong>Error:</strong> {{ row.error }}
+                    </p>
+                    <details>
+                      <summary>Raw record</summary>
+                      <pre>{{ row.rawRecord | json }}</pre>
+                    </details>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
           <button type="button" class="secondary" (click)="addMapping(i)">Add mapping</button>

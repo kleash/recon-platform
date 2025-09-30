@@ -32,6 +32,8 @@ import {
   GroovyScriptTestResponse,
   TransformationPreviewRequest,
   TransformationPreviewResponse,
+  TransformationFilePreviewUploadRequest,
+  TransformationFilePreviewResponse,
   TransformationSampleResponse,
   TransformationValidationRequest,
   TransformationValidationResponse,
@@ -276,6 +278,19 @@ export class ApiService {
 
   testGroovyScript(payload: GroovyScriptTestRequest): Observable<GroovyScriptTestResponse> {
     return this.http.post<GroovyScriptTestResponse>(`${BASE_URL}/admin/transformations/groovy/test`, payload);
+  }
+
+  previewTransformationFromFile(
+    payload: TransformationFilePreviewUploadRequest,
+    file: File
+  ): Observable<TransformationFilePreviewResponse> {
+    const formData = new FormData();
+    formData.append('request', new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+    formData.append('file', file);
+    return this.http.post<TransformationFilePreviewResponse>(
+      `${BASE_URL}/admin/transformations/preview/upload`,
+      formData
+    );
   }
 
   private buildQueryParams(

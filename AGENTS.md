@@ -19,7 +19,6 @@ Welcome, automated contributor! Follow these ground rules to collaborate effecti
 ## Quality Gates
 - **Backend tests:** `cd backend && ./mvnw test`
 - **Frontend tests:** `cd frontend && npm test -- --watch=false --browsers=ChromeHeadless`
-- **Frontend lint (optional):** `cd frontend && npm run lint`
 - **Automation smoke (Playwright):** `cd automation/regression && npm install && npm test`
 - **Examples integration harness:** `examples/integration-harness/scripts/run_multi_example_e2e.sh`
 - **Bootstrap scripts:** `./scripts/local-dev.sh bootstrap` (and `seed` once the stack is running) to confirm local helpers stay healthy.

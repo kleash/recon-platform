@@ -9,6 +9,7 @@ const cashFixture = resolve(fixturesDir, 'cash_source.csv');
 const glFixture = resolve(fixturesDir, 'gl_source.csv');
 const groovySourceA = resolve(fixturesDir, 'groovy_source_a.csv');
 const groovySourceB = resolve(fixturesDir, 'groovy_source_b.csv');
+const groovyPreviewSample = resolve(fixturesDir, 'groovy_preview_sample.csv');
 const jwtSecret = Buffer.from('01234567890123456789012345678901', 'utf8');
 
 function decodeJwt(token: string): Record<string, unknown> {
@@ -101,8 +102,8 @@ async function configureCanonicalField(field: Locator, config: CanonicalFieldCon
     }
     const row = mappings.nth(index);
     await expect(row).toBeVisible();
-    await row.getByLabel('Source').fill(mapping.source);
-    await row.getByLabel('Column').fill(mapping.column);
+    await row.getByLabel('Source', { exact: true }).fill(mapping.source);
+    await row.getByLabel('Column', { exact: true }).fill(mapping.column);
   }
 }
 
@@ -252,7 +253,7 @@ async function createReconciliationFromScratch(options: {
     .fill('CASH');
   await entityMappings
     .nth(0)
-    .getByLabel('Column')
+    .getByLabel('Column', { exact: true })
     .fill('entityName');
   await entityField.getByRole('button', { name: 'Add mapping' }).click();
   await entityMappings
@@ -261,7 +262,7 @@ async function createReconciliationFromScratch(options: {
     .fill('GL');
   await entityMappings
     .nth(1)
-    .getByLabel('Column')
+    .getByLabel('Column', { exact: true })
     .fill('entityName');
 
   await page.getByRole('button', { name: 'Next' }).click();
@@ -434,6 +435,25 @@ async function createGroovyReconciliation(options: {
   await transformationCard.getByLabel('Groovy script').fill(groovyScript);
   await transformationCard.getByRole('button', { name: 'Validate rule' }).click();
   await expect(transformationCard.getByText('Transformation is valid.')).toBeVisible();
+
+  const previewCard = secondaryMapping.locator('.preview-tools');
+  await expect(previewCard).toBeVisible();
+  await previewCard.getByLabel('Value column').fill('amount');
+  await previewCard.getByLabel('Sample file').setInputFiles(groovyPreviewSample);
+  await previewCard.getByRole('button', { name: 'Upload & Preview' }).click();
+  await expect(previewCard.getByText('Latest preview confirmed.')).toBeVisible({ timeout: 30000 });
+
+  const previewScreenshot = 'groovy-sample-preview.png';
+  await previewCard.screenshot({ path: resolveAssetPath(previewScreenshot) });
+  await recordScreen({
+    name: 'Transformation sample preview',
+    route: '/admin/new',
+    screenshotFile: previewScreenshot,
+    assertions: [
+      { description: 'Sample upload applies Groovy transformation before publish' },
+      { description: 'Preview result confirms transformed value for admin' }
+    ]
+  });
 
   await addCanonicalField(page, fieldCards, 2, {
     canonicalName: 'currency',

@@ -118,8 +118,11 @@ you can pause and resume.
   - LLM prompt templates that call OpenAI to normalise or enrich field values
 - Use **Validate** to compile transformations immediately. Errors display inline with actionable
   messages.
-- **Groovy tester:** After ingesting at least one batch, click *Load sample rows* to fetch live
-  records, edit the script, and hit *Run test* to see the evaluated result beside the raw payload.
+- **Preview & Test panel:** Upload a sample file (CSV, delimited text, Excel, JSON, or XML) and
+  specify whether headers are present, the delimiter, or a record path to simulate transformations
+  before any data is ingested. The preview runs the full transformation chain against the first ten
+  records and highlights errors per row. You can still load recent ingestion rows and run the
+  Groovy tester against live data when you want to compare behaviour with production batches.
 
 #### LLM prompt transformations
 
@@ -217,12 +220,19 @@ value = amount
 
 ### 6.2 Sample Data Preview
 
-- For Groovy scripts, use the *Preview & Test* panel:
-  1. Load sample rows from recent ingestion batches.
-  2. Inspect the raw JSON payload and current canonical value.
-  3. Execute the script and review the resulting value.
-- For formula/pipeline transformations, the **Preview** button (if the source provides test rows)
-  evaluates the value and surfaces the output with before/after comparisons.
+- The *Preview & Test* panel supports two complementary workflows:
+  - **Upload sample file:** Drop a CSV, delimited text, Excel workbook, JSON document, or XML payload,
+    tell the wizard whether headers are present (or set them implicitly with `COLUMN_1`, `COLUMN_2`,
+    ...), tweak the delimiter or sheet name, and optionally provide a record path for hierarchical
+    formats. The wizard previews the first ten rows, runs the entire transformation chain, and calls
+    out row-level errors so you can adjust scripts without ingesting data.
+  - **Load live samples:** Once a batch has completed, you can still fetch persisted rows and launch
+    the Groovy tester to validate against production data. Both upload and live samples share the
+    same diff view so you can compare raw and transformed values quickly.
+- Formula and pipeline transformations reuse the same panel, so a single preview covers mixed chains
+  (e.g. Groovy followed by pipeline cleanup).
+- To prevent accidental publishes, the wizard requires at least one successful preview per mapping
+  that contains active transformations before you can leave the Schema step.
 
 ### 6.3 Harness & Automation Support
 

@@ -299,3 +299,29 @@ export interface TransformationPreviewRequest {
 export interface TransformationPreviewResponse {
   result: unknown;
 }
+
+export type TransformationSampleFileType = 'CSV' | 'EXCEL' | 'JSON' | 'XML' | 'DELIMITED';
+
+export interface TransformationFilePreviewUploadRequest {
+  fileType: TransformationSampleFileType;
+  hasHeader: boolean;
+  delimiter?: string | null;
+  sheetName?: string | null;
+  recordPath?: string | null;
+  valueColumn?: string | null;
+  encoding?: string | null;
+  limit?: number | null;
+  transformations: PreviewTransformationDto[];
+}
+
+export interface TransformationFilePreviewRow {
+  rowNumber: number;
+  rawRecord: Record<string, unknown>;
+  valueBefore: unknown;
+  transformedValue: unknown;
+  error?: string | null;
+}
+
+export interface TransformationFilePreviewResponse {
+  rows: TransformationFilePreviewRow[];
+}

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.universal.reconciliation.domain.dto.admin.GroovyScriptTestRequest;
 import com.universal.reconciliation.domain.dto.admin.GroovyScriptTestResponse;
+import com.universal.reconciliation.domain.dto.admin.TransformationFilePreviewResponse;
+import com.universal.reconciliation.domain.dto.admin.TransformationFilePreviewUploadRequest;
 import com.universal.reconciliation.domain.dto.admin.TransformationPreviewRequest;
 import com.universal.reconciliation.domain.dto.admin.TransformationPreviewResponse;
 import com.universal.reconciliation.domain.dto.admin.TransformationSampleResponse;
@@ -17,6 +19,7 @@ import com.universal.reconciliation.domain.entity.SourceDataBatch;
 import com.universal.reconciliation.domain.entity.SourceDataRecord;
 import com.universal.reconciliation.domain.enums.DataBatchStatus;
 import com.universal.reconciliation.service.transform.DataTransformationService;
+import com.universal.reconciliation.service.transform.TransformationSampleFileService;
 import com.universal.reconciliation.service.transform.TransformationEvaluationException;
 import com.universal.reconciliation.repository.ReconciliationDefinitionRepository;
 import com.universal.reconciliation.repository.ReconciliationSourceRepository;
@@ -24,14 +27,18 @@ import com.universal.reconciliation.repository.SourceDataBatchRepository;
 import com.universal.reconciliation.repository.SourceDataRecordRepository;
 import jakarta.validation.Valid;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class AdminTransformationService {
@@ -44,6 +51,7 @@ public class AdminTransformationService {
     private final SourceDataBatchRepository batchRepository;
     private final SourceDataRecordRepository recordRepository;
     private final ObjectMapper objectMapper;
+    private final TransformationSampleFileService sampleFileService;
 
     public AdminTransformationService(
             DataTransformationService transformationService,
@@ -51,13 +59,15 @@ public class AdminTransformationService {
             ReconciliationSourceRepository sourceRepository,
             SourceDataBatchRepository batchRepository,
             SourceDataRecordRepository recordRepository,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper,
+            TransformationSampleFileService sampleFileService) {
         this.transformationService = transformationService;
         this.definitionRepository = definitionRepository;
         this.sourceRepository = sourceRepository;
         this.batchRepository = batchRepository;
         this.recordRepository = recordRepository;
         this.objectMapper = objectMapper;
+        this.sampleFileService = sampleFileService;
     }
 
     public TransformationValidationResponse validate(@Valid TransformationValidationRequest request) {
@@ -74,22 +84,7 @@ public class AdminTransformationService {
     }
 
     public TransformationPreviewResponse preview(@Valid TransformationPreviewRequest request) {
-        CanonicalFieldMapping mapping = new CanonicalFieldMapping();
-        mapping.setTransformations(new LinkedHashSet<>());
-        request.transformations().stream()
-                .sorted(Comparator.comparing(
-                        TransformationPreviewRequest.PreviewTransformationDto::displayOrder,
-                        Comparator.nullsLast(Integer::compareTo)))
-                .forEach(transformationDto -> {
-                    CanonicalFieldTransformation transformation = new CanonicalFieldTransformation();
-                    transformation.setMapping(mapping);
-                    transformation.setType(transformationDto.type());
-                    transformation.setExpression(trimToNull(transformationDto.expression()));
-                    transformation.setConfiguration(trimToNull(transformationDto.configuration()));
-                    transformation.setDisplayOrder(transformationDto.displayOrder());
-                    transformation.setActive(transformationDto.active() == null || transformationDto.active());
-                    mapping.getTransformations().add(transformation);
-                });
+        CanonicalFieldMapping mapping = buildMappingFromDtos(request.transformations());
         try {
             Object result = transformationService.applyTransformations(
                     mapping, request.value(), request.rawRecord() == null ? Map.of() : request.rawRecord());
@@ -104,6 +99,28 @@ public class AdminTransformationService {
         Object result = transformationService.evaluateGroovyScript(
                 request.script(), request.value(), request.rawRecord() == null ? Map.of() : request.rawRecord());
         return new GroovyScriptTestResponse(result);
+    }
+
+    public TransformationFilePreviewResponse previewFromSampleFile(
+            @Valid TransformationFilePreviewUploadRequest request, MultipartFile file) {
+        CanonicalFieldMapping mapping = buildMappingFromDtos(request.transformations());
+        List<Map<String, Object>> parsedRows = sampleFileService.parseSamples(request, file);
+        List<TransformationFilePreviewResponse.Row> rows = new ArrayList<>();
+        int index = 1;
+        for (Map<String, Object> raw : parsedRows) {
+            Map<String, Object> safeRaw = new LinkedHashMap<>(raw);
+            Object value = resolveValue(safeRaw, request.valueColumn());
+            try {
+                Object transformed = transformationService.applyTransformations(mapping, value, safeRaw);
+                rows.add(new TransformationFilePreviewResponse.Row(index++, safeRaw, value, transformed, null));
+            } catch (TransformationEvaluationException ex) {
+                rows.add(new TransformationFilePreviewResponse.Row(index++, safeRaw, value, null, ex.getMessage()));
+            } catch (Exception ex) {
+                rows.add(new TransformationFilePreviewResponse.Row(
+                        index++, safeRaw, value, null, "Transformation failed: " + ex.getMessage()));
+            }
+        }
+        return new TransformationFilePreviewResponse(rows);
     }
 
     public TransformationSampleResponse loadSampleRows(long definitionId, String sourceCode, int limit) {
@@ -152,6 +169,52 @@ public class AdminTransformationService {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private CanonicalFieldMapping buildMappingFromDtos(
+            List<TransformationPreviewRequest.PreviewTransformationDto> transformations) {
+        CanonicalFieldMapping mapping = new CanonicalFieldMapping();
+        mapping.setTransformations(new LinkedHashSet<>());
+        if (transformations == null || transformations.isEmpty()) {
+            return mapping;
+        }
+        transformations.stream()
+                .sorted(Comparator.comparing(
+                        TransformationPreviewRequest.PreviewTransformationDto::displayOrder,
+                        Comparator.nullsLast(Integer::compareTo)))
+                .forEach(dto -> {
+                    CanonicalFieldTransformation transformation = new CanonicalFieldTransformation();
+                    transformation.setMapping(mapping);
+                    transformation.setType(dto.type());
+                    transformation.setExpression(trimToNull(dto.expression()));
+                    transformation.setConfiguration(trimToNull(dto.configuration()));
+                    transformation.setDisplayOrder(dto.displayOrder());
+                    transformation.setActive(dto.active() == null || dto.active());
+                    mapping.getTransformations().add(transformation);
+                });
+        return mapping;
+    }
+
+    private Object resolveValue(Map<String, Object> rawRecord, String valueColumn) {
+        if (rawRecord == null || rawRecord.isEmpty() || !StringUtils.hasText(valueColumn)) {
+            return null;
+        }
+        if (rawRecord.containsKey(valueColumn)) {
+            return rawRecord.get(valueColumn);
+        }
+        String normalised = normaliseColumnKey(valueColumn);
+        return rawRecord.entrySet().stream()
+                .filter(entry -> normaliseColumnKey(entry.getKey()).equals(normalised))
+                .map(Map.Entry::getValue)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private String normaliseColumnKey(String key) {
+        if (!StringUtils.hasText(key)) {
+            return "";
+        }
+        return key.replaceAll("\\s+", "").toLowerCase(Locale.ENGLISH);
     }
 
     private Map<String, Object> parseJson(String payload) {

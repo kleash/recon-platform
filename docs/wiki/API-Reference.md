@@ -340,12 +340,20 @@ curl -X POST "https://recon.example.com/api/admin/reconciliations/42/sources/CAS
 | Endpoint | Method | Description |
 | --- | --- | --- |
 | `/api/admin/transformations/validate` | POST | Validates canonical field transformation chains before publishing. |
-| `/api/admin/transformations/preview` | POST | Applies transformations to sample data and returns a preview payload. |
+| `/api/admin/transformations/preview` | POST | Applies transformations to sample data supplied inline and returns a preview payload. |
+| `/api/admin/transformations/preview/upload` | POST | Accepts a sample file (CSV, Excel, JSON, XML, delimited text) plus parsing options and streams back up to ten transformed rows. |
 | `/api/admin/transformations/groovy/test` | POST | Executes Groovy scripts against synthetic inputs to validate custom logic. |
 | `/api/admin/transformations/samples` | GET | Fetches source data samples for a definition/source combination. Query params: `definitionId`, `sourceCode`, `limit`. |
 
 Validation and preview endpoints accept payloads describing the canonical field, transformations, and sample input values. If a
 transformation fails, the API responds with `400 Bad Request` and a descriptive error message.
+
+The upload-based preview endpoint receives a multipart request with:
+
+- **request** — JSON body conforming to `TransformationFilePreviewUploadRequest` (file type, header
+  flag, delimiter/record path, value column, row limit, and the transformation chain to execute).
+- **file** — The sample data to parse. The API enforces a 2 MiB limit and returns at most ten
+  transformed rows alongside any row-level errors.
 
 ### 7.4 Error Handling & Conventions
 - **HTTP 400** — Validation failures (missing fields, malformed query parameters, transformation errors).

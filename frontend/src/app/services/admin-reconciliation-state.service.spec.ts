@@ -1,4 +1,4 @@
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { AdminReconciliationStateService } from './admin-reconciliation-state.service';
 import { ApiService } from './api.service';
 import { NotificationService } from './notification.service';
@@ -30,7 +30,10 @@ describe('AdminReconciliationStateService', () => {
   };
 
   beforeEach(() => {
-    api = jasmine.createSpyObj<ApiService>('ApiService', ['getAdminReconciliations']);
+    api = jasmine.createSpyObj<ApiService>('ApiService', [
+      'getAdminReconciliations',
+      'previewTransformationFromFile'
+    ]);
     notifications = jasmine.createSpyObj<NotificationService>('NotificationService', ['push']);
     api.getAdminReconciliations.and.returnValue(of(pageResponse));
     service = new AdminReconciliationStateService(api, notifications);
@@ -77,5 +80,56 @@ describe('AdminReconciliationStateService', () => {
       expect(filters.size).toBe(10);
     });
     sub.unsubscribe();
+  });
+
+  it('previews transformations from a sample file via the API', (done) => {
+    const response = { rows: [] };
+    api.previewTransformationFromFile.and.returnValue(of(response));
+    const file = new File(['a,b\n1,2'], 'sample.csv', { type: 'text/csv' });
+
+    service
+      .previewTransformationFromFile(
+        {
+          fileType: 'CSV',
+          hasHeader: true,
+          limit: 5,
+          transformations: []
+        },
+        file
+      )
+      .subscribe((result) => {
+        expect(result).toEqual(response);
+        expect(api.previewTransformationFromFile).toHaveBeenCalledWith(
+          jasmine.objectContaining({ fileType: 'CSV', hasHeader: true }),
+          file
+        );
+        done();
+      });
+  });
+
+  it('surfaces preview errors through notifications', (done) => {
+    api.previewTransformationFromFile.and.returnValue(
+      throwError(() => new Error('failed'))
+    );
+    const file = new File(['{}'], 'sample.json', { type: 'application/json' });
+
+    service
+      .previewTransformationFromFile(
+        {
+          fileType: 'JSON',
+          hasHeader: false,
+          transformations: []
+        },
+        file
+      )
+      .subscribe({
+        error: () => {
+          expect(notifications.push).toHaveBeenCalledWith(
+            'Unable to preview transformations from the uploaded file.',
+            'error'
+          );
+          done();
+        }
+      });
   });
 });

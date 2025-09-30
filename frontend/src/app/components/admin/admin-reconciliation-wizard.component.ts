@@ -29,6 +29,10 @@ import {
   ReconciliationLifecycleStatus,
   TransformationPreviewRequest,
   TransformationPreviewResponse,
+  TransformationFilePreviewUploadRequest,
+  TransformationFilePreviewResponse,
+  TransformationFilePreviewRow,
+  TransformationSampleFileType,
   TransformationSampleRow,
   GroovyScriptTestRequest,
   TransformationType,
@@ -59,6 +63,24 @@ type LlmTransformationConfigFormValue = {
   temperature: number | null;
   maxOutputTokens: number | null;
   includeRawRecord: boolean;
+};
+
+type SampleUploadUiState = {
+  file?: File;
+  fileName?: string;
+  fileType: TransformationSampleFileType;
+  hasHeader: boolean;
+  delimiter?: string;
+  sheetName?: string;
+  recordPath?: string;
+  encoding?: string;
+  limit: number;
+  valueColumn?: string;
+  uploading: boolean;
+  rows: TransformationFilePreviewRow[];
+  error?: string;
+  confirmed: boolean;
+  stale: boolean;
 };
 
 @Component({
@@ -152,6 +174,11 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
   transformationSamples: Record<string, TransformationSampleRow[]> = {};
   selectedSampleIndex: Record<string, number> = {};
   groovyTestState: Record<string, { running: boolean; result?: string; error?: string }> = {};
+  sampleUploadState: Record<string, SampleUploadUiState> = {};
+  schemaPreviewWarning: string | null = null;
+
+  private previewConfirmations = new Set<string>();
+  private previewStaleKeys = new Set<string>();
 
   private readonly destroy$ = new Subject<void>();
   private patchedFromDetail = false;
@@ -309,9 +336,14 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     const mappings = this.sourceMappings(fieldIndex);
     mappings.push(this.createMappingGroup(mapping));
     this.ensurePreviewState(fieldIndex, mappings.length - 1);
+    this.sampleUploadStateFor(fieldIndex, mappings.length - 1);
   }
 
   removeMapping(fieldIndex: number, mappingIndex: number): void {
+    const key = this.previewKey(fieldIndex, mappingIndex);
+    this.previewConfirmations.delete(key);
+    this.previewStaleKeys.delete(key);
+    delete this.sampleUploadState[key];
     this.sourceMappings(fieldIndex).removeAt(mappingIndex);
     this.rebuildPreviewState();
   }
@@ -322,18 +354,22 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     transformation?: AdminCanonicalFieldTransformation
   ): void {
     this.mappingTransformations(fieldIndex, mappingIndex).push(this.createTransformationGroup(transformation));
+    this.invalidateMappingPreview(fieldIndex, mappingIndex);
   }
 
   removeTransformation(fieldIndex: number, mappingIndex: number, transformationIndex: number): void {
     this.mappingTransformations(fieldIndex, mappingIndex).removeAt(transformationIndex);
+    this.invalidateMappingPreview(fieldIndex, mappingIndex);
   }
 
   addPipelineStep(fieldIndex: number, mappingIndex: number, transformationIndex: number): void {
     this.pipelineSteps(fieldIndex, mappingIndex, transformationIndex).push(this.createPipelineStepGroup());
+    this.invalidateMappingPreview(fieldIndex, mappingIndex);
   }
 
   removePipelineStep(fieldIndex: number, mappingIndex: number, transformationIndex: number, stepIndex: number): void {
     this.pipelineSteps(fieldIndex, mappingIndex, transformationIndex).removeAt(stepIndex);
+    this.invalidateMappingPreview(fieldIndex, mappingIndex);
   }
 
   addPipelineArg(
@@ -345,6 +381,7 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     this.pipelineStepArgs(fieldIndex, mappingIndex, transformationIndex, stepIndex).push(
       this.fb.control('')
     );
+    this.invalidateMappingPreview(fieldIndex, mappingIndex);
   }
 
   removePipelineArg(
@@ -355,6 +392,7 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     argIndex: number
   ): void {
     this.pipelineStepArgs(fieldIndex, mappingIndex, transformationIndex, stepIndex).removeAt(argIndex);
+    this.invalidateMappingPreview(fieldIndex, mappingIndex);
   }
 
   addReportTemplate(report?: AdminReportTemplate): void {
@@ -409,6 +447,7 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       }
     }
     group.get('validationMessage')?.setValue('');
+    this.invalidateMappingPreview(fieldIndex, mappingIndex);
   }
 
   addAccessEntry(entry?: AdminAccessControlEntry): void {
@@ -494,10 +533,13 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
             result: this.toDisplayResult(response),
             error: undefined
           };
+          this.markPreviewConfirmed(key);
         },
         error: (error) => {
           const details = error?.error?.details ?? error?.error ?? 'Preview failed.';
           this.previewState[key] = { ...state, error: details };
+          this.previewConfirmations.delete(key);
+          this.previewStaleKeys.add(key);
         }
       });
   }
@@ -623,6 +665,7 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       ...this.previewState[key],
       [property]: newValue
     };
+    this.invalidateMappingPreview(fieldIndex, mappingIndex);
   }
 
   getGroovyTestState(fieldIndex: number, mappingIndex: number, transformationIndex: number): {
@@ -660,6 +703,8 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
 
   private rebuildPreviewState(): void {
     const next: Record<string, { value: string; raw: string; result?: string; error?: string }> = {};
+    const uploadNext: Record<string, SampleUploadUiState> = {};
+    const validKeys = new Set<string>();
     this.canonicalFields.controls.forEach((_, fieldIndex) => {
       this.sourceMappings(fieldIndex).controls.forEach((__, mappingIndex) => {
         const key = this.previewKey(fieldIndex, mappingIndex);
@@ -670,9 +715,26 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
           result: previous?.result,
           error: undefined
         };
+        const priorUpload = this.sampleUploadState[key];
+        const defaultState = this.createDefaultSampleUploadState(fieldIndex, mappingIndex);
+        const merged: SampleUploadUiState = {
+          ...defaultState,
+          ...priorUpload,
+          valueColumn: priorUpload?.valueColumn ?? defaultState.valueColumn,
+          rows: priorUpload?.rows ?? [],
+          uploading: false,
+          confirmed: this.previewConfirmations.has(key),
+          stale: this.previewStaleKeys.has(key),
+          error: priorUpload?.error
+        };
+        uploadNext[key] = merged;
+        validKeys.add(key);
       });
     });
     this.previewState = next;
+    this.sampleUploadState = uploadNext;
+    this.previewConfirmations = new Set([...this.previewConfirmations].filter((key) => validKeys.has(key)));
+    this.previewStaleKeys = new Set([...this.previewStaleKeys].filter((key) => validKeys.has(key)));
   }
 
   private applySampleToPreview(fieldIndex: number, mappingIndex: number, sampleIndex: number): void {
@@ -695,6 +757,15 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       error: undefined
     };
     this.selectedSampleIndex[key] = sampleIndex;
+    const uploadState = this.sampleUploadStateFor(fieldIndex, mappingIndex);
+    this.sampleUploadState[key] = {
+      ...uploadState,
+      valueColumn: uploadState.valueColumn ?? (column || undefined),
+      confirmed: false,
+      stale: true
+    };
+    this.previewConfirmations.delete(key);
+    this.previewStaleKeys.add(key);
   }
 
   private setGroovyTestState(
@@ -721,7 +792,267 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     return matchedKey ? rawRecord[matchedKey] : undefined;
   }
 
-  private stringifyResult(value: unknown): string {
+  sampleUploadStateFor(fieldIndex: number, mappingIndex: number): SampleUploadUiState {
+    const key = this.previewKey(fieldIndex, mappingIndex);
+    if (!this.sampleUploadState[key]) {
+      this.sampleUploadState[key] = this.createDefaultSampleUploadState(fieldIndex, mappingIndex);
+    }
+    return this.sampleUploadState[key];
+  }
+
+  onSourceColumnChange(fieldIndex: number, mappingIndex: number, value: string): void {
+    this.invalidateMappingPreview(fieldIndex, mappingIndex, { valueColumn: value });
+  }
+
+  setSampleUploadOption(
+    fieldIndex: number,
+    mappingIndex: number,
+    option: keyof SampleUploadUiState,
+    rawValue: unknown
+  ): void {
+    const key = this.previewKey(fieldIndex, mappingIndex);
+    const state = this.sampleUploadStateFor(fieldIndex, mappingIndex);
+    let value: unknown = rawValue;
+    if (option === 'limit') {
+      const numeric = Number(rawValue);
+      value = Number.isFinite(numeric) ? Math.min(Math.max(Math.trunc(numeric), 1), 10) : 10;
+    }
+    if (option === 'valueColumn' || option === 'delimiter' || option === 'sheetName' || option === 'recordPath' || option === 'encoding') {
+      value = this.normalize(typeof rawValue === 'string' ? rawValue : '') || undefined;
+    }
+    const next: SampleUploadUiState = {
+      ...state,
+      [option]: value as SampleUploadUiState[typeof option]
+    };
+    if (option === 'fileType') {
+      const fileType = value as TransformationSampleFileType;
+      const previousFileType = state.fileType;
+      if (fileType === 'CSV') {
+        next.delimiter = state.delimiter && state.delimiter.length > 0 ? state.delimiter : ',';
+        next.hasHeader = true;
+      } else if (fileType === 'DELIMITED') {
+        const preservedDelimiter =
+          previousFileType === 'DELIMITED' && state.delimiter && state.delimiter.length > 0
+            ? state.delimiter
+            : undefined;
+        next.delimiter = preservedDelimiter;
+        next.hasHeader = false;
+      } else {
+        next.delimiter = undefined;
+      }
+      if (fileType !== 'EXCEL') {
+        next.sheetName = '';
+      }
+      if (!['JSON', 'XML'].includes(fileType)) {
+        next.recordPath = '';
+      }
+      if (fileType === 'JSON' || fileType === 'XML') {
+        next.hasHeader = false;
+      }
+    }
+    if (!['rows', 'uploading', 'error'].includes(option)) {
+      next.confirmed = false;
+      next.stale = true;
+      next.error = undefined;
+      this.previewConfirmations.delete(key);
+      this.previewStaleKeys.add(key);
+    }
+    this.sampleUploadState[key] = next;
+  }
+
+  onSampleFileSelected(fieldIndex: number, mappingIndex: number, event: Event): void {
+    const target = event.target as HTMLInputElement | null;
+    const file = target?.files && target.files.length > 0 ? target.files[0] : undefined;
+    const key = this.previewKey(fieldIndex, mappingIndex);
+    const state = this.sampleUploadStateFor(fieldIndex, mappingIndex);
+    if (!file) {
+      this.sampleUploadState[key] = {
+        ...state,
+        file: undefined,
+        fileName: undefined
+      };
+      return;
+    }
+    this.sampleUploadState[key] = {
+      ...state,
+      file,
+      fileName: file.name,
+      confirmed: false,
+      stale: true,
+      error: undefined
+    };
+    this.previewConfirmations.delete(key);
+    this.previewStaleKeys.add(key);
+  }
+
+  uploadSampleFile(fieldIndex: number, mappingIndex: number): void {
+    const key = this.previewKey(fieldIndex, mappingIndex);
+    const state = this.sampleUploadStateFor(fieldIndex, mappingIndex);
+    const file = state.file;
+    if (!file) {
+      this.sampleUploadState[key] = {
+        ...state,
+        error: 'Select a sample file to preview transformations.'
+      };
+      return;
+    }
+
+    const transformations = this.buildTransformationsPayload(fieldIndex, mappingIndex);
+    if (transformations.length === 0) {
+      this.sampleUploadState[key] = {
+        ...state,
+        error: 'Add at least one transformation before running a preview.'
+      };
+      return;
+    }
+
+    const mappingGroup = this.sourceMappings(fieldIndex).at(mappingIndex) as FormGroup;
+    const defaultColumn = this.normalize(mappingGroup.get('sourceColumn')?.value);
+    const payload: TransformationFilePreviewUploadRequest = {
+      fileType: state.fileType,
+      hasHeader: state.hasHeader,
+      delimiter:
+        state.fileType === 'CSV' || state.fileType === 'DELIMITED'
+          ? state.delimiter && state.delimiter.length > 0 ? state.delimiter : undefined
+          : undefined,
+      sheetName: state.fileType === 'EXCEL' ? (state.sheetName || undefined) : undefined,
+      recordPath: state.fileType === 'JSON' || state.fileType === 'XML' ? state.recordPath || undefined : undefined,
+      valueColumn: this.normalize(state.valueColumn) ?? defaultColumn ?? undefined,
+      encoding: state.encoding || undefined,
+      limit: state.limit ?? 10,
+      transformations: transformations.map((transformation) => ({
+        type: transformation.type,
+        expression: transformation.expression ?? undefined,
+        configuration: transformation.configuration ?? undefined,
+        displayOrder: transformation.displayOrder ?? undefined,
+        active: transformation.active
+      }))
+    };
+
+    this.sampleUploadState[key] = {
+      ...state,
+      uploading: true,
+      error: undefined,
+      rows: []
+    };
+    this.previewConfirmations.delete(key);
+    this.previewStaleKeys.add(key);
+
+    this.state
+      .previewTransformationFromFile(payload, file)
+      .pipe(take(1))
+      .subscribe({
+        next: (response: TransformationFilePreviewResponse) => {
+          const rows = response.rows ?? [];
+          const success = rows.length > 0;
+          this.sampleUploadState[key] = {
+            ...this.sampleUploadState[key],
+            uploading: false,
+            rows,
+            error: success ? undefined : 'No rows were returned from the uploaded file.',
+            confirmed: success,
+            stale: !success
+          };
+          if (success) {
+            this.markPreviewConfirmed(key);
+          }
+        },
+        error: (error) => {
+          const details = error?.error?.details ?? error?.error ?? 'Preview failed.';
+          this.sampleUploadState[key] = {
+            ...this.sampleUploadState[key],
+            uploading: false,
+            error: typeof details === 'string' ? details : 'Preview failed.'
+          };
+        }
+      });
+  }
+
+  isMappingPreviewConfirmed(fieldIndex: number, mappingIndex: number): boolean {
+    return this.previewConfirmations.has(this.previewKey(fieldIndex, mappingIndex));
+  }
+
+  isMappingPreviewStale(fieldIndex: number, mappingIndex: number): boolean {
+    return this.previewStaleKeys.has(this.previewKey(fieldIndex, mappingIndex));
+  }
+
+  private markPreviewConfirmed(key: string): void {
+    this.previewConfirmations.add(key);
+    this.previewStaleKeys.delete(key);
+    const state = this.sampleUploadState[key];
+    if (state) {
+      this.sampleUploadState[key] = {
+        ...state,
+        confirmed: true,
+        stale: false,
+        error: undefined
+      };
+    }
+  }
+
+  invalidateMappingPreview(
+    fieldIndex: number,
+    mappingIndex: number,
+    options?: { valueColumn?: string }
+  ): void {
+    const key = this.previewKey(fieldIndex, mappingIndex);
+    const state = this.sampleUploadStateFor(fieldIndex, mappingIndex);
+    this.previewConfirmations.delete(key);
+    this.previewStaleKeys.add(key);
+    this.sampleUploadState[key] = {
+      ...state,
+      confirmed: false,
+      stale: true,
+      valueColumn:
+        options && Object.prototype.hasOwnProperty.call(options, 'valueColumn')
+          ? this.normalize(options.valueColumn ?? '') ?? undefined
+          : state.valueColumn
+    };
+  }
+
+  private createDefaultSampleUploadState(fieldIndex: number, mappingIndex: number): SampleUploadUiState {
+    const mappingGroup = this.sourceMappings(fieldIndex).at(mappingIndex) as FormGroup;
+    const valueColumn = this.normalize(mappingGroup.get('sourceColumn')?.value) ?? undefined;
+    return {
+      fileType: 'CSV',
+      hasHeader: true,
+      delimiter: ',',
+      sheetName: '',
+      recordPath: '',
+      encoding: '',
+      limit: 10,
+      valueColumn,
+      uploading: false,
+      rows: [],
+      error: undefined,
+      confirmed: false,
+      stale: false
+    };
+  }
+
+  private collectMappingsMissingPreview(): string[] {
+    const missing: string[] = [];
+    this.canonicalFields.controls.forEach((fieldGroup, fieldIndex) => {
+      const fieldName = this.normalize(fieldGroup.get('canonicalName')?.value) ?? `Field ${fieldIndex + 1}`;
+      const mappings = this.sourceMappings(fieldIndex);
+      mappings.controls.forEach((mappingGroup, mappingIndex) => {
+        const transformations = this.mappingTransformations(fieldIndex, mappingIndex);
+        const hasActive = transformations.controls.some((group) => !!group.get('active')?.value);
+        if (!hasActive) {
+          return;
+        }
+        const key = this.previewKey(fieldIndex, mappingIndex);
+        if (!this.previewConfirmations.has(key)) {
+          const sourceCode = this.normalize(mappingGroup.get('sourceCode')?.value) ?? 'source';
+          const column = this.normalize(mappingGroup.get('sourceColumn')?.value) ?? 'value';
+          missing.push(`${fieldName} (${sourceCode}/${column})`);
+        }
+      });
+    });
+    return missing;
+  }
+
+  stringifyResult(value: unknown): string {
     if (value === null || value === undefined) {
       return 'null';
     }
@@ -1430,7 +1761,17 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       case 'sources':
         return this.markArrayAndCheckValid(this.sources);
       case 'schema':
-        return this.markArrayAndCheckValid(this.canonicalFields);
+        if (!this.markArrayAndCheckValid(this.canonicalFields)) {
+          this.schemaPreviewWarning = null;
+          return false;
+        }
+        const missing = this.collectMappingsMissingPreview();
+        if (missing.length > 0) {
+          this.schemaPreviewWarning = `Run a sample preview for each mapping before continuing. Pending: ${missing.join(', ')}`;
+          return false;
+        }
+        this.schemaPreviewWarning = null;
+        return true;
       case 'reports':
         return this.markArrayAndCheckValid(this.reportTemplates);
       case 'access':

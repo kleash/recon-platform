@@ -49,4 +49,18 @@ Welcome, automated contributor! Follow these ground rules to collaborate effecti
 ## Decision Records
 If you introduce significant architectural or process changes, capture the rationale in a new page under `docs/wiki/adr-<topic>.md` and link it from the wiki home.
 
+## Working With Gemini Code Assist Reviews
+
+When you open a pull request that introduces a new feature, follow this loop to collaborate smoothly with Gemini Code Assist:
+
+1. **Upload full context in the PR description.** Summarise the feature request, your approach, and any key implementation notes.
+2. **Wait for review feedback.** Poll the PR for comments from `@gemini-code-assist` every 5 minutes (maximum three checks or 15 minutes total). Stop early if Gemini has already posted feedback.
+3. **Apply fixes.** For each Gemini comment:
+   - Update the code or docs as requested.
+   - Re-run the required quality gates (`backend`/`frontend` tests, automation, seed scripts, etc.).
+4. **Push an incremental commit** to the same PR and respond to Gemini in the relevant thread (tag `@gemini-code-assist`).
+5. **Repeat** the loop (back to step 2) until Gemini has no further comments.
+
+Once all feedback is addressed and quality gates are green, the PR is ready for human review.
+
 Thank you for helping us build a resilient reconciliation platform!

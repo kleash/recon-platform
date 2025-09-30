@@ -20,7 +20,7 @@ services:
       start_period: 10s
 
   ldap:
-    image: bitnami/openldap:2.6
+    image: bitnamilegacy/openldap:2.6
     container_name: urp_ldap
     restart: unless-stopped
     environment:

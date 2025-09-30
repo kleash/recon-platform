@@ -21,19 +21,19 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.ss.usermodel.FormulaError;
 import org.apache.poi.ss.usermodel.FormulaEvaluator;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -46,18 +46,20 @@ import org.springframework.web.multipart.MultipartFile;
 public class TransformationSampleFileService {
 
     private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
-    private static final Pattern PATH_SEGMENT_PATTERN = Pattern.compile("(?<key>[^\\[]+)?(?:\\[(?<index>\\d+)\\])?");
     private static final int MAX_RECORDS = 10;
-    static final long MAX_UPLOAD_BYTES = 2L * 1024 * 1024; // 2 MiB
 
     private final ObjectMapper objectMapper;
     private final XmlMapper xmlMapper;
+    private final long maxUploadBytes;
 
-    public TransformationSampleFileService(ObjectMapper objectMapper) {
+    public TransformationSampleFileService(
+            ObjectMapper objectMapper,
+            @Value("${admin.transformations.preview.max-upload-bytes:2097152}") long maxUploadBytes) {
         this.objectMapper = objectMapper;
         this.xmlMapper = XmlMapper.builder()
                 .enable(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
                 .build();
+        this.maxUploadBytes = maxUploadBytes;
     }
 
     public List<Map<String, Object>> parseSamples(
@@ -81,9 +83,9 @@ public class TransformationSampleFileService {
 
     private void enforceUploadSize(MultipartFile file) {
         long size = file.getSize();
-        if (size > MAX_UPLOAD_BYTES) {
+        if (size > maxUploadBytes) {
             throw new TransformationEvaluationException(
-                    "Sample file exceeds the 2 MiB upload limit. Provide a smaller extract.");
+                    "Sample file exceeds the configured upload limit of " + maxUploadBytes + " bytes.");
         }
     }
 
@@ -192,9 +194,6 @@ public class TransformationSampleFileService {
         JsonNode root = readJsonTree(file, request.encoding());
         JsonNode target = resolvePath(root, request.recordPath());
         List<Map<String, Object>> rows = new ArrayList<>();
-        if (target == null || target.isMissingNode() || target.isNull()) {
-            throw new TransformationEvaluationException("No JSON data found at the provided record path.");
-        }
         Iterable<JsonNode> sources = target.isArray() ? target : List.of(target);
         int processed = 0;
         for (JsonNode node : sources) {
@@ -214,9 +213,6 @@ public class TransformationSampleFileService {
             MultipartFile file, TransformationFilePreviewUploadRequest request, int limit) {
         JsonNode root = readXmlTree(file, request.encoding());
         JsonNode target = resolvePath(root, request.recordPath());
-        if (target == null || target.isMissingNode() || target.isNull()) {
-            throw new TransformationEvaluationException("No XML data found at the provided record path.");
-        }
         List<Map<String, Object>> rows = new ArrayList<>();
         Iterable<JsonNode> sources = target.isArray() ? target : List.of(target);
         int processed = 0;
@@ -294,10 +290,18 @@ public class TransformationSampleFileService {
                     : evaluated.getNumericCellValue();
             case STRING -> evaluated.getStringCellValue();
             case BLANK -> null;
-            case ERROR -> null;
+            case ERROR -> formatExcelError(evaluated);
             case FORMULA -> formatter.formatCellValue(evaluated, evaluator);
             default -> formatter.formatCellValue(evaluated, evaluator);
         };
+    }
+
+    private String formatExcelError(Cell cell) {
+        try {
+            return "Excel Cell Error: " + FormulaError.forInt(cell.getErrorCellValue()).getString();
+        } catch (IllegalArgumentException ex) {
+            return "Excel Cell Error (code " + cell.getErrorCellValue() + ")";
+        }
     }
 
     private Sheet resolveSheet(Workbook workbook, String sheetName) {
@@ -346,36 +350,59 @@ public class TransformationSampleFileService {
         if (!StringUtils.hasText(rawPath)) {
             return root;
         }
-        JsonNode current = root;
-        String[] segments = rawPath.split("\\.");
-        for (String segment : segments) {
-            if (!StringUtils.hasText(segment)) {
+        String pointer = toJsonPointer(rawPath);
+        JsonNode target = root.at(pointer);
+        if (target.isMissingNode() || target.isNull()) {
+            throw new TransformationEvaluationException("No data found at record path '" + rawPath + "'.");
+        }
+        return target;
+    }
+
+    private String toJsonPointer(String rawPath) {
+        String path = rawPath.trim();
+        if (path.isEmpty()) {
+            return "";
+        }
+        StringBuilder pointer = new StringBuilder();
+        int index = 0;
+        while (index < path.length()) {
+            char current = path.charAt(index);
+            if (current == '.') {
+                index++;
                 continue;
             }
-            Matcher matcher = PATH_SEGMENT_PATTERN.matcher(segment);
-            JsonNode next = current;
-            while (matcher.find()) {
-                String key = matcher.group("key");
-                String index = matcher.group("index");
-                if (StringUtils.hasText(key)) {
-                    next = next.get(key);
-                    if (next == null || next.isMissingNode()) {
-                        return null;
-                    }
+            if (current == '[') {
+                int closing = path.indexOf(']', index);
+                if (closing <= index + 1) {
+                    throw new TransformationEvaluationException(
+                            "Invalid array index in record path '" + rawPath + "'.");
                 }
-                if (StringUtils.hasText(index)) {
-                    int idx = Integer.parseInt(index);
-                    if (!next.isArray() || idx >= next.size()) {
-                        return null;
-                    }
-                    next = next.get(idx);
+                String digits = path.substring(index + 1, closing).trim();
+                try {
+                    Integer.parseInt(digits);
+                } catch (NumberFormatException ex) {
+                    throw new TransformationEvaluationException(
+                            "Array index must be numeric in record path '" + rawPath + "'.", ex);
                 }
+                pointer.append('/').append(digits);
+                index = closing + 1;
+                continue;
             }
-            if (next == null) {
-                return null;
+            int start = index;
+            while (index < path.length()
+                    && path.charAt(index) != '.'
+                    && path.charAt(index) != '[') {
+                index++;
             }
-            current = next;
+            String key = path.substring(start, index).trim();
+            if (!key.isEmpty()) {
+                pointer.append('/').append(escapeJsonPointerSegment(key));
+            }
         }
-        return current;
+        return pointer.toString();
+    }
+
+    private String escapeJsonPointerSegment(String segment) {
+        return segment.replace("~", "~0").replace("/", "~1");
     }
 }

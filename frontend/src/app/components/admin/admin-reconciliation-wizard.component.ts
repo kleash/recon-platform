@@ -818,7 +818,7 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       value = Number.isFinite(numeric) ? Math.min(Math.max(Math.trunc(numeric), 1), 10) : 10;
     }
     if (option === 'valueColumn' || option === 'delimiter' || option === 'sheetName' || option === 'recordPath' || option === 'encoding') {
-      value = this.normalize(typeof rawValue === 'string' ? rawValue : '') ?? undefined;
+      value = this.normalize(typeof rawValue === 'string' ? rawValue : '') || undefined;
     }
     const next: SampleUploadUiState = {
       ...state,
@@ -826,11 +826,16 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     };
     if (option === 'fileType') {
       const fileType = value as TransformationSampleFileType;
+      const previousFileType = state.fileType;
       if (fileType === 'CSV') {
-        next.delimiter = next.delimiter || ',';
+        next.delimiter = state.delimiter && state.delimiter.length > 0 ? state.delimiter : ',';
         next.hasHeader = true;
       } else if (fileType === 'DELIMITED') {
-        next.delimiter = next.delimiter || '|';
+        const preservedDelimiter =
+          previousFileType === 'DELIMITED' && state.delimiter && state.delimiter.length > 0
+            ? state.delimiter
+            : undefined;
+        next.delimiter = preservedDelimiter;
         next.hasHeader = false;
       } else {
         next.delimiter = undefined;
@@ -908,7 +913,7 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       hasHeader: state.hasHeader,
       delimiter:
         state.fileType === 'CSV' || state.fileType === 'DELIMITED'
-          ? (state.delimiter && state.delimiter.length > 0 ? state.delimiter : ',')
+          ? state.delimiter && state.delimiter.length > 0 ? state.delimiter : undefined
           : undefined,
       sheetName: state.fileType === 'EXCEL' ? (state.sheetName || undefined) : undefined,
       recordPath: state.fileType === 'JSON' || state.fileType === 'XML' ? state.recordPath || undefined : undefined,

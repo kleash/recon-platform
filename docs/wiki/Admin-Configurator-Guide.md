@@ -225,7 +225,9 @@ value = amount
     tell the wizard whether headers are present (or set them implicitly with `COLUMN_1`, `COLUMN_2`,
     ...), tweak the delimiter or sheet name, and optionally provide a record path for hierarchical
     formats. The wizard previews the first ten rows, runs the entire transformation chain, and calls
-    out row-level errors so you can adjust scripts without ingesting data.
+    out row-level errors so you can adjust scripts without ingesting data. The maximum upload size
+    defaults to 2 MiB and can be tuned with the `admin.transformations.preview.max-upload-bytes`
+    configuration property.
   - **Load live samples:** Once a batch has completed, you can still fetch persisted rows and launch
     the Groovy tester to validate against production data. Both upload and live samples share the
     same diff view so you can compare raw and transformed values quickly.

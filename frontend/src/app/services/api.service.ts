@@ -28,6 +28,8 @@ import {
   AdminReconciliationRequest,
   AdminReconciliationSchema,
   AdminReconciliationSummaryPage,
+  GroovyScriptGenerationRequest,
+  GroovyScriptGenerationResponse,
   GroovyScriptTestRequest,
   GroovyScriptTestResponse,
   TransformationPreviewRequest,
@@ -274,6 +276,15 @@ export class ApiService {
       .set('sourceCode', sourceCode)
       .set('limit', String(limit));
     return this.http.get<TransformationSampleResponse>(`${BASE_URL}/admin/transformations/samples`, { params });
+  }
+
+  generateGroovyScript(
+    payload: GroovyScriptGenerationRequest
+  ): Observable<GroovyScriptGenerationResponse> {
+    return this.http.post<GroovyScriptGenerationResponse>(
+      `${BASE_URL}/admin/transformations/groovy/generate`,
+      payload
+    );
   }
 
   testGroovyScript(payload: GroovyScriptTestRequest): Observable<GroovyScriptTestResponse> {

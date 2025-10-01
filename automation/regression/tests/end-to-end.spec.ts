@@ -827,7 +827,35 @@ async function testGroovyInWizard(options: {
     transformationCard = transformationList.locator('.transformation-card').last();
     await expect(transformationCard).toBeVisible();
     await transformationCard.getByLabel('Type').selectOption('GROOVY_SCRIPT');
-    await transformationCard.getByLabel('Groovy script').fill(groovyScript);
+
+    let aiGenerationPayload: Record<string, unknown> | null = null;
+    await page.route('**/api/admin/transformations/groovy/generate', async (route) => {
+      aiGenerationPayload = JSON.parse(route.request().postData() ?? '{}');
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          script: groovyScript,
+          summary: 'Assistant normalises amount with USD rounding.'
+        })
+      });
+    });
+
+    await transformationCard
+      .getByLabel('Describe transformation')
+      .fill('Normalize the amount, strip commas, and round USD values to two decimals.');
+    await transformationCard.getByRole('button', { name: 'Generate with AI' }).click();
+    await expect(transformationCard.getByLabel('Groovy script')).toHaveValue(groovyScript, { timeout: 30000 });
+    await expect(
+      transformationCard.getByText('Assistant normalises amount with USD rounding.', { exact: false })
+    ).toBeVisible({ timeout: 30000 });
+    await page.unroute('**/api/admin/transformations/groovy/generate');
+    expect(aiGenerationPayload).not.toBeNull();
+    test.info().annotations.push({
+      type: 'debug',
+      description: `Groovy AI generation payload: ${JSON.stringify(aiGenerationPayload ?? {})}`,
+    });
+
     await transformationCard.getByRole('button', { name: 'Validate rule' }).click();
     await expect(transformationCard.getByText('Transformation is valid.')).toBeVisible({ timeout: 30000 });
   } else {

@@ -423,3 +423,31 @@
   margin-top: 1rem;
   color: #475569;
 }
+
+.groovy-assistant {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px dashed #cbd5f5;
+  border-radius: 6px;
+  background: #f1f5f9;
+}
+
+.groovy-assistant label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.groovy-assistant textarea {
+  resize: vertical;
+  min-height: 3rem;
+}
+
+.groovy-assistant-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}

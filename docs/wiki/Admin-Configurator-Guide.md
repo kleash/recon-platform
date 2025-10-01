@@ -183,6 +183,14 @@ value = amount
   - Use `BigDecimal` for currency math to prevent floating-point drift.
   - Log complex cases via comments and document in the reconciliation notes.
 
+#### AI-assisted Groovy authoring
+
+- Open the **Describe transformation** assistant inside the Groovy editor to capture the business requirement in plain language.
+- Load a sample row before requesting a script so the LLM receives the current value (`value`) and raw source payload (`row`/`raw`) context automatically.
+- The platform injects Groovy sandbox rules (no imports, bindings only) and posts the request to the configured OpenAI endpoint.
+- The returned script is written directly into the editor and a short summary is displayed beneath the assistant. Always run **Validate** and **Run Groovy test** afterwards to confirm the behaviour.
+- If OpenAI credentials are missing or the call fails, the assistant surfaces the error and preserves the prompt so you can retry after adjusting settings.
+
 ### 5.2 Excel-style Formulas
 
 - Syntax mirrors Excel/Google Sheets functions. Named ranges are generated automatically:

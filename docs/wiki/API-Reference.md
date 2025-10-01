@@ -343,7 +343,10 @@ curl -X POST "https://recon.example.com/api/admin/reconciliations/42/sources/CAS
 | `/api/admin/transformations/preview` | POST | Applies transformations to sample data supplied inline and returns a preview payload. |
 | `/api/admin/transformations/preview/upload` | POST | Accepts a sample file (CSV, Excel, JSON, XML, delimited text) plus parsing options and streams back up to ten transformed rows. |
 | `/api/admin/transformations/groovy/test` | POST | Executes Groovy scripts against synthetic inputs to validate custom logic. |
+| `/api/admin/transformations/groovy/generate` | POST | Produces a Groovy script from an AI prompt along with a human-readable summary. |
 | `/api/admin/transformations/samples` | GET | Fetches source data samples for a definition/source combination. Query params: `definitionId`, `sourceCode`, `limit`. |
+
+The Groovy generation endpoint accepts a payload containing the administrator prompt plus optional context such as field metadata, the current preview value, and a raw source row. The response returns the compiled script string and a helper summary; the server validates the script before returning it.
 
 Validation and preview endpoints accept payloads describing the canonical field, transformations, and sample input values. If a
 transformation fails, the API responds with `400 Bad Request` and a descriptive error message.

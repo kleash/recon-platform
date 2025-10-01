@@ -9,7 +9,7 @@ import {
   Validators
 } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subject, take, takeUntil } from 'rxjs';
+import { Subject, finalize, take, takeUntil } from 'rxjs';
 import {
   AccessRole,
   AdminAccessControlEntry,
@@ -27,13 +27,24 @@ import {
   IngestionAdapterType,
   ReportColumnSource,
   ReconciliationLifecycleStatus,
-  TransformationPreviewRequest,
-  TransformationPreviewResponse,
-  TransformationFilePreviewUploadRequest,
-  TransformationFilePreviewResponse,
-  TransformationFilePreviewRow,
+  SourceTransformationPlan,
+  SourceRowOperationConfig,
+  SourceRowOperationType,
+  SourceRowFilterOperation,
+  SourceRowAggregateOperation,
+  SourceAggregationDefinition,
+  SourceRowSplitOperation,
+  SourceColumnOperationConfig,
+  SourceColumnCombineOperation,
+  SourceColumnPipelineOperation,
+  SourceColumnRoundOperation,
+  SourceRowFilterMode,
+  SourceRowComparisonOperator,
+  SourceAggregationFunction,
+  SourceColumnOperationType,
+  SourceRoundingMode,
+  SourceTransformationPreviewUploadRequest,
   TransformationSampleFileType,
-  TransformationSampleRow,
   GroovyScriptGenerationRequest,
   GroovyScriptTestRequest,
   TransformationType,
@@ -56,17 +67,14 @@ type LlmAdapterOptionsFormValue = {
   maxOutputTokens: number | null;
 };
 
-type LlmTransformationConfigFormValue = {
-  promptTemplate: string;
-  jsonSchema: string;
-  resultPath: string;
-  model: string;
-  temperature: number | null;
-  maxOutputTokens: number | null;
-  includeRawRecord: boolean;
+type GroovyAssistantState = {
+  prompt: string;
+  generating: boolean;
+  summary?: string;
+  error?: string;
 };
 
-type SampleUploadUiState = {
+type SourceTransformationPreviewUiState = {
   file?: File;
   fileName?: string;
   fileType: TransformationSampleFileType;
@@ -76,20 +84,38 @@ type SampleUploadUiState = {
   recordPath?: string;
   encoding?: string;
   limit: number;
-  valueColumn?: string;
   uploading: boolean;
-  rows: TransformationFilePreviewRow[];
+  error?: string;
+  rawRows: Record<string, unknown>[];
+  transformedRows: Record<string, unknown>[];
+  lastRows?: Record<string, unknown>[];
+};
+
+type SampleUploadUiState = {
+  fileType: TransformationSampleFileType;
+  hasHeader: boolean;
+  delimiter?: string;
+  sheetName?: string;
+  recordPath?: string;
+  encoding?: string;
+  limit: number;
+  valueColumn?: string;
+  file?: File;
+  fileName?: string;
+  uploading: boolean;
+  rows: Array<{
+    rowNumber: number;
+    valueBefore: unknown;
+    transformedValue: unknown;
+    rawRecord: Record<string, unknown>;
+    error?: string;
+  }>;
   error?: string;
   confirmed: boolean;
   stale: boolean;
 };
 
-type GroovyAssistantState = {
-  prompt: string;
-  generating: boolean;
-  summary?: string;
-  error?: string;
-};
+type MappingPreviewState = { value: string; raw: string; result?: string; error?: string };
 
 
 @Component({
@@ -103,6 +129,7 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
   readonly steps: WizardStep[] = [
     { key: 'definition', label: 'Definition' },
     { key: 'sources', label: 'Sources' },
+    { key: 'transformations', label: 'Transformations' },
     { key: 'schema', label: 'Schema' },
     { key: 'reports', label: 'Reports' },
     { key: 'access', label: 'Access' },
@@ -134,12 +161,7 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
   readonly comparisonLogics: ComparisonLogic[] = ['EXACT_MATCH', 'CASE_INSENSITIVE', 'NUMERIC_THRESHOLD', 'DATE_ONLY'];
   readonly reportSources: ReportColumnSource[] = ['SOURCE_A', 'SOURCE_B', 'BREAK_METADATA'];
   readonly accessRoles: AccessRole[] = ['VIEWER', 'MAKER', 'CHECKER'];
-  readonly transformationTypes: TransformationType[] = [
-    'GROOVY_SCRIPT',
-    'EXCEL_FORMULA',
-    'FUNCTION_PIPELINE',
-    'LLM_PROMPT'
-  ];
+  readonly transformationTypes: TransformationType[] = ['GROOVY_SCRIPT', 'EXCEL_FORMULA', 'FUNCTION_PIPELINE'];
   readonly pipelineFunctionOptions: { value: string; label: string }[] = [
     { value: 'TRIM', label: 'Trim whitespace' },
     { value: 'TO_UPPERCASE', label: 'Uppercase' },
@@ -179,16 +201,13 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
   definitionId: number | null = null;
   optimisticLockError: string | null = null;
   isSaving = false;
-  previewState: Record<string, { value: string; raw: string; result?: string; error?: string }> = {};
-  transformationSamples: Record<string, TransformationSampleRow[]> = {};
-  selectedSampleIndex: Record<string, number> = {};
   groovyTestState: Record<string, { running: boolean; result?: string; error?: string }> = {};
   groovyAssistantState: Record<string, GroovyAssistantState> = {};
+  sourcePreviewState: SourceTransformationPreviewUiState[] = [];
+  previewState: Record<string, MappingPreviewState> = {};
   sampleUploadState: Record<string, SampleUploadUiState> = {};
-  schemaPreviewWarning: string | null = null;
-
-  private previewConfirmations = new Set<string>();
-  private previewStaleKeys = new Set<string>();
+  previewConfirmations = new Set<string>();
+  previewStaleKeys = new Set<string>();
 
   private readonly destroy$ = new Subject<void>();
   private patchedFromDetail = false;
@@ -321,10 +340,12 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
 
   addSource(source?: AdminSource): void {
     this.sources.push(this.createSourceGroup(source));
+    this.ensureSourcePreviewState(this.sources.length - 1);
   }
 
   removeSource(index: number): void {
     this.sources.removeAt(index);
+    this.sourcePreviewState.splice(index, 1);
   }
 
   addCanonicalField(field?: AdminCanonicalField): void {
@@ -339,7 +360,6 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
 
   removeCanonicalField(index: number): void {
     this.canonicalFields.removeAt(index);
-    this.rebuildPreviewState();
   }
 
   addMapping(fieldIndex: number, mapping?: AdminCanonicalFieldMapping): void {
@@ -355,7 +375,6 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     this.previewStaleKeys.delete(key);
     delete this.sampleUploadState[key];
     this.sourceMappings(fieldIndex).removeAt(mappingIndex);
-    this.rebuildPreviewState();
   }
 
   addTransformation(
@@ -433,27 +452,10 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       if (steps.length === 0) {
         steps.push(this.createPipelineStepGroup());
       }
-      this.llmConfigFromGroup(group).disable({ emitEvent: false });
     } else {
       this.pipelineSteps(fieldIndex, mappingIndex, transformationIndex).clear();
       if (type === 'GROOVY_SCRIPT') {
         group.get('expression')?.setValue(group.get('expression')?.value ?? 'return value');
-      }
-      if (type === 'LLM_PROMPT') {
-        const llmGroup = this.llmConfigFromGroup(group);
-        llmGroup.enable({ emitEvent: false });
-        if (!llmGroup.get('promptTemplate')?.value) {
-          llmGroup.patchValue(
-            {
-              promptTemplate: 'Normalize the value "{{value}}" using the provided context.',
-              includeRawRecord: true
-            },
-            { emitEvent: false }
-          );
-        }
-        group.get('expression')?.setValue('', { emitEvent: false });
-      } else {
-        this.llmConfigFromGroup(group).disable({ emitEvent: false });
       }
     }
     group.get('validationMessage')?.setValue('');
@@ -503,141 +505,34 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       });
   }
 
-  previewMapping(fieldIndex: number, mappingIndex: number): void {
-    const key = this.previewKey(fieldIndex, mappingIndex);
-    this.ensurePreviewState(fieldIndex, mappingIndex);
-    const state = this.previewState[key];
-    let rawRecord: Record<string, unknown> = {};
-    if (state.raw) {
-      try {
-        rawRecord = state.raw.trim().length === 0 ? {} : (JSON.parse(state.raw) as Record<string, unknown>);
-      } catch (error) {
-        this.previewState[key] = {
-          ...state,
-          error: 'Sample row must be valid JSON (e.g. { "column": "value" }).'
-        };
-        return;
-      }
-    }
-
-    const transformations = this.buildTransformationsPayload(fieldIndex, mappingIndex);
-    const request: TransformationPreviewRequest = {
-      value: state.value,
-      rawRecord,
-      transformations: transformations.map((transformation) => ({
-        type: transformation.type,
-        expression: transformation.expression ?? undefined,
-        configuration: transformation.configuration ?? undefined,
-        displayOrder: transformation.displayOrder ?? undefined,
-        active: transformation.active
-      }))
-    };
-
-    this.state
-      .previewTransformation(request)
-      .pipe(take(1))
-      .subscribe({
-        next: (response) => {
-          this.previewState[key] = {
-            ...state,
-            result: this.toDisplayResult(response),
-            error: undefined
-          };
-          this.markPreviewConfirmed(key);
-        },
-        error: (error) => {
-          const details = error?.error?.details ?? error?.error ?? 'Preview failed.';
-          this.previewState[key] = { ...state, error: details };
-          this.previewConfirmations.delete(key);
-          this.previewStaleKeys.add(key);
-        }
-      });
-  }
-
-  loadSampleRows(fieldIndex: number, mappingIndex: number): void {
-    const key = this.previewKey(fieldIndex, mappingIndex);
-    this.ensurePreviewState(fieldIndex, mappingIndex);
-
-    this.transformationSamples[key] = [];
-    this.selectedSampleIndex[key] = 0;
-
-    if (!this.definitionId) {
-      this.previewState[key] = {
-        ...this.previewState[key],
-        error: 'Save the reconciliation before loading source samples.'
-      };
-      return;
-    }
-
-    const mappingGroup = this.sourceMappings(fieldIndex).at(mappingIndex) as FormGroup;
-    const sourceCode = this.normalize(mappingGroup.get('sourceCode')?.value) ?? '';
-    if (!sourceCode) {
-      this.previewState[key] = {
-        ...this.previewState[key],
-        error: 'Provide a source code before loading samples.'
-      };
-      return;
-    }
-
-    this.state
-      .fetchTransformationSamples(this.definitionId, sourceCode)
-      .pipe(take(1))
-      .subscribe({
-        next: (response) => {
-          this.transformationSamples[key] = response.rows ?? [];
-          if ((response.rows ?? []).length === 0) {
-            this.previewState[key] = {
-              ...this.previewState[key],
-              error: 'No sample rows found for this source. Ingest data and try again.'
-            };
-            return;
-          }
-          this.selectedSampleIndex[key] = 0;
-          this.applySampleToPreview(fieldIndex, mappingIndex, 0);
-        },
-        error: () => {
-          // errors are surfaced by the state service via notifications
-        }
-      });
-  }
-
-  onSampleChange(fieldIndex: number, mappingIndex: number, sampleIndexValue: string): void {
-    const index = Number(sampleIndexValue);
-    if (Number.isNaN(index)) {
-      return;
-    }
-    this.applySampleToPreview(fieldIndex, mappingIndex, index);
-  }
-
   runGroovyTest(fieldIndex: number, mappingIndex: number, transformationIndex: number): void {
-    const transformationGroup = this.mappingTransformations(fieldIndex, mappingIndex).at(transformationIndex) as FormGroup;
+    const transformationGroup = this.mappingTransformations(fieldIndex, mappingIndex).at(
+      transformationIndex
+    ) as FormGroup;
     const script = this.normalize(transformationGroup.get('expression')?.value);
     if (!script) {
       transformationGroup.get('validationMessage')?.setValue('Script is required before running a test.');
       return;
     }
 
-    const preview = this.previewState[this.previewKey(fieldIndex, mappingIndex)];
-    if (!preview) {
+    const mappingGroup = this.sourceMappings(fieldIndex).at(mappingIndex) as FormGroup;
+    const sourceCode = this.normalize(mappingGroup.get('sourceCode')?.value);
+    const sourceColumn = this.normalize(mappingGroup.get('sourceColumn')?.value);
+    const preview = this.lookupSourcePreview(sourceCode);
+    const rawRecord = preview?.rawRows?.[0];
+    if (!rawRecord) {
+      this.setGroovyTestState(fieldIndex, mappingIndex, transformationIndex, {
+        running: false,
+        error: 'Upload or load rows in the Transformations step before running a test.'
+      });
       return;
     }
 
-    let rawRecord: Record<string, unknown> = {};
-    if (preview.raw) {
-      try {
-        rawRecord = preview.raw.trim().length === 0 ? {} : (JSON.parse(preview.raw) as Record<string, unknown>);
-      } catch (error) {
-        this.setGroovyTestState(fieldIndex, mappingIndex, transformationIndex, {
-          running: false,
-          error: 'Sample row must be valid JSON to run the Groovy test.'
-        });
-        return;
-      }
-    }
+    const value = sourceColumn ? this.extractColumnValue(rawRecord, sourceColumn) : undefined;
 
     const request: GroovyScriptTestRequest = {
       script,
-      value: preview.value ?? null,
+      value: value ?? null,
       rawRecord
     };
 
@@ -711,91 +606,6 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     }
   }
 
-  private rebuildPreviewState(): void {
-    const next: Record<string, { value: string; raw: string; result?: string; error?: string }> = {};
-    const uploadNext: Record<string, SampleUploadUiState> = {};
-    const validKeys = new Set<string>();
-    const transformationKeys = new Set<string>();
-    this.canonicalFields.controls.forEach((_, fieldIndex) => {
-      this.sourceMappings(fieldIndex).controls.forEach((__, mappingIndex) => {
-        const key = this.previewKey(fieldIndex, mappingIndex);
-        const previous = this.previewState[key];
-        next[key] = {
-          value: previous?.value ?? '',
-          raw: previous?.raw ?? '{}',
-          result: previous?.result,
-          error: undefined
-        };
-        const priorUpload = this.sampleUploadState[key];
-        const defaultState = this.createDefaultSampleUploadState(fieldIndex, mappingIndex);
-        const merged: SampleUploadUiState = {
-          ...defaultState,
-          ...priorUpload,
-          valueColumn: priorUpload?.valueColumn ?? defaultState.valueColumn,
-          rows: priorUpload?.rows ?? [],
-          uploading: false,
-          confirmed: this.previewConfirmations.has(key),
-          stale: this.previewStaleKeys.has(key),
-          error: priorUpload?.error
-        };
-        uploadNext[key] = merged;
-        validKeys.add(key);
-        this.mappingTransformations(fieldIndex, mappingIndex).controls.forEach((_, transformationIndex) => {
-          transformationKeys.add(this.transformationKey(fieldIndex, mappingIndex, transformationIndex));
-        });
-      });
-    });
-    const nextGroovyTestState: typeof this.groovyTestState = {};
-    const nextGroovyAssistantState: typeof this.groovyAssistantState = {};
-    transformationKeys.forEach((transformationKey) => {
-      const testState = this.groovyTestState[transformationKey];
-      if (testState) {
-        nextGroovyTestState[transformationKey] = testState;
-      }
-      const assistantState = this.groovyAssistantState[transformationKey];
-      if (assistantState) {
-        nextGroovyAssistantState[transformationKey] = assistantState;
-      }
-    });
-    this.previewState = next;
-    this.sampleUploadState = uploadNext;
-    this.previewConfirmations = new Set([...this.previewConfirmations].filter((key) => validKeys.has(key)));
-    this.previewStaleKeys = new Set([...this.previewStaleKeys].filter((key) => validKeys.has(key)));
-    this.groovyTestState = nextGroovyTestState;
-    this.groovyAssistantState = nextGroovyAssistantState;
-  }
-
-  private applySampleToPreview(fieldIndex: number, mappingIndex: number, sampleIndex: number): void {
-    const key = this.previewKey(fieldIndex, mappingIndex);
-    const samples = this.transformationSamples[key] ?? [];
-    const sample = samples[sampleIndex];
-    if (!sample) {
-      return;
-    }
-    this.ensurePreviewState(fieldIndex, mappingIndex);
-    const mappingGroup = this.sourceMappings(fieldIndex).at(mappingIndex) as FormGroup;
-    const column = this.normalize(mappingGroup.get('sourceColumn')?.value) ?? '';
-    const rawRecord = sample.rawRecord ?? {};
-    const rawJson = JSON.stringify(rawRecord, null, 2);
-    const value = column ? this.extractColumnValue(rawRecord, column) : undefined;
-    this.previewState[key] = {
-      value: value === undefined || value === null ? '' : String(value),
-      raw: rawJson,
-      result: undefined,
-      error: undefined
-    };
-    this.selectedSampleIndex[key] = sampleIndex;
-    const uploadState = this.sampleUploadStateFor(fieldIndex, mappingIndex);
-    this.sampleUploadState[key] = {
-      ...uploadState,
-      valueColumn: uploadState.valueColumn ?? (column || undefined),
-      confirmed: false,
-      stale: true
-    };
-    this.previewConfirmations.delete(key);
-    this.previewStaleKeys.add(key);
-  }
-
   private setGroovyTestState(
     fieldIndex: number,
     mappingIndex: number,
@@ -844,32 +654,17 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     const fieldGroup = this.canonicalFields.at(fieldIndex) as FormGroup;
     const mappingGroup = this.sourceMappings(fieldIndex).at(mappingIndex) as FormGroup;
 
-    const preview = this.previewState[this.previewKey(fieldIndex, mappingIndex)];
-    let rawRecord: Record<string, unknown> | undefined;
-    if (preview?.raw) {
-      const rawText = preview.raw.trim();
-      if (rawText.length > 0) {
-        try {
-          rawRecord = JSON.parse(rawText) as Record<string, unknown>;
-        } catch (error) {
-          this.setGroovyAssistantState(key, {
-            generating: false,
-            summary: undefined,
-            error: 'Sample row must be valid JSON before generating a script.'
-          });
-          return;
-        }
-      }
-    }
-
+    const sourceCode = this.normalize(mappingGroup.get('sourceCode')?.value);
+    const sourceColumn = this.normalize(mappingGroup.get('sourceColumn')?.value);
+    const preview = this.lookupSourcePreview(sourceCode);
+    const sampleRawRecord = preview?.rawRows?.[0];
     const dataType = (fieldGroup.get('dataType')?.value as FieldDataType | null) ?? null;
-    const sampleValue = preview ? this.coerceSampleValue(preview.value, dataType) : undefined;
+    const rawValue = sampleRawRecord && sourceColumn ? this.extractColumnValue(sampleRawRecord, sourceColumn) : undefined;
+    const sampleValue = this.coerceSampleValue(rawValue, dataType);
     const fieldName =
       this.normalize(fieldGroup.get('displayName')?.value) ??
       this.normalize(fieldGroup.get('canonicalName')?.value) ??
       'Field';
-    const sourceCode = this.normalize(mappingGroup.get('sourceCode')?.value);
-    const sourceColumn = this.normalize(mappingGroup.get('sourceColumn')?.value);
 
     const payload: GroovyScriptGenerationRequest = {
       prompt,
@@ -878,7 +673,7 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       sourceCode: sourceCode ?? null,
       sourceColumn: sourceColumn ?? null,
       sampleValue,
-      rawRecord: rawRecord ?? undefined
+      rawRecord: sampleRawRecord ?? undefined
     };
 
     this.setGroovyAssistantState(key, { generating: true, summary: undefined, error: undefined });
@@ -890,7 +685,6 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
         next: (response) => {
           transformationGroup.get('expression')?.setValue(response.script ?? '', { emitEvent: true });
           transformationGroup.get('expression')?.markAsDirty();
-          this.invalidateMappingPreview(fieldIndex, mappingIndex);
           this.setGroovyAssistantState(key, {
             generating: false,
             summary: response.summary ?? undefined,
@@ -921,38 +715,43 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     Object.assign(current, updates);
   }
 
-  private coerceSampleValue(value: string | undefined, dataType: FieldDataType | null): unknown {
-    if (value === undefined || value === null) {
+  private coerceSampleValue(value: unknown, dataType: FieldDataType | null): unknown {
+    if (value === undefined) {
       return undefined;
     }
-    const trimmed = value.trim();
-    if (trimmed.length === 0 || trimmed.toLowerCase() === 'null') {
+    if (value === null) {
       return null;
     }
-    if (!dataType) {
-      const numeric = Number(trimmed);
-      if (!Number.isNaN(numeric)) {
-        return numeric;
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed.length === 0 || trimmed.toLowerCase() === 'null') {
+        return null;
       }
-      if (trimmed.toLowerCase() === 'true' || trimmed.toLowerCase() === 'false') {
-        return trimmed.toLowerCase() === 'true';
-      }
-      return trimmed;
-    }
-    switch (dataType) {
-      case 'INTEGER': {
-        const parsed = Number.parseInt(trimmed, 10);
-        return Number.isNaN(parsed) ? trimmed : parsed;
-      }
-      case 'DECIMAL': {
-        const parsed = Number(trimmed);
-        return Number.isNaN(parsed) ? trimmed : parsed;
-      }
-      case 'DATE':
+      if (!dataType) {
+        const numeric = Number(trimmed);
+        if (!Number.isNaN(numeric)) {
+          return numeric;
+        }
+        if (trimmed.toLowerCase() === 'true' || trimmed.toLowerCase() === 'false') {
+          return trimmed.toLowerCase() === 'true';
+        }
         return trimmed;
-      default:
-        return trimmed;
+      }
+      switch (dataType) {
+        case 'INTEGER': {
+          const parsed = Number.parseInt(trimmed, 10);
+          return Number.isNaN(parsed) ? trimmed : parsed;
+        }
+        case 'DECIMAL': {
+          const parsed = Number(trimmed);
+          return Number.isNaN(parsed) ? trimmed : parsed;
+        }
+        case 'DATE':
+        default:
+          return trimmed;
+      }
     }
+    return value;
   }
 
   private transformationKey(fieldIndex: number, mappingIndex: number, transformationIndex: number): string {
@@ -1084,66 +883,16 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const mappingGroup = this.sourceMappings(fieldIndex).at(mappingIndex) as FormGroup;
-    const defaultColumn = this.normalize(mappingGroup.get('sourceColumn')?.value);
-    const payload: TransformationFilePreviewUploadRequest = {
-      fileType: state.fileType,
-      hasHeader: state.hasHeader,
-      delimiter:
-        state.fileType === 'CSV' || state.fileType === 'DELIMITED'
-          ? state.delimiter && state.delimiter.length > 0 ? state.delimiter : undefined
-          : undefined,
-      sheetName: state.fileType === 'EXCEL' ? (state.sheetName || undefined) : undefined,
-      recordPath: state.fileType === 'JSON' || state.fileType === 'XML' ? state.recordPath || undefined : undefined,
-      valueColumn: this.normalize(state.valueColumn) ?? defaultColumn ?? undefined,
-      encoding: state.encoding || undefined,
-      limit: state.limit ?? 10,
-      transformations: transformations.map((transformation) => ({
-        type: transformation.type,
-        expression: transformation.expression ?? undefined,
-        configuration: transformation.configuration ?? undefined,
-        displayOrder: transformation.displayOrder ?? undefined,
-        active: transformation.active
-      }))
-    };
-
     this.sampleUploadState[key] = {
       ...state,
-      uploading: true,
-      error: undefined,
-      rows: []
+      uploading: false,
+      error: 'Field-level sample previews have moved to the Transformations step.',
+      rows: [],
+      confirmed: false,
+      stale: true
     };
     this.previewConfirmations.delete(key);
     this.previewStaleKeys.add(key);
-
-    this.state
-      .previewTransformationFromFile(payload, file)
-      .pipe(take(1))
-      .subscribe({
-        next: (response: TransformationFilePreviewResponse) => {
-          const rows = response.rows ?? [];
-          const success = rows.length > 0;
-          this.sampleUploadState[key] = {
-            ...this.sampleUploadState[key],
-            uploading: false,
-            rows,
-            error: success ? undefined : 'No rows were returned from the uploaded file.',
-            confirmed: success,
-            stale: !success
-          };
-          if (success) {
-            this.markPreviewConfirmed(key);
-          }
-        },
-        error: (error) => {
-          const details = error?.error?.details ?? error?.error ?? 'Preview failed.';
-          this.sampleUploadState[key] = {
-            ...this.sampleUploadState[key],
-            uploading: false,
-            error: typeof details === 'string' ? details : 'Preview failed.'
-          };
-        }
-      });
   }
 
   isMappingPreviewConfirmed(fieldIndex: number, mappingIndex: number): boolean {
@@ -1206,28 +955,6 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       confirmed: false,
       stale: false
     };
-  }
-
-  private collectMappingsMissingPreview(): string[] {
-    const missing: string[] = [];
-    this.canonicalFields.controls.forEach((fieldGroup, fieldIndex) => {
-      const fieldName = this.normalize(fieldGroup.get('canonicalName')?.value) ?? `Field ${fieldIndex + 1}`;
-      const mappings = this.sourceMappings(fieldIndex);
-      mappings.controls.forEach((mappingGroup, mappingIndex) => {
-        const transformations = this.mappingTransformations(fieldIndex, mappingIndex);
-        const hasActive = transformations.controls.some((group) => !!group.get('active')?.value);
-        if (!hasActive) {
-          return;
-        }
-        const key = this.previewKey(fieldIndex, mappingIndex);
-        if (!this.previewConfirmations.has(key)) {
-          const sourceCode = this.normalize(mappingGroup.get('sourceCode')?.value) ?? 'source';
-          const column = this.normalize(mappingGroup.get('sourceColumn')?.value) ?? 'value';
-          missing.push(`${fieldName} (${sourceCode}/${column})`);
-        }
-      });
-    });
-    return missing;
   }
 
   stringifyResult(value: unknown): string {
@@ -1301,8 +1028,6 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     this.canonicalFields.clear();
     detail.canonicalFields.forEach((field) => this.addCanonicalField(field));
 
-    this.rebuildPreviewState();
-
     this.reportTemplates.clear();
     detail.reportTemplates.forEach((report) => this.addReportTemplate(report));
 
@@ -1353,8 +1078,6 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       })
     );
 
-    this.rebuildPreviewState();
-
     this.reportTemplates.clear();
     detail.reportTemplates.forEach((report) =>
       this.addReportTemplate({
@@ -1388,10 +1111,545 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       arrivalTimezone: [source?.arrivalTimezone ?? ''],
       arrivalSlaMinutes: [source?.arrivalSlaMinutes ?? null, [Validators.min(0)]],
       adapterOptions: [source?.adapterOptions ?? ''],
-      llmOptions: this.createLlmAdapterOptionsGroup()
+      llmOptions: this.createLlmAdapterOptionsGroup(),
+      transformationPlan: this.createTransformationPlanGroup(source?.transformationPlan ?? null)
     });
     this.setupLlmAdapterOptions(group, source?.adapterOptions ?? null, source?.adapterType ?? 'CSV_FILE');
+    const codeControl = group.get('code');
+    let previousCode = source?.code ?? '';
+    codeControl
+      ?.valueChanges.pipe(takeUntil(this.destroy$))
+      .subscribe((nextCode: string | null) => {
+        const coerced = nextCode ?? '';
+        this.onSourceCodeChanged(previousCode, coerced);
+        previousCode = coerced;
+      });
     return group;
+  }
+
+  private createTransformationPlanGroup(plan?: SourceTransformationPlan | null): FormGroup {
+    return this.fb.group({
+      datasetGroovyScript: [plan?.datasetGroovyScript ?? ''],
+      rowOperations: this.fb.array<FormGroup>(
+        (plan?.rowOperations ?? []).map((operation) => this.createRowOperationGroup(operation))
+      ),
+      columnOperations: this.fb.array<FormGroup>(
+        (plan?.columnOperations ?? []).map((operation) => this.createColumnOperationGroup(operation))
+      )
+    });
+  }
+
+  private createRowOperationGroup(operation?: SourceRowOperationConfig): FormGroup {
+    return this.fb.group({
+      type: [operation?.type ?? ('FILTER' as SourceRowOperationType), Validators.required],
+      filter: this.createRowFilterGroup(operation?.filter),
+      aggregate: this.createRowAggregateGroup(operation?.aggregate),
+      split: this.createRowSplitGroup(operation?.split)
+    });
+  }
+
+  private createRowFilterGroup(filter?: SourceRowFilterOperation): FormGroup {
+    return this.fb.group({
+      column: [filter?.column ?? ''],
+      mode: [filter?.mode ?? ('RETAIN_MATCHING' as SourceRowFilterMode)],
+      operator: [filter?.operator ?? ('EQUALS' as SourceRowComparisonOperator)],
+      value: [filter?.value ?? ''],
+      valuesText: [filter?.values ? filter.values.join(', ') : ''],
+      caseInsensitive: [filter?.caseInsensitive ?? false]
+    });
+  }
+
+  private createRowAggregateGroup(aggregate?: SourceRowAggregateOperation): FormGroup {
+    return this.fb.group({
+      groupByText: [aggregate?.groupBy?.join(', ') ?? ''],
+      aggregations: this.fb.array<FormGroup>(
+        (aggregate?.aggregations ?? []).map((agg) => this.createAggregationGroup(agg))
+      ),
+      retainColumnsText: [aggregate?.retainColumns?.join(', ') ?? ''],
+      sortByGroup: [aggregate?.sortByGroup ?? false]
+    });
+  }
+
+  private createAggregationGroup(aggregation?: SourceAggregationDefinition): FormGroup {
+    return this.fb.group({
+      sourceColumn: [aggregation?.sourceColumn ?? ''],
+      resultColumn: [aggregation?.resultColumn ?? ''],
+      function: [aggregation?.function ?? ('SUM' as SourceAggregationFunction)],
+      scale: [aggregation?.scale ?? null],
+      roundingMode: [aggregation?.roundingMode ?? ('HALF_UP' as SourceRoundingMode)]
+    });
+  }
+
+  private createRowSplitGroup(split?: SourceRowSplitOperation): FormGroup {
+    return this.fb.group({
+      sourceColumn: [split?.sourceColumn ?? ''],
+      targetColumn: [split?.targetColumn ?? ''],
+      delimiter: [split?.delimiter ?? '|'],
+      trimValues: [split?.trimValues ?? true],
+      dropEmptyValues: [split?.dropEmptyValues ?? true]
+    });
+  }
+
+  private createColumnOperationGroup(operation?: SourceColumnOperationConfig): FormGroup {
+    return this.fb.group({
+      type: [operation?.type ?? ('COMBINE' as SourceColumnOperationType), Validators.required],
+      combine: this.createColumnCombineGroup(operation?.combine),
+      pipeline: this.createColumnPipelineGroup(operation?.pipeline),
+      round: this.createColumnRoundGroup(operation?.round)
+    });
+  }
+
+  private createColumnCombineGroup(combine?: SourceColumnCombineOperation): FormGroup {
+    return this.fb.group({
+      targetColumn: [combine?.targetColumn ?? ''],
+      sourcesText: [combine?.sources ? combine.sources.join(', ') : ''],
+      delimiter: [combine?.delimiter ?? '|'],
+      skipBlanks: [combine?.skipBlanks ?? true],
+      prefix: [combine?.prefix ?? ''],
+      suffix: [combine?.suffix ?? '']
+    });
+  }
+
+  private createColumnPipelineGroup(pipeline?: SourceColumnPipelineOperation): FormGroup {
+    return this.fb.group({
+      targetColumn: [pipeline?.targetColumn ?? ''],
+      sourceColumn: [pipeline?.sourceColumn ?? ''],
+      configuration: [pipeline?.configuration ?? '']
+    });
+  }
+
+  private createColumnRoundGroup(round?: SourceColumnRoundOperation): FormGroup {
+    return this.fb.group({
+      targetColumn: [round?.targetColumn ?? ''],
+      sourceColumn: [round?.sourceColumn ?? ''],
+      scale: [round?.scale ?? 2],
+      roundingMode: [round?.roundingMode ?? ('HALF_UP' as SourceRoundingMode)]
+    });
+  }
+
+  private onSourceCodeChanged(previousCode: string, nextCode: string): void {
+    if (!previousCode || previousCode === nextCode) {
+      return;
+    }
+    this.canonicalFields.controls.forEach((fieldGroup) => {
+      const mappings = fieldGroup.get('mappings') as FormArray<FormGroup>;
+      mappings.controls.forEach((mappingGroup) => {
+        const codeControl = mappingGroup.get('sourceCode');
+        if (codeControl?.value === previousCode) {
+          codeControl.setValue(nextCode, { emitEvent: false });
+        }
+      });
+    });
+  }
+
+  transformationPlanGroup(sourceIndex: number): FormGroup {
+    return this.sources.at(sourceIndex).get('transformationPlan') as FormGroup;
+  }
+
+  rowOperations(sourceIndex: number): FormArray<FormGroup> {
+    return this.transformationPlanGroup(sourceIndex).get('rowOperations') as FormArray<FormGroup>;
+  }
+
+  columnOperations(sourceIndex: number): FormArray<FormGroup> {
+    return this.transformationPlanGroup(sourceIndex).get('columnOperations') as FormArray<FormGroup>;
+  }
+
+  aggregationsFor(sourceIndex: number, operationIndex: number): FormArray<FormGroup> {
+    return this.rowOperations(sourceIndex)
+      .at(operationIndex)
+      .get('aggregate')
+      ?.get('aggregations') as FormArray<FormGroup>;
+  }
+
+  addRowOperation(sourceIndex: number, type: SourceRowOperationType = 'FILTER'): void {
+    const group = this.createRowOperationGroup({ type });
+    group.get('type')?.setValue(type, { emitEvent: false });
+    if (type === 'AGGREGATE') {
+      const aggregations = group.get('aggregate')?.get('aggregations') as FormArray<FormGroup>;
+      if (aggregations.length === 0) {
+        aggregations.push(this.createAggregationGroup());
+      }
+    }
+    this.rowOperations(sourceIndex).push(group);
+  }
+
+  removeRowOperation(sourceIndex: number, operationIndex: number): void {
+    this.rowOperations(sourceIndex).removeAt(operationIndex);
+  }
+
+  addAggregation(sourceIndex: number, operationIndex: number): void {
+    this.aggregationsFor(sourceIndex, operationIndex).push(this.createAggregationGroup());
+  }
+
+  removeAggregation(sourceIndex: number, operationIndex: number, aggregationIndex: number): void {
+    this.aggregationsFor(sourceIndex, operationIndex).removeAt(aggregationIndex);
+  }
+
+  addColumnOperation(sourceIndex: number, type: SourceColumnOperationType = 'COMBINE'): void {
+    const group = this.createColumnOperationGroup({ type });
+    group.get('type')?.setValue(type, { emitEvent: false });
+    this.columnOperations(sourceIndex).push(group);
+  }
+
+  removeColumnOperation(sourceIndex: number, operationIndex: number): void {
+    this.columnOperations(sourceIndex).removeAt(operationIndex);
+  }
+
+  onRowOperationTypeChange(sourceIndex: number, operationIndex: number): void {
+    const group = this.rowOperations(sourceIndex).at(operationIndex);
+    const type = group.get('type')?.value as SourceRowOperationType;
+    if (type === 'AGGREGATE') {
+      const aggregations = this.aggregationsFor(sourceIndex, operationIndex);
+      if (aggregations.length === 0) {
+        aggregations.push(this.createAggregationGroup());
+      }
+    }
+  }
+
+  onColumnOperationTypeChange(sourceIndex: number, operationIndex: number): void {
+    const group = this.columnOperations(sourceIndex).at(operationIndex);
+    const type = group.get('type')?.value as SourceColumnOperationType;
+    if (type === 'PIPELINE') {
+      group.get('pipeline')?.get('configuration')?.setValidators([Validators.required]);
+    } else {
+      group.get('pipeline')?.get('configuration')?.clearValidators();
+    }
+    group.get('pipeline')?.get('configuration')?.updateValueAndValidity({ emitEvent: false });
+  }
+
+  private ensureSourcePreviewState(index: number): SourceTransformationPreviewUiState {
+    if (!this.sourcePreviewState[index]) {
+      this.sourcePreviewState[index] = {
+        fileType: 'CSV',
+        hasHeader: true,
+        delimiter: ',',
+        sheetName: '',
+        recordPath: '',
+        encoding: '',
+        limit: 10,
+        uploading: false,
+        rawRows: [],
+        transformedRows: []
+      };
+    }
+    return this.sourcePreviewState[index];
+  }
+
+  setSourcePreviewOption<K extends keyof SourceTransformationPreviewUiState>(
+    index: number,
+    key: K,
+    value: SourceTransformationPreviewUiState[K]
+  ): void {
+    const state = this.ensureSourcePreviewState(index);
+    state[key] = value;
+  }
+
+  onSourceSampleFileSelected(index: number, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) {
+      return;
+    }
+    const file = input.files[0];
+    const state = this.ensureSourcePreviewState(index);
+    state.file = file;
+    state.fileName = file.name;
+  }
+
+  previewSourceFromFile(index: number): void {
+    const state = this.ensureSourcePreviewState(index);
+    if (!state.file) {
+      state.error = 'Select a sample file to preview transformations.';
+      return;
+    }
+    const planGroup = this.transformationPlanGroup(index);
+    const planPayload = this.buildTransformationPlanPayload(planGroup);
+    const request: SourceTransformationPreviewUploadRequest = {
+      fileType: state.fileType,
+      hasHeader: state.hasHeader,
+      delimiter: state.delimiter ?? undefined,
+      sheetName: state.sheetName ?? undefined,
+      recordPath: state.recordPath ?? undefined,
+      encoding: state.encoding ?? undefined,
+      limit: state.limit,
+      transformationPlan: planPayload ?? null
+    };
+    state.uploading = true;
+    state.error = undefined;
+    this.state
+      .previewSourceTransformationFromFile(request, state.file)
+      .pipe(finalize(() => (state.uploading = false)))
+      .subscribe({
+        next: (response) => {
+          state.rawRows = response.rawRows ?? [];
+          state.transformedRows = response.transformedRows ?? [];
+          state.lastRows = state.rawRows;
+        },
+        error: () => {
+          state.error = 'Unable to preview transformations for the uploaded file.';
+        }
+      });
+  }
+
+  applyPlanToPreview(index: number): void {
+    const state = this.ensureSourcePreviewState(index);
+    const rows = state.lastRows ?? state.rawRows;
+    if (!rows || rows.length === 0) {
+      state.error = 'Upload a sample file or load recent rows before applying transformations.';
+      return;
+    }
+    this.applyPlanToRows(index, rows);
+  }
+
+  loadSourceSampleRows(index: number): void {
+    if (!this.definitionId) {
+      const state = this.ensureSourcePreviewState(index);
+      state.error = 'Save the reconciliation before loading live samples.';
+      return;
+    }
+    const sourceCode = this.sources.at(index).get('code')?.value;
+    if (!sourceCode) {
+      const state = this.ensureSourcePreviewState(index);
+      state.error = 'Set a source code before loading samples.';
+      return;
+    }
+    const state = this.ensureSourcePreviewState(index);
+    state.uploading = true;
+    state.error = undefined;
+    this.state
+      .fetchTransformationSamples(this.definitionId, sourceCode, state.limit)
+      .pipe(finalize(() => (state.uploading = false)))
+      .subscribe({
+        next: (response) => {
+          const rows = (response.rows ?? []).map((row) => row.rawRecord ?? {});
+          state.rawRows = rows;
+          state.lastRows = rows;
+          this.applyPlanToRows(index, rows);
+        },
+        error: () => {
+          state.error = 'Unable to load sample rows for this source.';
+        }
+      });
+  }
+
+  private applyPlanToRows(index: number, rows: Record<string, unknown>[]): void {
+    const state = this.ensureSourcePreviewState(index);
+    if (!rows || rows.length === 0) {
+      state.transformedRows = [];
+      return;
+    }
+    const planPayload = this.buildTransformationPlanPayload(this.transformationPlanGroup(index));
+    state.uploading = true;
+    state.error = undefined;
+    this.state
+      .applySourceTransformation({ transformationPlan: planPayload ?? null, rows })
+      .pipe(finalize(() => (state.uploading = false)))
+      .subscribe({
+        next: (response) => {
+          state.transformedRows = response.transformedRows ?? [];
+        },
+        error: () => {
+          state.error = 'Unable to apply the configured transformations.';
+        }
+      });
+  }
+
+  private lookupSourcePreview(sourceCode: string | null | undefined): SourceTransformationPreviewUiState | undefined {
+    if (!sourceCode) {
+      return undefined;
+    }
+    const normalized = sourceCode.trim().toLowerCase();
+    for (let index = 0; index < this.sources.length; index++) {
+      const candidate = this.normalize(this.sources.at(index).get('code')?.value)?.toLowerCase();
+      if (candidate === normalized) {
+        return this.sourcePreviewState[index];
+      }
+    }
+    return undefined;
+  }
+
+  private buildTransformationPlanPayload(planGroup: FormGroup): SourceTransformationPlan | null {
+    if (!planGroup) {
+      return null;
+    }
+    const datasetScript = this.normalize(planGroup.get('datasetGroovyScript')?.value);
+    const rowOperationsControl = planGroup.get('rowOperations') as FormArray<FormGroup>;
+    const rowOperations = rowOperationsControl?.controls
+      .map((operationGroup) => this.buildRowOperationPayload(operationGroup))
+      .filter((operation): operation is SourceRowOperationConfig => operation !== null);
+    const columnOperationsControl = planGroup.get('columnOperations') as FormArray<FormGroup>;
+    const columnOperations = columnOperationsControl?.controls
+      .map((operationGroup) => this.buildColumnOperationPayload(operationGroup))
+      .filter((operation): operation is SourceColumnOperationConfig => operation !== null);
+    const hasScript = !!datasetScript;
+    const hasRows = rowOperations && rowOperations.length > 0;
+    const hasColumns = columnOperations && columnOperations.length > 0;
+    if (!hasScript && !hasRows && !hasColumns) {
+      return null;
+    }
+    return {
+      datasetGroovyScript: datasetScript ?? undefined,
+      rowOperations: rowOperations ?? [],
+      columnOperations: columnOperations ?? []
+    };
+  }
+
+  private buildRowOperationPayload(group: FormGroup): SourceRowOperationConfig | null {
+    const type = group.get('type')?.value as SourceRowOperationType;
+    if (!type) {
+      return null;
+    }
+    switch (type) {
+      case 'FILTER': {
+        const filterGroup = group.get('filter') as FormGroup;
+        const column = this.normalize(filterGroup.get('column')?.value);
+        if (!column) {
+          return null;
+        }
+        const operator = (filterGroup.get('operator')?.value as SourceRowComparisonOperator) ?? 'EQUALS';
+        const mode = (filterGroup.get('mode')?.value as SourceRowFilterMode) ?? 'RETAIN_MATCHING';
+        const caseInsensitive = !!filterGroup.get('caseInsensitive')?.value;
+        const value = this.normalize(filterGroup.get('value')?.value);
+        const values = this.parseCsvList(this.normalize(filterGroup.get('valuesText')?.value));
+        const filter: SourceRowFilterOperation = {
+          column,
+          mode,
+          operator,
+          caseInsensitive
+        };
+        if (operator === 'IN' || operator === 'NOT_IN') {
+          filter.values = values;
+        } else if (value !== null) {
+          filter.value = value;
+        } else if (values.length > 0) {
+          filter.values = values;
+        }
+        return { type, filter };
+      }
+      case 'AGGREGATE': {
+        const aggregateGroup = group.get('aggregate') as FormGroup;
+        const groupBy = this.parseCsvList(this.normalize(aggregateGroup.get('groupByText')?.value));
+        const retainColumns = this.parseCsvList(this.normalize(aggregateGroup.get('retainColumnsText')?.value));
+        const aggregationsControl = aggregateGroup.get('aggregations') as FormArray<FormGroup>;
+        const aggregations = aggregationsControl.controls
+          .map((aggGroup) => this.buildAggregationPayload(aggGroup))
+          .filter((agg): agg is SourceAggregationDefinition => agg !== null);
+        if (groupBy.length === 0 && aggregations.length === 0) {
+          return null;
+        }
+        const aggregate: SourceRowAggregateOperation = {
+          groupBy,
+          aggregations,
+          retainColumns,
+          sortByGroup: !!aggregateGroup.get('sortByGroup')?.value
+        };
+        return { type, aggregate };
+      }
+      case 'SPLIT': {
+        const splitGroup = group.get('split') as FormGroup;
+        const sourceColumn = this.normalize(splitGroup.get('sourceColumn')?.value);
+        if (!sourceColumn) {
+          return null;
+        }
+        const split: SourceRowSplitOperation = {
+          sourceColumn,
+          targetColumn: this.normalize(splitGroup.get('targetColumn')?.value) ?? undefined,
+          delimiter: this.normalize(splitGroup.get('delimiter')?.value) ?? undefined,
+          trimValues: !!splitGroup.get('trimValues')?.value,
+          dropEmptyValues: !!splitGroup.get('dropEmptyValues')?.value
+        };
+        return { type, split };
+      }
+      default:
+        return null;
+    }
+  }
+
+  private buildAggregationPayload(group: FormGroup): SourceAggregationDefinition | null {
+    const sourceColumn = this.normalize(group.get('sourceColumn')?.value);
+    const resultColumn = this.normalize(group.get('resultColumn')?.value);
+    if (!sourceColumn && !resultColumn) {
+      return null;
+    }
+    const aggregation: SourceAggregationDefinition = {
+      sourceColumn: sourceColumn ?? undefined,
+      resultColumn: resultColumn ?? undefined,
+      function: (group.get('function')?.value as SourceAggregationFunction) ?? 'SUM'
+    };
+    const scale = this.normalizeNumber(group.get('scale')?.value);
+    if (scale !== null && scale !== undefined) {
+      aggregation.scale = scale;
+    }
+    const roundingMode = group.get('roundingMode')?.value as SourceRoundingMode;
+    if (roundingMode) {
+      aggregation.roundingMode = roundingMode;
+    }
+    return aggregation;
+  }
+
+  private buildColumnOperationPayload(group: FormGroup): SourceColumnOperationConfig | null {
+    const type = group.get('type')?.value as SourceColumnOperationType;
+    if (!type) {
+      return null;
+    }
+    switch (type) {
+      case 'COMBINE': {
+        const combineGroup = group.get('combine') as FormGroup;
+        const targetColumn = this.normalize(combineGroup.get('targetColumn')?.value);
+        if (!targetColumn) {
+          return null;
+        }
+        const sources = this.parseCsvList(this.normalize(combineGroup.get('sourcesText')?.value));
+        const combine: SourceColumnCombineOperation = {
+          targetColumn,
+          sources,
+          delimiter: this.normalize(combineGroup.get('delimiter')?.value) ?? undefined,
+          skipBlanks: !!combineGroup.get('skipBlanks')?.value,
+          prefix: this.normalize(combineGroup.get('prefix')?.value) ?? undefined,
+          suffix: this.normalize(combineGroup.get('suffix')?.value) ?? undefined
+        };
+        return { type, combine };
+      }
+      case 'PIPELINE': {
+        const pipelineGroup = group.get('pipeline') as FormGroup;
+        const targetColumn = this.normalize(pipelineGroup.get('targetColumn')?.value);
+        const configuration = pipelineGroup.get('configuration')?.value;
+        if (!targetColumn || !this.hasText(configuration)) {
+          return null;
+        }
+        const pipeline: SourceColumnPipelineOperation = {
+          targetColumn,
+          sourceColumn: this.normalize(pipelineGroup.get('sourceColumn')?.value) ?? undefined,
+          configuration: configuration as string
+        };
+        return { type, pipeline };
+      }
+      case 'ROUND': {
+        const roundGroup = group.get('round') as FormGroup;
+        const targetColumn = this.normalize(roundGroup.get('targetColumn')?.value);
+        if (!targetColumn) {
+          return null;
+        }
+        const round: SourceColumnRoundOperation = {
+          targetColumn,
+          sourceColumn: this.normalize(roundGroup.get('sourceColumn')?.value) ?? undefined,
+          scale: this.normalizeNumber(roundGroup.get('scale')?.value) ?? undefined,
+          roundingMode: (roundGroup.get('roundingMode')?.value as SourceRoundingMode) ?? 'HALF_UP'
+        };
+        return { type, round };
+      }
+      default:
+        return null;
+    }
+  }
+
+  private parseCsvList(value: string | null | undefined): string[] {
+    if (!value) {
+      return [];
+    }
+    return value
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0);
   }
 
   private createLlmAdapterOptionsGroup(initial?: Partial<LlmAdapterOptionsFormValue>): FormGroup {
@@ -1639,8 +1897,7 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       displayOrder: [transformation?.displayOrder ?? null],
       active: [transformation?.active ?? true],
       validationMessage: [''],
-      pipelineSteps: this.fb.array<FormGroup>([]),
-      llmConfig: this.createLlmTransformationConfigGroup()
+      pipelineSteps: this.fb.array<FormGroup>([])
     });
     if (type === 'FUNCTION_PIPELINE') {
       const steps = this.deserializePipelineConfiguration(transformation?.configuration);
@@ -1650,14 +1907,11 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       } else {
         steps.forEach((step) => target.push(this.createPipelineStepGroup(step.function, step.args)));
       }
-      (group.get('llmConfig') as FormGroup).disable({ emitEvent: false });
-    } else if (type === 'LLM_PROMPT') {
-      const config = this.parseLlmTransformationConfig(transformation?.configuration);
-      const llmGroup = group.get('llmConfig') as FormGroup;
-      llmGroup.patchValue(config, { emitEvent: false });
-      llmGroup.enable({ emitEvent: false });
     } else {
-      (group.get('llmConfig') as FormGroup).disable({ emitEvent: false });
+      const steps = this.pipelineStepsFromGroup(group);
+      if (steps.length > 0) {
+        steps.clear();
+      }
     }
     return group;
   }
@@ -1724,119 +1978,12 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     return JSON.stringify({ steps: stepsArray });
   }
 
-  private createLlmTransformationConfigGroup(initial?: Partial<LlmTransformationConfigFormValue>): FormGroup {
-    return this.fb.group({
-      promptTemplate: [initial?.promptTemplate ?? '', Validators.required],
-      jsonSchema: [initial?.jsonSchema ?? ''],
-      resultPath: [initial?.resultPath ?? ''],
-      model: [initial?.model ?? ''],
-      temperature: [initial?.temperature ?? null],
-      maxOutputTokens: [initial?.maxOutputTokens ?? null],
-      includeRawRecord: [initial?.includeRawRecord ?? true]
-    });
-  }
-
-  private parseLlmTransformationConfig(configuration?: string | null): LlmTransformationConfigFormValue {
-    const defaults: LlmTransformationConfigFormValue = {
-      promptTemplate: '',
-      jsonSchema: '',
-      resultPath: '',
-      model: '',
-      temperature: null,
-      maxOutputTokens: null,
-      includeRawRecord: true
-    };
-    if (!configuration) {
-      return { ...defaults };
-    }
-    try {
-      const parsed = JSON.parse(configuration) as Record<string, unknown>;
-      const result: LlmTransformationConfigFormValue = { ...defaults };
-      const promptTemplate = parsed['promptTemplate'];
-      if (promptTemplate !== undefined && promptTemplate !== null) {
-        result.promptTemplate = this.coerceString(promptTemplate);
-      }
-      const jsonSchema = parsed['jsonSchema'];
-      if (jsonSchema !== undefined && jsonSchema !== null) {
-        result.jsonSchema = this.stringifyMaybeJson(jsonSchema);
-      }
-      const resultPath = parsed['resultPath'];
-      if (resultPath !== undefined && resultPath !== null) {
-        result.resultPath = this.coerceString(resultPath);
-      }
-      const model = parsed['model'];
-      if (model !== undefined && model !== null) {
-        result.model = this.coerceString(model);
-      }
-      const temperature = parsed['temperature'];
-      if (temperature !== undefined && temperature !== null) {
-        result.temperature = this.coerceNumber(temperature);
-      }
-      const maxOutputTokens = parsed['maxOutputTokens'];
-      if (maxOutputTokens !== undefined && maxOutputTokens !== null) {
-        result.maxOutputTokens = this.coerceInteger(maxOutputTokens);
-      }
-      const includeRawRecord = parsed['includeRawRecord'];
-      if (includeRawRecord !== undefined && includeRawRecord !== null) {
-        result.includeRawRecord = this.coerceBoolean(includeRawRecord, defaults.includeRawRecord);
-      }
-      return result;
-    } catch (error) {
-      console.warn('Failed to parse LLM transformation configuration', error);
-      return {
-        ...defaults,
-        promptTemplate: configuration ?? ''
-      };
-    }
-  }
-
-  private llmConfigFromGroup(group: FormGroup): FormGroup {
-    return group.get('llmConfig') as FormGroup;
-  }
-
-  private serializeLlmTransformation(group: FormGroup): string | null {
-    const llmGroup = this.llmConfigFromGroup(group);
-    const value = llmGroup.getRawValue() as LlmTransformationConfigFormValue;
-    const payload: Record<string, unknown> = {};
-    if (this.hasText(value.promptTemplate)) {
-      payload['promptTemplate'] = value.promptTemplate;
-    }
-    if (this.hasText(value.jsonSchema)) {
-      payload['jsonSchema'] = this.parseJsonOrWarn(
-        value.jsonSchema,
-        'LLM transformation schema is not valid JSON; storing raw string'
-      );
-    }
-    if (this.hasText(value.resultPath)) {
-      payload['resultPath'] = value.resultPath.trim();
-    }
-    if (this.hasText(value.model)) {
-      payload['model'] = value.model.trim();
-    }
-    if (this.isNumber(value.temperature)) {
-      payload['temperature'] = value.temperature;
-    }
-    if (this.isNumber(value.maxOutputTokens)) {
-      payload['maxOutputTokens'] = value.maxOutputTokens;
-    }
-    if (value.includeRawRecord === false) {
-      payload['includeRawRecord'] = false;
-    }
-    if (Object.keys(payload).length === 0) {
-      return null;
-    }
-    return JSON.stringify(payload, null, 2);
-  }
-
   private buildTransformationValidationPayload(group: FormGroup): TransformationValidationRequest {
     const type = group.get('type')?.value as TransformationType;
     let expression = this.normalize(group.get('expression')?.value);
     let configuration = this.normalize(group.get('configuration')?.value);
     if (type === 'FUNCTION_PIPELINE') {
       configuration = this.serializePipeline(group);
-      expression = null;
-    } else if (type === 'LLM_PROMPT') {
-      configuration = this.serializeLlmTransformation(group);
       expression = null;
     }
     return {
@@ -1864,9 +2011,6 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     if (type === 'FUNCTION_PIPELINE') {
       configuration = this.serializePipeline(group);
       expression = null;
-    } else if (type === 'LLM_PROMPT') {
-      configuration = this.serializeLlmTransformation(group);
-      expression = null;
     }
     return {
       id: group.get('id')?.value ?? null,
@@ -1876,20 +2020,6 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       displayOrder,
       active
     };
-  }
-
-  private toDisplayResult(response: TransformationPreviewResponse): string {
-    if (response.result === null || response.result === undefined) {
-      return 'null';
-    }
-    if (typeof response.result === 'object') {
-      try {
-        return JSON.stringify(response.result);
-      } catch (error) {
-        return String(response.result);
-      }
-    }
-    return String(response.result);
   }
 
   private createReportGroup(report?: AdminReportTemplate): FormGroup {
@@ -1939,17 +2069,7 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       case 'sources':
         return this.markArrayAndCheckValid(this.sources);
       case 'schema':
-        if (!this.markArrayAndCheckValid(this.canonicalFields)) {
-          this.schemaPreviewWarning = null;
-          return false;
-        }
-        const missing = this.collectMappingsMissingPreview();
-        if (missing.length > 0) {
-          this.schemaPreviewWarning = `Run a sample preview for each mapping before continuing. Pending: ${missing.join(', ')}`;
-          return false;
-        }
-        this.schemaPreviewWarning = null;
-        return true;
+        return this.markArrayAndCheckValid(this.canonicalFields);
       case 'reports':
         return this.markArrayAndCheckValid(this.reportTemplates);
       case 'access':
@@ -1996,12 +2116,15 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
         anchor: !!value.anchor,
         description: this.normalize(value.description),
         connectionConfig: this.normalize(value.connectionConfig),
-        arrivalExpectation: this.normalize(value.arrivalExpectation),
-        arrivalTimezone: this.normalize(value.arrivalTimezone),
-        arrivalSlaMinutes: this.normalizeNumber(value.arrivalSlaMinutes),
-        adapterOptions: this.normalize(value.adapterOptions) ?? null
-      } as AdminSource;
-    });
+      arrivalExpectation: this.normalize(value.arrivalExpectation),
+      arrivalTimezone: this.normalize(value.arrivalTimezone),
+      arrivalSlaMinutes: this.normalizeNumber(value.arrivalSlaMinutes),
+      adapterOptions: this.normalize(value.adapterOptions) ?? null,
+      transformationPlan: this.buildTransformationPlanPayload(
+        group.get('transformationPlan') as FormGroup
+      )
+    } as AdminSource;
+  });
 
     const canonicalFieldsPayload = this.canonicalFields.controls.map((fieldGroup, fieldIndex) => {
       const value = fieldGroup.value as AdminCanonicalField;

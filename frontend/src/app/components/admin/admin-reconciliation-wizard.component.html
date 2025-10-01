@@ -118,8 +118,426 @@
       <button type="button" class="secondary" (click)="addSource()">Add source</button>
     </section>
 
+    <section *ngSwitchCase="'transformations'" formArrayName="sources" class="transformations-step">
+      <p class="hint">
+        Upload sample data or load recent rows to preview how source-level transformations change the dataset
+        before canonical mapping.
+      </p>
+      <article
+        *ngFor="let sourceGroup of sources.controls; let i = index"
+        [formGroupName]="i"
+        class="source-transformation-card"
+      >
+        <header>
+          <h3>{{ sourceGroup.get('displayName')?.value || ('Source ' + (i + 1)) }}</h3>
+          <span class="source-code">Code: {{ sourceGroup.get('code')?.value || 'unset' }}</span>
+        </header>
+
+        <div formGroupName="transformationPlan" class="plan-section">
+          <label class="field">
+            <span class="field-label"
+              >Dataset Groovy Script
+              <span
+                class="info-icon"
+                title="Optional Groovy executed once per preview to prepare rows before any row or column operations."
+                >i</span
+              ></span
+            >
+            <textarea
+              formControlName="datasetGroovyScript"
+              rows="4"
+              placeholder="rows.each { /* mutate records here */ }"
+            ></textarea>
+          </label>
+
+          <section class="operation-group" formArrayName="rowOperations">
+            <header>
+              <h4>
+                Row Operations
+                <span
+                  class="info-icon"
+                  title="Filter, aggregate, or split rows before column derivations. Operations run top to bottom."
+                  >i</span
+                >
+              </h4>
+              <button type="button" class="secondary" (click)="addRowOperation(i)">Add row operation</button>
+            </header>
+            <p class="hint" *ngIf="rowOperations(i).length === 0">
+              No row operations configured. Add a rule to filter, aggregate, or split rows.
+            </p>
+            <div
+              *ngFor="let rowGroup of rowOperations(i).controls; let r = index"
+              [formGroupName]="r"
+              class="operation-card"
+            >
+              <div class="operation-header">
+                <label>
+                  Type
+                  <span class="info-icon" title="Select the row-level operation to apply.">i</span>
+                  <select formControlName="type" (change)="onRowOperationTypeChange(i, r)">
+                    <option value="FILTER">FILTER</option>
+                    <option value="AGGREGATE">AGGREGATE</option>
+                    <option value="SPLIT">SPLIT</option>
+                  </select>
+                </label>
+                <button type="button" class="link" (click)="removeRowOperation(i, r)">Remove</button>
+              </div>
+              <div class="operation-body" [ngSwitch]="rowGroup.get('type')?.value">
+                <div *ngSwitchCase="'FILTER'" formGroupName="filter" class="operation-fields">
+                  <label>
+                    Column
+                    <span class="info-icon" title="Name of the source column used in the comparison.">i</span>
+                    <input type="text" formControlName="column" />
+                  </label>
+                  <label>
+                    Mode
+                    <span class="info-icon" title="Decide whether matching rows are kept or removed.">i</span>
+                    <select formControlName="mode">
+                      <option value="RETAIN_MATCHING">RETAIN_MATCHING</option>
+                      <option value="EXCLUDE_MATCHING">EXCLUDE_MATCHING</option>
+                    </select>
+                  </label>
+                  <label>
+                    Operator
+                    <span class="info-icon" title="Comparison operator evaluated against the column value.">i</span>
+                    <select formControlName="operator">
+                      <option value="EQUALS">EQUALS</option>
+                      <option value="NOT_EQUALS">NOT_EQUALS</option>
+                      <option value="IN">IN</option>
+                      <option value="NOT_IN">NOT_IN</option>
+                      <option value="GREATER_THAN">GREATER_THAN</option>
+                      <option value="GREATER_OR_EQUAL">GREATER_OR_EQUAL</option>
+                      <option value="LESS_THAN">LESS_THAN</option>
+                      <option value="LESS_OR_EQUAL">LESS_OR_EQUAL</option>
+                      <option value="IS_BLANK">IS_BLANK</option>
+                      <option value="IS_NOT_BLANK">IS_NOT_BLANK</option>
+                    </select>
+                  </label>
+                  <label>
+                    Value
+                    <span class="info-icon" title="Single comparison value when using operators other than IN/NOT_IN.">i</span>
+                    <input type="text" formControlName="value" />
+                  </label>
+                  <label>
+                    Values
+                    <span class="info-icon" title="Comma separated list used for IN/NOT_IN comparisons.">i</span>
+                    <input type="text" formControlName="valuesText" />
+                  </label>
+                  <label class="checkbox">
+                    <input type="checkbox" formControlName="caseInsensitive" /> Case insensitive
+                  </label>
+                </div>
+                <div *ngSwitchCase="'AGGREGATE'" formGroupName="aggregate" class="operation-fields">
+                  <label>
+                    Group by columns
+                    <span class="info-icon" title="Comma separated list of columns used to group rows.">i</span>
+                    <input type="text" formControlName="groupByText" />
+                  </label>
+                  <label>
+                    Retain columns
+                    <span class="info-icon" title="Columns copied from the first row in each group before aggregations.">i</span>
+                    <input type="text" formControlName="retainColumnsText" />
+                  </label>
+                  <label class="checkbox">
+                    <input type="checkbox" formControlName="sortByGroup" /> Sort result by group keys
+                  </label>
+                  <div formArrayName="aggregations" class="aggregation-list">
+                    <div
+                      *ngFor="let aggGroup of aggregationsFor(i, r).controls; let a = index"
+                      [formGroupName]="a"
+                      class="aggregation-row"
+                    >
+                      <label>
+                        Source column
+                        <span class="info-icon" title="Column aggregated across the group.">i</span>
+                        <input type="text" formControlName="sourceColumn" />
+                      </label>
+                      <label>
+                        Result column
+                        <span class="info-icon" title="Name of the column written to the aggregated dataset.">i</span>
+                        <input type="text" formControlName="resultColumn" />
+                      </label>
+                      <label>
+                        Function
+                        <span class="info-icon" title="Aggregation applied to the source column.">i</span>
+                        <select formControlName="function">
+                          <option *ngFor="let fn of ['SUM','AVG','MIN','MAX','COUNT','FIRST','LAST']" [value]="fn">
+                            {{ fn }}
+                          </option>
+                        </select>
+                      </label>
+                      <label>
+                        Scale
+                        <span class="info-icon" title="Optional decimal places for numeric aggregations.">i</span>
+                        <input type="number" formControlName="scale" />
+                      </label>
+                      <label>
+                        Rounding
+                        <span class="info-icon" title="Rounding mode applied when scale is set.">i</span>
+                        <select formControlName="roundingMode">
+                          <option *ngFor="let mode of ['UP','DOWN','CEILING','FLOOR','HALF_UP','HALF_DOWN','HALF_EVEN']" [value]="mode">
+                            {{ mode }}
+                          </option>
+                        </select>
+                      </label>
+                      <button type="button" class="link" (click)="removeAggregation(i, r, a)">Remove aggregation</button>
+                    </div>
+                    <button type="button" class="secondary" (click)="addAggregation(i, r)">
+                      Add aggregation
+                    </button>
+                  </div>
+                </div>
+                <div *ngSwitchCase="'SPLIT'" formGroupName="split" class="operation-fields">
+                  <label>
+                    Source column
+                    <span class="info-icon" title="Column whose value will be split into multiple rows.">i</span>
+                    <input type="text" formControlName="sourceColumn" />
+                  </label>
+                  <label>
+                    Target column
+                    <span class="info-icon" title="Column receiving the split value; defaults to source column.">i</span>
+                    <input type="text" formControlName="targetColumn" />
+                  </label>
+                  <label>
+                    Delimiter
+                    <span class="info-icon" title="Character used to split the source column.">i</span>
+                    <input type="text" formControlName="delimiter" />
+                  </label>
+                  <label class="checkbox">
+                    <input type="checkbox" formControlName="trimValues" /> Trim tokens
+                  </label>
+                  <label class="checkbox">
+                    <input type="checkbox" formControlName="dropEmptyValues" /> Drop empty values
+                  </label>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="operation-group" formArrayName="columnOperations">
+            <header>
+              <h4>
+                Column Operations
+                <span
+                  class="info-icon"
+                  title="Create or adjust columns after row processing. Operations run in order."
+                  >i</span
+                >
+              </h4>
+              <button type="button" class="secondary" (click)="addColumnOperation(i)">Add column operation</button>
+            </header>
+            <p class="hint" *ngIf="columnOperations(i).length === 0">
+              No column operations configured. Add a rule to derive or adjust columns.
+            </p>
+            <div
+              *ngFor="let columnGroup of columnOperations(i).controls; let c = index"
+              [formGroupName]="c"
+              class="operation-card"
+            >
+              <div class="operation-header">
+                <label>
+                  Type
+                  <span class="info-icon" title="Select the column-level operation to apply.">i</span>
+                  <select formControlName="type" (change)="onColumnOperationTypeChange(i, c)">
+                    <option value="COMBINE">COMBINE</option>
+                    <option value="PIPELINE">PIPELINE</option>
+                    <option value="ROUND">ROUND</option>
+                  </select>
+                </label>
+                <button type="button" class="link" (click)="removeColumnOperation(i, c)">Remove</button>
+              </div>
+              <div class="operation-body" [ngSwitch]="columnGroup.get('type')?.value">
+                <div *ngSwitchCase="'COMBINE'" formGroupName="combine" class="operation-fields">
+                  <label>
+                    Target column
+                    <span class="info-icon" title="Name of the column receiving the combined value.">i</span>
+                    <input type="text" formControlName="targetColumn" />
+                  </label>
+                  <label>
+                    Sources
+                    <span class="info-icon" title="Comma separated list of source columns to combine.">i</span>
+                    <input type="text" formControlName="sourcesText" />
+                  </label>
+                  <label>
+                    Delimiter
+                    <span class="info-icon" title="Delimiter inserted between combined values.">i</span>
+                    <input type="text" formControlName="delimiter" />
+                  </label>
+                  <label class="checkbox"><input type="checkbox" formControlName="skipBlanks" /> Skip blanks</label>
+                  <label>Prefix<input type="text" formControlName="prefix" /></label>
+                  <label>Suffix<input type="text" formControlName="suffix" /></label>
+                </div>
+                <div *ngSwitchCase="'PIPELINE'" formGroupName="pipeline" class="operation-fields">
+                  <label>
+                    Target column
+                    <span class="info-icon" title="Column written with the pipeline result.">i</span>
+                    <input type="text" formControlName="targetColumn" />
+                  </label>
+                  <label>
+                    Source column
+                    <span class="info-icon" title="Optional source column when different from target.">i</span>
+                    <input type="text" formControlName="sourceColumn" />
+                  </label>
+                  <label>
+                    Configuration JSON
+                    <span class="info-icon" title="Serialized function pipeline definition created by the UI helper.">i</span>
+                    <textarea formControlName="configuration" rows="3"></textarea>
+                  </label>
+                </div>
+                <div *ngSwitchCase="'ROUND'" formGroupName="round" class="operation-fields">
+                  <label>
+                    Target column
+                    <span class="info-icon" title="Name of the column that will hold the rounded value.">i</span>
+                    <input type="text" formControlName="targetColumn" />
+                  </label>
+                  <label>
+                    Source column
+                    <span class="info-icon" title="Optional source column; defaults to the target column.">i</span>
+                    <input type="text" formControlName="sourceColumn" />
+                  </label>
+                  <label>
+                    Scale
+                    <span class="info-icon" title="Number of decimal places after rounding.">i</span>
+                    <input type="number" formControlName="scale" />
+                  </label>
+                  <label>
+                    Rounding mode
+                    <span class="info-icon" title="Rounding strategy applied to numeric values.">i</span>
+                    <select formControlName="roundingMode">
+                      <option *ngFor="let mode of ['UP','DOWN','CEILING','FLOOR','HALF_UP','HALF_DOWN','HALF_EVEN']" [value]="mode">
+                        {{ mode }}
+                      </option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <section class="preview-panel">
+          <h4>
+            Preview
+            <span class="info-icon" title="Upload a sample file or load the latest ingested rows, then apply the plan.">i</span>
+          </h4>
+          <div class="preview-controls">
+            <label>
+              File type
+              <span class="info-icon" title="Select the format of the uploaded sample file.">i</span>
+              <select
+                [value]="sourcePreviewState[i]?.fileType"
+                (change)="setSourcePreviewOption(i, 'fileType', $any($event.target).value)"
+              >
+                <option value="CSV">CSV</option>
+                <option value="DELIMITED">DELIMITED</option>
+                <option value="EXCEL">EXCEL</option>
+                <option value="JSON">JSON</option>
+                <option value="XML">XML</option>
+              </select>
+            </label>
+            <label *ngIf="['CSV','DELIMITED','EXCEL'].includes(sourcePreviewState[i]?.fileType ?? '')">
+              <span class="info-icon" title="Enable when the first row of the file contains column headers.">i</span>
+              <input
+                type="checkbox"
+                [checked]="sourcePreviewState[i]?.hasHeader"
+                (change)="setSourcePreviewOption(i, 'hasHeader', $any($event.target).checked)"
+              />
+              Has header
+            </label>
+            <label *ngIf="['CSV','DELIMITED'].includes(sourcePreviewState[i]?.fileType ?? '')">
+              Delimiter
+              <span class="info-icon" title="Single character separating values in the file.">i</span>
+              <input
+                type="text"
+                maxlength="1"
+                [value]="sourcePreviewState[i]?.delimiter || ','"
+                (input)="setSourcePreviewOption(i, 'delimiter', $any($event.target).value)"
+              />
+            </label>
+            <label *ngIf="sourcePreviewState[i]?.fileType === 'EXCEL'">
+              Sheet name
+              <span class="info-icon" title="Name of the worksheet that contains the sample data.">i</span>
+              <input
+                type="text"
+                [value]="sourcePreviewState[i]?.sheetName || ''"
+                (input)="setSourcePreviewOption(i, 'sheetName', $any($event.target).value)"
+              />
+            </label>
+            <label *ngIf="['JSON','XML'].includes(sourcePreviewState[i]?.fileType ?? '')">
+              Record path
+              <span class="info-icon" title="Dot notation path to the array of records in the JSON or XML payload.">i</span>
+              <input
+                type="text"
+                placeholder="e.g. data.items"
+                [value]="sourcePreviewState[i]?.recordPath || ''"
+                (input)="setSourcePreviewOption(i, 'recordPath', $any($event.target).value)"
+              />
+            </label>
+            <label>
+              Encoding
+              <span class="info-icon" title="Character encoding used when reading the uploaded file.">i</span>
+              <input
+                type="text"
+                placeholder="UTF-8"
+                [value]="sourcePreviewState[i]?.encoding || ''"
+                (input)="setSourcePreviewOption(i, 'encoding', $any($event.target).value)"
+              />
+            </label>
+            <label>
+              Max rows
+              <span class="info-icon" title="Limit the number of sample rows used for preview.">i</span>
+              <input
+                type="number"
+                min="1"
+                max="50"
+                [value]="sourcePreviewState[i]?.limit"
+                (input)="setSourcePreviewOption(i, 'limit', Number($any($event.target).value))"
+              />
+            </label>
+            <label>
+              Sample file
+              <span class="info-icon" title="Upload a representative source file for preview.">i</span>
+              <input type="file" (change)="onSourceSampleFileSelected(i, $event)" />
+            </label>
+          </div>
+          <div class="preview-actions">
+            <button
+              type="button"
+              class="secondary"
+              (click)="previewSourceFromFile(i)"
+              [disabled]="sourcePreviewState[i]?.uploading"
+            >
+              {{ sourcePreviewState[i]?.uploading ? 'Processing…' : 'Upload & Preview' }}
+            </button>
+            <button type="button" class="secondary" (click)="loadSourceSampleRows(i)" [disabled]="!definitionId">
+              Load recent rows
+            </button>
+            <button type="button" class="secondary" (click)="applyPlanToPreview(i)">
+              Apply plan to current rows
+            </button>
+          </div>
+          <p class="error" *ngIf="sourcePreviewState[i]?.error">{{ sourcePreviewState[i]?.error }}</p>
+          <div class="preview-results">
+            <div class="preview-column">
+              <h5>Raw rows</h5>
+              <p class="hint" *ngIf="!(sourcePreviewState[i]?.rawRows?.length)">
+                Upload a file or load recent rows to inspect the source data.
+              </p>
+              <pre *ngFor="let row of sourcePreviewState[i]?.rawRows | slice:0:5">{{ row | json }}</pre>
+            </div>
+            <div class="preview-column">
+              <h5>Transformed rows</h5>
+              <p class="hint" *ngIf="!(sourcePreviewState[i]?.transformedRows?.length)">
+                Apply the plan to view transformed output.
+              </p>
+              <pre *ngFor="let row of sourcePreviewState[i]?.transformedRows | slice:0:5">{{ row | json }}</pre>
+            </div>
+          </div>
+        </section>
+      </article>
+    </section>
+
     <section *ngSwitchCase="'schema'" formArrayName="canonicalFields" class="schema-step">
-      <p class="error" *ngIf="schemaPreviewWarning">{{ schemaPreviewWarning }}</p>
       <article *ngFor="let fieldGroup of canonicalFields.controls; let i = index" [formGroupName]="i" class="field-card">
         <header>
           <h3>Field {{ i + 1 }}</h3>
@@ -164,10 +582,17 @@
                 />
               </label>
               <label>Legacy expression
+                <span class="info-icon" title="Optional expression executed for older ingestion flows before new transformation rules.">i</span>
                 <input type="text" formControlName="transformationExpression" placeholder="Optional legacy expression" />
               </label>
-              <label>Default<input type="text" formControlName="defaultValue" /></label>
-              <label>Ordinal<input type="number" formControlName="ordinalPosition" /></label>
+              <label>Default
+                <span class="info-icon" title="Value used when the source column is missing or blank.">i</span>
+                <input type="text" formControlName="defaultValue" />
+              </label>
+              <label>Ordinal
+                <span class="info-icon" title="Controls the relative ordering of mappings when multiple columns are processed.">i</span>
+                <input type="number" formControlName="ordinalPosition" />
+              </label>
               <label class="checkbox"><input type="checkbox" formControlName="required" /> Required</label>
               <button type="button" class="link" (click)="removeMapping(i, m)">Remove mapping</button>
             </div>
@@ -236,47 +661,14 @@
                           <button
                             type="button"
                             class="secondary"
-                            (click)="loadSampleRows(i, m)"
-                            [disabled]="mode === 'create'"
-                          >
-                            Load sample rows
-                          </button>
-                          <button
-                            type="button"
-                            class="secondary"
                             (click)="runGroovyTest(i, m, t)"
                             [disabled]="getGroovyTestState(i, m, t).running"
                           >
                             Run Groovy test
                           </button>
-                        </div>
-                        <div class="groovy-samples" *ngIf="transformationSamples[previewKey(i, m)]?.length">
-                          <label>
-                            Sample row
-                            <select
-                              [value]="selectedSampleIndex[previewKey(i, m)] ?? 0"
-                              (change)="onSampleChange(i, m, $any($event.target).value)"
-                            >
-                              <option
-                                *ngFor="let sample of transformationSamples[previewKey(i, m)]; let idx = index"
-                                [value]="idx"
-                              >
-                                {{ sample.externalReference || sample.canonicalKey }} ·
-                                {{ sample.ingestedAt | date: 'short' }}
-                              </option>
-                            </select>
-                          </label>
-                        </div>
-                        <div class="groovy-feedback">
-                          <p class="hint" *ngIf="mode === 'create'">
-                            Save the reconciliation and ingest source data to enable Groovy testing.
-                          </p>
-                          <p class="hint" *ngIf="getGroovyTestState(i, m, t).running">Running Groovy test…</p>
-                          <p class="success" *ngIf="getGroovyTestState(i, m, t).result && !getGroovyTestState(i, m, t).error">
-                            Test result: {{ getGroovyTestState(i, m, t).result }}
-                          </p>
-                          <p class="error" *ngIf="getGroovyTestState(i, m, t).error">
-                            {{ getGroovyTestState(i, m, t).error }}
+                          <p class="hint">
+                            Load sample rows for this source in the Transformations step to execute the script with
+                            real data.
                           </p>
                         </div>
                       </div>
@@ -331,66 +723,6 @@
                       </div>
                       <button type="button" class="secondary" (click)="addPipelineStep(i, m, t)">Add step</button>
                     </div>
-                    <div *ngSwitchCase="'LLM_PROMPT'" class="transformation-editor" formGroupName="llmConfig">
-                      <label
-                        >Prompt template<textarea
-                          formControlName="promptTemplate"
-                          rows="4"
-                          placeholder="Normalize the value '{{value}}'"
-                          (input)="invalidateMappingPreview(i, m)"
-                        ></textarea
-                      ></label>
-                      <p class="hint">Use {{value}} for the incoming value and {{rawRecord}} for the JSON representation of the source row.</p>
-                      <label
-                        >JSON schema<textarea
-                          formControlName="jsonSchema"
-                          rows="4"
-                          placeholder="{ &quot;type&quot;: &quot;object&quot;, ... }"
-                          (input)="invalidateMappingPreview(i, m)"
-                        ></textarea
-                      ></label>
-                      <label
-                        >Result path<input
-                          type="text"
-                          formControlName="resultPath"
-                          placeholder="normalizedValue"
-                          (input)="invalidateMappingPreview(i, m)"
-                        />
-                      </label>
-                      <div class="grid">
-                        <label
-                          >Model<input
-                            type="text"
-                            formControlName="model"
-                            placeholder="Defaults to backend setting"
-                            (input)="invalidateMappingPreview(i, m)"
-                          />
-                        </label>
-                        <label
-                          >Temperature<input
-                            type="number"
-                            step="0.1"
-                            formControlName="temperature"
-                            (input)="invalidateMappingPreview(i, m)"
-                          />
-                        </label>
-                        <label
-                          >Max output tokens<input
-                            type="number"
-                            formControlName="maxOutputTokens"
-                            (input)="invalidateMappingPreview(i, m)"
-                          />
-                        </label>
-                      </div>
-                      <label class="checkbox"
-                        ><input
-                          type="checkbox"
-                          formControlName="includeRawRecord"
-                          (change)="invalidateMappingPreview(i, m)"
-                        />
-                        Include raw record context</label
-                      >
-                    </div>
                   </ng-container>
                 </div>
 
@@ -405,157 +737,6 @@
               <button type="button" class="secondary" (click)="addTransformation(i, m)">Add transformation</button>
             </div>
 
-            <div class="preview-tools">
-              <h5>Preview</h5>
-              <label>
-                Sample value
-                <input
-                  type="text"
-                  [value]="previewState[previewKey(i, m)]?.value || ''"
-                  (input)="handlePreviewInput(i, m, 'value', $event)"
-                />
-              </label>
-              <label>
-                Sample row (JSON)
-                <textarea
-                  rows="3"
-                  [value]="previewState[previewKey(i, m)]?.raw || '{}'"
-                  (input)="handlePreviewInput(i, m, 'raw', $event)"
-                ></textarea>
-              </label>
-              <div class="preview-actions">
-                <button type="button" class="secondary" (click)="previewMapping(i, m)">Preview transformations</button>
-              </div>
-              <p class="success" *ngIf="previewState[previewKey(i, m)]?.result">
-                Result: {{ previewState[previewKey(i, m)]?.result }}
-              </p>
-              <p class="error" *ngIf="previewState[previewKey(i, m)]?.error">
-                {{ previewState[previewKey(i, m)]?.error }}
-              </p>
-              <p class="success" *ngIf="isMappingPreviewConfirmed(i, m) && !isMappingPreviewStale(i, m)">
-                Latest preview confirmed.
-              </p>
-              <p class="warning" *ngIf="isMappingPreviewStale(i, m)">
-                Preview is out of date. Re-run a sample preview to continue.
-              </p>
-              <div class="upload-tools">
-                <h6>Upload sample file</h6>
-                <label>
-                  File type
-                  <select
-                    [value]="sampleUploadStateFor(i, m).fileType"
-                    (change)="setSampleUploadOption(i, m, 'fileType', $any($event.target).value)"
-                  >
-                    <option value="CSV">CSV</option>
-                    <option value="DELIMITED">Delimited TXT</option>
-                    <option value="EXCEL">Excel</option>
-                    <option value="JSON">JSON</option>
-                    <option value="XML">XML</option>
-                  </select>
-                </label>
-                <label class="checkbox" *ngIf="['CSV', 'DELIMITED', 'EXCEL'].includes(sampleUploadStateFor(i, m).fileType)">
-                  <input
-                    type="checkbox"
-                    [checked]="sampleUploadStateFor(i, m).hasHeader"
-                    (change)="setSampleUploadOption(i, m, 'hasHeader', $any($event.target).checked)"
-                  />
-                  Has header row
-                </label>
-                <label *ngIf="['CSV', 'DELIMITED'].includes(sampleUploadStateFor(i, m).fileType)">
-                  Delimiter
-                  <input
-                    type="text"
-                    maxlength="1"
-                    [value]="sampleUploadStateFor(i, m).delimiter || ','"
-                    (input)="setSampleUploadOption(i, m, 'delimiter', $any($event.target).value)"
-                  />
-                </label>
-                <label *ngIf="sampleUploadStateFor(i, m).fileType === 'EXCEL'">
-                  Sheet name
-                  <input
-                    type="text"
-                    [value]="sampleUploadStateFor(i, m).sheetName || ''"
-                    (input)="setSampleUploadOption(i, m, 'sheetName', $any($event.target).value)"
-                  />
-                </label>
-                <label *ngIf="['JSON', 'XML'].includes(sampleUploadStateFor(i, m).fileType)">
-                  Record path
-                  <input
-                    type="text"
-                    placeholder="e.g. data.items"
-                    [value]="sampleUploadStateFor(i, m).recordPath || ''"
-                    (input)="setSampleUploadOption(i, m, 'recordPath', $any($event.target).value)"
-                  />
-                </label>
-                <label>
-                  Value column
-                  <input
-                    type="text"
-                    placeholder="COLUMN_1"
-                    [value]="sampleUploadStateFor(i, m).valueColumn || ''"
-                    (input)="setSampleUploadOption(i, m, 'valueColumn', $any($event.target).value)"
-                  />
-                </label>
-                <label>
-                  Encoding
-                  <input
-                    type="text"
-                    placeholder="UTF-8"
-                    [value]="sampleUploadStateFor(i, m).encoding || ''"
-                    (input)="setSampleUploadOption(i, m, 'encoding', $any($event.target).value)"
-                  />
-                </label>
-                <label>
-                  Max rows
-                  <input
-                    type="number"
-                    min="1"
-                    max="10"
-                    [value]="sampleUploadStateFor(i, m).limit"
-                    (input)="setSampleUploadOption(i, m, 'limit', $any($event.target).value)"
-                  />
-                </label>
-                <label>
-                  Sample file
-                  <input type="file" (change)="onSampleFileSelected(i, m, $event)" />
-                </label>
-                <p class="hint" *ngIf="sampleUploadStateFor(i, m).fileName">
-                  Selected: {{ sampleUploadStateFor(i, m).fileName }}
-                </p>
-                <div class="upload-actions">
-                  <button
-                    type="button"
-                    class="secondary"
-                    (click)="uploadSampleFile(i, m)"
-                    [disabled]="sampleUploadStateFor(i, m).uploading"
-                  >
-                    {{ sampleUploadStateFor(i, m).uploading ? 'Previewing…' : 'Upload & Preview' }}
-                  </button>
-                </div>
-                <p class="error" *ngIf="sampleUploadStateFor(i, m).error">
-                  {{ sampleUploadStateFor(i, m).error }}
-                </p>
-                <p class="hint" *ngIf="sampleUploadStateFor(i, m).rows.length === 10">
-                  Showing first 10 rows from the uploaded file.
-                </p>
-                <div class="upload-results" *ngIf="sampleUploadStateFor(i, m).rows.length">
-                  <div class="upload-result" *ngFor="let row of sampleUploadStateFor(i, m).rows">
-                    <header>Row {{ row.rowNumber }}</header>
-                    <p><strong>Input:</strong> {{ stringifyResult(row.valueBefore) }}</p>
-                    <p class="success" *ngIf="!row.error">
-                      <strong>Transformed:</strong> {{ stringifyResult(row.transformedValue) }}
-                    </p>
-                    <p class="error" *ngIf="row.error">
-                      <strong>Error:</strong> {{ row.error }}
-                    </p>
-                    <details>
-                      <summary>Raw record</summary>
-                      <pre>{{ row.rawRecord | json }}</pre>
-                    </details>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
           <button type="button" class="secondary" (click)="addMapping(i)">Add mapping</button>
         </div>

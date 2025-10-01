@@ -32,7 +32,8 @@ describe('AdminReconciliationStateService', () => {
   beforeEach(() => {
     api = jasmine.createSpyObj<ApiService>('ApiService', [
       'getAdminReconciliations',
-      'previewTransformationFromFile'
+      'previewSourceTransformationFromFile',
+      'applySourceTransformation'
     ]);
     notifications = jasmine.createSpyObj<NotificationService>('NotificationService', ['push']);
     api.getAdminReconciliations.and.returnValue(of(pageResponse));
@@ -83,24 +84,24 @@ describe('AdminReconciliationStateService', () => {
   });
 
   it('previews transformations from a sample file via the API', (done) => {
-    const response = { rows: [] };
-    api.previewTransformationFromFile.and.returnValue(of(response));
+    const response = { rawRows: [], transformedRows: [] };
+    api.previewSourceTransformationFromFile.and.returnValue(of(response));
     const file = new File(['a,b\n1,2'], 'sample.csv', { type: 'text/csv' });
 
     service
-      .previewTransformationFromFile(
+      .previewSourceTransformationFromFile(
         {
           fileType: 'CSV',
           hasHeader: true,
           limit: 5,
-          transformations: []
+          transformationPlan: null
         },
         file
       )
-      .subscribe((result) => {
+      .subscribe((result: { rawRows: unknown[]; transformedRows: unknown[] }) => {
         expect(result).toEqual(response);
-        expect(api.previewTransformationFromFile).toHaveBeenCalledWith(
-          jasmine.objectContaining({ fileType: 'CSV', hasHeader: true }),
+        expect(api.previewSourceTransformationFromFile).toHaveBeenCalledWith(
+          jasmine.objectContaining({ fileType: 'CSV', hasHeader: true, limit: 5 }),
           file
         );
         done();
@@ -108,17 +109,17 @@ describe('AdminReconciliationStateService', () => {
   });
 
   it('surfaces preview errors through notifications', (done) => {
-    api.previewTransformationFromFile.and.returnValue(
+    api.previewSourceTransformationFromFile.and.returnValue(
       throwError(() => new Error('failed'))
     );
     const file = new File(['{}'], 'sample.json', { type: 'application/json' });
 
     service
-      .previewTransformationFromFile(
+      .previewSourceTransformationFromFile(
         {
           fileType: 'JSON',
           hasHeader: false,
-          transformations: []
+          transformationPlan: null
         },
         file
       )

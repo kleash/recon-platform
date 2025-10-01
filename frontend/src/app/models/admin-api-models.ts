@@ -30,11 +30,7 @@ export type AccessRole = 'VIEWER' | 'MAKER' | 'CHECKER';
 
 export type DataBatchStatus = 'PENDING' | 'LOADING' | 'COMPLETE' | 'FAILED' | 'ARCHIVED';
 
-export type TransformationType =
-  | 'GROOVY_SCRIPT'
-  | 'EXCEL_FORMULA'
-  | 'FUNCTION_PIPELINE'
-  | 'LLM_PROMPT';
+export type TransformationType = 'GROOVY_SCRIPT' | 'EXCEL_FORMULA' | 'FUNCTION_PIPELINE';
 
 export interface AdminReconciliationSummary {
   id: number;
@@ -56,6 +52,104 @@ export interface AdminReconciliationSummaryPage {
   size: number;
 }
 
+export type SourceRowOperationType = 'FILTER' | 'AGGREGATE' | 'SPLIT';
+export type SourceRowFilterMode = 'RETAIN_MATCHING' | 'EXCLUDE_MATCHING';
+export type SourceRowComparisonOperator =
+  | 'EQUALS'
+  | 'NOT_EQUALS'
+  | 'IN'
+  | 'NOT_IN'
+  | 'GREATER_THAN'
+  | 'GREATER_OR_EQUAL'
+  | 'LESS_THAN'
+  | 'LESS_OR_EQUAL'
+  | 'IS_BLANK'
+  | 'IS_NOT_BLANK';
+export type SourceAggregationFunction = 'SUM' | 'AVG' | 'MIN' | 'MAX' | 'COUNT' | 'FIRST' | 'LAST';
+export type SourceColumnOperationType = 'COMBINE' | 'PIPELINE' | 'ROUND';
+export type SourceRoundingMode =
+  | 'UP'
+  | 'DOWN'
+  | 'CEILING'
+  | 'FLOOR'
+  | 'HALF_UP'
+  | 'HALF_DOWN'
+  | 'HALF_EVEN';
+
+export interface SourceRowFilterOperation {
+  column: string;
+  mode: SourceRowFilterMode;
+  operator: SourceRowComparisonOperator;
+  value?: string | null;
+  values?: string[];
+  caseInsensitive?: boolean;
+}
+
+export interface SourceAggregationDefinition {
+  sourceColumn?: string | null;
+  resultColumn?: string | null;
+  function: SourceAggregationFunction;
+  scale?: number | null;
+  roundingMode?: SourceRoundingMode;
+}
+
+export interface SourceRowAggregateOperation {
+  groupBy: string[];
+  aggregations: SourceAggregationDefinition[];
+  retainColumns?: string[];
+  sortByGroup?: boolean;
+}
+
+export interface SourceRowSplitOperation {
+  sourceColumn: string;
+  targetColumn?: string | null;
+  delimiter?: string | null;
+  trimValues?: boolean;
+  dropEmptyValues?: boolean;
+}
+
+export interface SourceRowOperationConfig {
+  type: SourceRowOperationType;
+  filter?: SourceRowFilterOperation;
+  aggregate?: SourceRowAggregateOperation;
+  split?: SourceRowSplitOperation;
+}
+
+export interface SourceColumnCombineOperation {
+  targetColumn: string;
+  sources: string[];
+  delimiter?: string | null;
+  skipBlanks?: boolean;
+  prefix?: string | null;
+  suffix?: string | null;
+}
+
+export interface SourceColumnPipelineOperation {
+  targetColumn: string;
+  sourceColumn?: string | null;
+  configuration: string;
+}
+
+export interface SourceColumnRoundOperation {
+  targetColumn: string;
+  sourceColumn?: string | null;
+  scale?: number | null;
+  roundingMode?: SourceRoundingMode;
+}
+
+export interface SourceColumnOperationConfig {
+  type: SourceColumnOperationType;
+  combine?: SourceColumnCombineOperation;
+  pipeline?: SourceColumnPipelineOperation;
+  round?: SourceColumnRoundOperation;
+}
+
+export interface SourceTransformationPlan {
+  datasetGroovyScript?: string | null;
+  rowOperations: SourceRowOperationConfig[];
+  columnOperations: SourceColumnOperationConfig[];
+}
+
 export interface AdminSource {
   id?: number | null;
   code: string;
@@ -70,6 +164,7 @@ export interface AdminSource {
   adapterOptions?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
+  transformationPlan?: SourceTransformationPlan | null;
 }
 
 export interface AdminCanonicalFieldMapping {
@@ -297,46 +392,29 @@ export interface TransformationValidationResponse {
   message: string;
 }
 
-export interface PreviewTransformationDto {
-  type: TransformationType;
-  expression?: string | null;
-  configuration?: string | null;
-  displayOrder?: number | null;
-  active?: boolean;
-}
-
-export interface TransformationPreviewRequest {
-  value: unknown;
-  rawRecord: Record<string, unknown>;
-  transformations: PreviewTransformationDto[];
-}
-
-export interface TransformationPreviewResponse {
-  result: unknown;
-}
-
 export type TransformationSampleFileType = 'CSV' | 'EXCEL' | 'JSON' | 'XML' | 'DELIMITED';
 
-export interface TransformationFilePreviewUploadRequest {
+export interface SourceTransformationPreviewUploadRequest {
   fileType: TransformationSampleFileType;
   hasHeader: boolean;
   delimiter?: string | null;
   sheetName?: string | null;
   recordPath?: string | null;
-  valueColumn?: string | null;
   encoding?: string | null;
   limit?: number | null;
-  transformations: PreviewTransformationDto[];
+  transformationPlan?: SourceTransformationPlan | null;
 }
 
-export interface TransformationFilePreviewRow {
-  rowNumber: number;
-  rawRecord: Record<string, unknown>;
-  valueBefore: unknown;
-  transformedValue: unknown;
-  error?: string | null;
+export interface SourceTransformationPreviewResponse {
+  rawRows: Record<string, unknown>[];
+  transformedRows: Record<string, unknown>[];
 }
 
-export interface TransformationFilePreviewResponse {
-  rows: TransformationFilePreviewRow[];
+export interface SourceTransformationApplyRequest {
+  transformationPlan?: SourceTransformationPlan | null;
+  rows: Record<string, unknown>[];
+}
+
+export interface SourceTransformationApplyResponse {
+  transformedRows: Record<string, unknown>[];
 }

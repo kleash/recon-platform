@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.universal.reconciliation.domain.dto.admin.AdminAccessControlEntryRequest;
 import com.universal.reconciliation.domain.dto.admin.AdminCanonicalFieldMappingRequest;
 import com.universal.reconciliation.domain.dto.admin.AdminCanonicalFieldRequest;
@@ -39,6 +40,7 @@ import com.universal.reconciliation.service.SystemActivityService;
 import com.universal.reconciliation.service.ingestion.IngestionAdapterRequest;
 import com.universal.reconciliation.service.ingestion.SourceIngestionService;
 import com.universal.reconciliation.service.transform.DataTransformationService;
+import com.universal.reconciliation.service.transform.SourceTransformationPlanMapper;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -79,7 +81,12 @@ class AdminReconciliationServiceTest {
     void setUp() {
         MockitoAnnotations.openMocks(this);
         service = new AdminReconciliationService(
-                definitionRepository, systemActivityService, validator, sourceIngestionService, transformationService);
+                definitionRepository,
+                systemActivityService,
+                validator,
+                sourceIngestionService,
+                transformationService,
+                new SourceTransformationPlanMapper(new ObjectMapper()));
     }
 
     @Test
@@ -186,6 +193,7 @@ class AdminReconciliationServiceTest {
                                 null,
                                 null,
                                 null,
+                                null,
                                 null),
                         new AdminSourceRequest(
                                 null,
@@ -195,6 +203,7 @@ class AdminReconciliationServiceTest {
                                 false,
                                 "Ledger",
                                 "{}",
+                                null,
                                 null,
                                 null,
                                 null,
@@ -278,6 +287,7 @@ class AdminReconciliationServiceTest {
                         "Custody Feed",
                         IngestionAdapterType.CSV_FILE,
                         true,
+                        null,
                         null,
                         null,
                         null,

@@ -6,8 +6,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.universal.reconciliation.domain.dto.admin.TransformationFilePreviewUploadRequest;
-import com.universal.reconciliation.domain.dto.admin.TransformationPreviewRequest;
+import com.universal.reconciliation.domain.dto.admin.SourceTransformationPreviewUploadRequest;
 import com.universal.reconciliation.domain.enums.TransformationSampleFileType;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
@@ -32,16 +31,15 @@ class TransformationSampleFileServiceTest {
                 "sample.csv",
                 "text/csv",
                 "Amount,Fee\n100,10\n200,20".getBytes(StandardCharsets.UTF_8));
-        TransformationFilePreviewUploadRequest request = new TransformationFilePreviewUploadRequest(
+        SourceTransformationPreviewUploadRequest request = new SourceTransformationPreviewUploadRequest(
                 TransformationSampleFileType.CSV,
                 true,
                 ",",
                 null,
                 null,
-                "Amount",
                 null,
                 null,
-                List.of(new TransformationPreviewRequest.PreviewTransformationDto(null, null, null, 1, true)));
+                null);
 
         List<Map<String, Object>> rows = service.parseSamples(request, file);
 
@@ -56,16 +54,15 @@ class TransformationSampleFileServiceTest {
                 "sample.csv",
                 "text/csv",
                 "100|OK\n200|FAIL".getBytes(StandardCharsets.UTF_8));
-        TransformationFilePreviewUploadRequest request = new TransformationFilePreviewUploadRequest(
+        SourceTransformationPreviewUploadRequest request = new SourceTransformationPreviewUploadRequest(
                 TransformationSampleFileType.DELIMITED,
                 false,
                 "|",
                 null,
                 null,
-                "COLUMN_1",
                 null,
                 null,
-                List.of(new TransformationPreviewRequest.PreviewTransformationDto(null, null, null, 1, true)));
+                null);
 
         List<Map<String, Object>> rows = service.parseSamples(request, file);
 
@@ -80,16 +77,15 @@ class TransformationSampleFileServiceTest {
                 "sample.json",
                 "application/json",
                 "{\"data\":{\"items\":[{\"amount\":100},{\"amount\":200}]}}".getBytes(StandardCharsets.UTF_8));
-        TransformationFilePreviewUploadRequest request = new TransformationFilePreviewUploadRequest(
+        SourceTransformationPreviewUploadRequest request = new SourceTransformationPreviewUploadRequest(
                 TransformationSampleFileType.JSON,
                 false,
                 null,
                 null,
                 "data.items",
-                "amount",
                 null,
                 null,
-                List.of(new TransformationPreviewRequest.PreviewTransformationDto(null, null, null, 1, true)));
+                null);
 
         List<Map<String, Object>> rows = service.parseSamples(request, file);
 
@@ -104,16 +100,15 @@ class TransformationSampleFileServiceTest {
                 "sample.json",
                 "application/json",
                 "{\"data\":{\"items\":[{\"amount\":100},{\"amount\":200}]}}".getBytes(StandardCharsets.UTF_8));
-        TransformationFilePreviewUploadRequest request = new TransformationFilePreviewUploadRequest(
+        SourceTransformationPreviewUploadRequest request = new SourceTransformationPreviewUploadRequest(
                 TransformationSampleFileType.JSON,
                 false,
                 null,
                 null,
                 "data.items[1]",
-                "amount",
                 null,
                 null,
-                List.of(new TransformationPreviewRequest.PreviewTransformationDto(null, null, null, 1, true)));
+                null);
 
         List<Map<String, Object>> rows = service.parseSamples(request, file);
 
@@ -129,7 +124,7 @@ class TransformationSampleFileServiceTest {
         TransformationSampleFileService smallLimitService =
                 new TransformationSampleFileService(new ObjectMapper(), 10L);
 
-        TransformationFilePreviewUploadRequest request = new TransformationFilePreviewUploadRequest(
+        SourceTransformationPreviewUploadRequest request = new SourceTransformationPreviewUploadRequest(
                 TransformationSampleFileType.JSON,
                 false,
                 null,
@@ -137,8 +132,7 @@ class TransformationSampleFileServiceTest {
                 null,
                 null,
                 null,
-                null,
-                List.of(new TransformationPreviewRequest.PreviewTransformationDto(null, null, null, 1, true)));
+                null);
 
         assertThatThrownBy(() -> smallLimitService.parseSamples(request, file))
                 .isInstanceOf(TransformationEvaluationException.class)
@@ -162,16 +156,15 @@ class TransformationSampleFileServiceTest {
                     "sample.xlsx",
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     out.toByteArray());
-            TransformationFilePreviewUploadRequest request = new TransformationFilePreviewUploadRequest(
+            SourceTransformationPreviewUploadRequest request = new SourceTransformationPreviewUploadRequest(
                     TransformationSampleFileType.EXCEL,
                     true,
                     null,
                     "SheetA",
                     null,
-                    "Amount",
                     null,
                     null,
-                    List.of(new TransformationPreviewRequest.PreviewTransformationDto(null, null, null, 1, true)));
+                    null);
 
             List<Map<String, Object>> rows = service.parseSamples(request, file);
 
@@ -198,16 +191,15 @@ class TransformationSampleFileServiceTest {
                 "sample.xml",
                 "application/xml",
                 xml.getBytes(StandardCharsets.UTF_8));
-        TransformationFilePreviewUploadRequest request = new TransformationFilePreviewUploadRequest(
+        SourceTransformationPreviewUploadRequest request = new SourceTransformationPreviewUploadRequest(
                 TransformationSampleFileType.XML,
                 false,
                 null,
                 null,
                 "data.items.item",
-                "amount",
                 null,
                 null,
-                List.of(new TransformationPreviewRequest.PreviewTransformationDto(null, null, null, 1, true)));
+                null);
 
         List<Map<String, Object>> rows = service.parseSamples(request, file);
 
@@ -223,7 +215,7 @@ class TransformationSampleFileServiceTest {
                 "sample.json",
                 "application/json",
                 "{\"items\":[]}".getBytes(StandardCharsets.UTF_8));
-        TransformationFilePreviewUploadRequest request = new TransformationFilePreviewUploadRequest(
+        SourceTransformationPreviewUploadRequest request = new SourceTransformationPreviewUploadRequest(
                 TransformationSampleFileType.JSON,
                 false,
                 null,
@@ -231,8 +223,7 @@ class TransformationSampleFileServiceTest {
                 "items[0].payload",
                 null,
                 null,
-                null,
-                List.of(new TransformationPreviewRequest.PreviewTransformationDto(null, null, null, 1, true)));
+                null);
 
         assertThatThrownBy(() -> service.parseSamples(request, file))
                 .isInstanceOf(TransformationEvaluationException.class)

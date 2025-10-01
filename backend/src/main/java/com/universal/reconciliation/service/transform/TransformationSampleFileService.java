@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
-import com.universal.reconciliation.domain.dto.admin.TransformationFilePreviewUploadRequest;
+import com.universal.reconciliation.domain.dto.admin.SourceTransformationPreviewUploadRequest;
 import com.universal.reconciliation.domain.enums.TransformationSampleFileType;
 import java.io.IOException;
 import java.io.InputStream;
@@ -63,7 +63,7 @@ public class TransformationSampleFileService {
     }
 
     public List<Map<String, Object>> parseSamples(
-            TransformationFilePreviewUploadRequest request, MultipartFile file) {
+            SourceTransformationPreviewUploadRequest request, MultipartFile file) {
         Objects.requireNonNull(file, "Sample file is required");
         enforceUploadSize(file);
 
@@ -90,7 +90,7 @@ public class TransformationSampleFileService {
     }
 
     private List<Map<String, Object>> parseDelimitedFile(
-            MultipartFile file, TransformationFilePreviewUploadRequest request, int limit, char defaultDelimiter) {
+            MultipartFile file, SourceTransformationPreviewUploadRequest request, int limit, char defaultDelimiter) {
         char delimiter = resolveDelimiter(request.delimiter(), defaultDelimiter);
         Charset charset = resolveCharset(request.encoding());
         boolean hasHeader = request.hasHeader();
@@ -140,7 +140,7 @@ public class TransformationSampleFileService {
     }
 
     private List<Map<String, Object>> parseExcelFile(
-            MultipartFile file, TransformationFilePreviewUploadRequest request, int limit) {
+            MultipartFile file, SourceTransformationPreviewUploadRequest request, int limit) {
         boolean hasHeader = request.hasHeader();
         try (InputStream inputStream = file.getInputStream(); Workbook workbook = WorkbookFactory.create(inputStream)) {
             Sheet sheet = resolveSheet(workbook, request.sheetName());
@@ -190,7 +190,7 @@ public class TransformationSampleFileService {
     }
 
     private List<Map<String, Object>> parseJsonFile(
-            MultipartFile file, TransformationFilePreviewUploadRequest request, int limit) {
+            MultipartFile file, SourceTransformationPreviewUploadRequest request, int limit) {
         JsonNode root = readJsonTree(file, request.encoding());
         JsonNode target = resolvePath(root, request.recordPath());
         List<Map<String, Object>> rows = new ArrayList<>();
@@ -210,7 +210,7 @@ public class TransformationSampleFileService {
     }
 
     private List<Map<String, Object>> parseXmlFile(
-            MultipartFile file, TransformationFilePreviewUploadRequest request, int limit) {
+            MultipartFile file, SourceTransformationPreviewUploadRequest request, int limit) {
         JsonNode root = readXmlTree(file, request.encoding());
         JsonNode target = resolvePath(root, request.recordPath());
         List<Map<String, Object>> rows = new ArrayList<>();

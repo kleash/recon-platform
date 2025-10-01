@@ -70,6 +70,9 @@ public class ReconciliationSource {
     @Column(name = "adapter_options", columnDefinition = "TEXT")
     private String adapterOptions;
 
+    @Column(name = "transformation_plan", columnDefinition = "TEXT")
+    private String transformationPlan;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 

@@ -34,6 +34,8 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import com.universal.reconciliation.service.transform.DataTransformationService;
+import com.universal.reconciliation.service.transform.SourceTransformationPlanMapper;
+import com.universal.reconciliation.service.transform.SourceTransformationPlanProcessor;
 import com.universal.reconciliation.service.transform.TransformationEvaluationException;
 import com.universal.reconciliation.util.ParsingUtils;
 import org.springframework.stereotype.Service;
@@ -55,6 +57,8 @@ public class SourceIngestionService {
     private final Map<IngestionAdapterType, IngestionAdapter> adapters;
     private final ObjectMapper objectMapper;
     private final DataTransformationService transformationService;
+    private final SourceTransformationPlanMapper transformationPlanMapper;
+    private final SourceTransformationPlanProcessor transformationPlanProcessor;
 
     public SourceIngestionService(
             ReconciliationSourceRepository sourceRepository,
@@ -64,7 +68,9 @@ public class SourceIngestionService {
             SourceDataRecordRepository recordRepository,
             List<IngestionAdapter> adapters,
             ObjectMapper objectMapper,
-            DataTransformationService transformationService) {
+            DataTransformationService transformationService,
+            SourceTransformationPlanMapper transformationPlanMapper,
+            SourceTransformationPlanProcessor transformationPlanProcessor) {
         this.sourceRepository = sourceRepository;
         this.canonicalFieldRepository = canonicalFieldRepository;
         this.mappingRepository = mappingRepository;
@@ -73,6 +79,8 @@ public class SourceIngestionService {
         this.adapters = adapters.stream().collect(Collectors.toMap(IngestionAdapter::getType, Function.identity()));
         this.objectMapper = objectMapper;
         this.transformationService = transformationService;
+        this.transformationPlanMapper = transformationPlanMapper;
+        this.transformationPlanProcessor = transformationPlanProcessor;
     }
 
     @Transactional
@@ -93,6 +101,8 @@ public class SourceIngestionService {
                 .orElseThrow(() -> new IllegalStateException("No adapter registered for " + adapterType));
 
         List<Map<String, Object>> rawRecords = adapter.readRecords(request);
+        var transformationPlan = transformationPlanMapper.deserialize(source.getTransformationPlan()).orElse(null);
+        List<Map<String, Object>> preparedRecords = transformationPlanProcessor.apply(transformationPlan, rawRecords);
         List<CanonicalField> canonicalFields = canonicalFieldRepository.findByDefinitionOrderByDisplayOrderAsc(definition);
         Map<Long, CanonicalFieldMapping> mappingByFieldId = mappingRepository.findBySource(source).stream()
                 .collect(Collectors.toMap(mapping -> mapping.getCanonicalField().getId(), Function.identity()));
@@ -108,7 +118,7 @@ public class SourceIngestionService {
                 .toList();
 
         List<SourceDataRecord> records = new ArrayList<>();
-        for (Map<String, Object> rawRecord : rawRecords) {
+        for (Map<String, Object> rawRecord : preparedRecords) {
             Map<String, Object> canonicalPayload = projectRecord(canonicalFields, mappingByFieldId, rawRecord);
             String canonicalKey = buildCanonicalKey(keyFields, canonicalPayload);
 

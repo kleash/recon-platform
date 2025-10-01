@@ -49,6 +49,27 @@ class FunctionPipelineTransformationEvaluator {
         return context.value();
     }
 
+    Object evaluateConfiguration(String configuration, Object currentValue, Map<String, Object> rawRecord) {
+        if (!StringUtils.hasText(configuration)) {
+            return currentValue;
+        }
+        PipelineDefinition definition = readPipeline(configuration);
+        if (definition.steps() == null || definition.steps().isEmpty()) {
+            return currentValue;
+        }
+        Object value = currentValue;
+        FunctionCallContext context = new FunctionCallContext(value, rawRecord == null ? Map.of() : rawRecord);
+        for (PipelineStep step : definition.steps()) {
+            BiFunction<FunctionCallContext, List<String>, Object> handler =
+                    handlers.get(step.function().toUpperCase(Locale.ROOT));
+            if (handler == null) {
+                throw new TransformationEvaluationException("Unsupported function: " + step.function());
+            }
+            context = new FunctionCallContext(handler.apply(context, step.args()), context.rawRecord());
+        }
+        return context.value();
+    }
+
     void validateConfiguration(String configuration) {
         readPipeline(configuration);
     }

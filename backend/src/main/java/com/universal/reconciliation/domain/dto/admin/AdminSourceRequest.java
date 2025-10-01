@@ -1,6 +1,7 @@
 package com.universal.reconciliation.domain.dto.admin;
 
 import com.universal.reconciliation.domain.enums.IngestionAdapterType;
+import com.universal.reconciliation.domain.transform.SourceTransformationPlan;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -18,5 +19,5 @@ public record AdminSourceRequest(
         String arrivalExpectation,
         String arrivalTimezone,
         Integer arrivalSlaMinutes,
-        String adapterOptions) {}
-
+        String adapterOptions,
+        SourceTransformationPlan transformationPlan) {}

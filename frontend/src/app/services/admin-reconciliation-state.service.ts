@@ -11,15 +11,15 @@ import {
   ReconciliationLifecycleStatus,
   TransformationValidationRequest,
   TransformationValidationResponse,
-  TransformationPreviewRequest,
-  TransformationPreviewResponse,
-  TransformationFilePreviewUploadRequest,
-  TransformationFilePreviewResponse,
   TransformationSampleResponse,
   GroovyScriptGenerationRequest,
   GroovyScriptGenerationResponse,
   GroovyScriptTestRequest,
-  GroovyScriptTestResponse
+  GroovyScriptTestResponse,
+  SourceTransformationPreviewUploadRequest,
+  SourceTransformationPreviewResponse,
+  SourceTransformationApplyRequest,
+  SourceTransformationApplyResponse
 } from '../models/admin-api-models';
 import { ApiService } from './api.service';
 import { NotificationService } from './notification.service';
@@ -249,18 +249,6 @@ export class AdminReconciliationStateService {
     return this.api.validateTransformation(payload);
   }
 
-  previewTransformation(
-    payload: TransformationPreviewRequest
-  ): Observable<TransformationPreviewResponse> {
-    return this.api.previewTransformation(payload).pipe(
-      catchError((error) => {
-        console.error('Failed to preview transformation', error);
-        this.notifications.push('Unable to preview transformations.', 'error');
-        return throwError(() => error);
-      })
-    );
-  }
-
   fetchTransformationSamples(
     definitionId: number,
     sourceCode: string,
@@ -298,14 +286,26 @@ export class AdminReconciliationStateService {
     );
   }
 
-  previewTransformationFromFile(
-    payload: TransformationFilePreviewUploadRequest,
+  previewSourceTransformationFromFile(
+    payload: SourceTransformationPreviewUploadRequest,
     file: File
-  ): Observable<TransformationFilePreviewResponse> {
-    return this.api.previewTransformationFromFile(payload, file).pipe(
+  ): Observable<SourceTransformationPreviewResponse> {
+    return this.api.previewSourceTransformationFromFile(payload, file).pipe(
       catchError((error) => {
         console.error('Failed to preview transformations from file', error);
         this.notifications.push('Unable to preview transformations from the uploaded file.', 'error');
+        return throwError(() => error);
+      })
+    );
+  }
+
+  applySourceTransformation(
+    payload: SourceTransformationApplyRequest
+  ): Observable<SourceTransformationApplyResponse> {
+    return this.api.applySourceTransformation(payload).pipe(
+      catchError((error) => {
+        console.error('Failed to apply source transformation plan', error);
+        this.notifications.push('Unable to apply the configured transformations.', 'error');
         return throwError(() => error);
       })
     );

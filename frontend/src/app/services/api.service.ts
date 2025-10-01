@@ -32,10 +32,10 @@ import {
   GroovyScriptGenerationResponse,
   GroovyScriptTestRequest,
   GroovyScriptTestResponse,
-  TransformationPreviewRequest,
-  TransformationPreviewResponse,
-  TransformationFilePreviewUploadRequest,
-  TransformationFilePreviewResponse,
+  SourceTransformationPreviewUploadRequest,
+  SourceTransformationPreviewResponse,
+  SourceTransformationApplyRequest,
+  SourceTransformationApplyResponse,
   TransformationSampleResponse,
   TransformationValidationRequest,
   TransformationValidationResponse,
@@ -257,15 +257,6 @@ export class ApiService {
     );
   }
 
-  previewTransformation(
-    payload: TransformationPreviewRequest
-  ): Observable<TransformationPreviewResponse> {
-    return this.http.post<TransformationPreviewResponse>(
-      `${BASE_URL}/admin/transformations/preview`,
-      payload
-    );
-  }
-
   fetchTransformationSamples(
     definitionId: number,
     sourceCode: string,
@@ -291,16 +282,25 @@ export class ApiService {
     return this.http.post<GroovyScriptTestResponse>(`${BASE_URL}/admin/transformations/groovy/test`, payload);
   }
 
-  previewTransformationFromFile(
-    payload: TransformationFilePreviewUploadRequest,
+  previewSourceTransformationFromFile(
+    payload: SourceTransformationPreviewUploadRequest,
     file: File
-  ): Observable<TransformationFilePreviewResponse> {
+  ): Observable<SourceTransformationPreviewResponse> {
     const formData = new FormData();
     formData.append('request', new Blob([JSON.stringify(payload)], { type: 'application/json' }));
     formData.append('file', file);
-    return this.http.post<TransformationFilePreviewResponse>(
-      `${BASE_URL}/admin/transformations/preview/upload`,
+    return this.http.post<SourceTransformationPreviewResponse>(
+      `${BASE_URL}/admin/transformations/plan/preview/upload`,
       formData
+    );
+  }
+
+  applySourceTransformation(
+    payload: SourceTransformationApplyRequest
+  ): Observable<SourceTransformationApplyResponse> {
+    return this.http.post<SourceTransformationApplyResponse>(
+      `${BASE_URL}/admin/transformations/plan/apply`,
+      payload
     );
   }
 

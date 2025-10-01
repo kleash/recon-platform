@@ -1,6 +1,7 @@
 package com.universal.reconciliation.domain.dto.admin;
 
 import com.universal.reconciliation.domain.enums.IngestionAdapterType;
+import com.universal.reconciliation.domain.transform.SourceTransformationPlan;
 import java.time.Instant;
 
 /**
@@ -18,6 +19,6 @@ public record AdminSourceDto(
         String arrivalTimezone,
         Integer arrivalSlaMinutes,
         String adapterOptions,
+        SourceTransformationPlan transformationPlan,
         Instant createdAt,
         Instant updatedAt) {}
-

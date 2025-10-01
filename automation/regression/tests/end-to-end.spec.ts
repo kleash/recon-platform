@@ -165,6 +165,14 @@ async function createReconciliationFromScratch(options: {
 
   await page.getByRole('button', { name: 'Next' }).click();
 
+  const transformationCards = page.locator('.source-transformation-card');
+  await expect(transformationCards.first()).toBeVisible({ timeout: 30000 });
+  await expect(
+    page.getByText('Upload sample data or load recent rows', { exact: false })
+  ).toBeVisible();
+
+  await page.getByRole('button', { name: 'Next' }).click();
+
   const fieldCards = page.locator('.field-card');
   await configureCanonicalField(fieldCards.first(), {
     canonicalName: 'transactionId',
@@ -397,6 +405,53 @@ async function createGroovyReconciliation(options: {
 
   await page.getByRole('button', { name: 'Next' }).click();
 
+  const transformationCards = page.locator('.source-transformation-card');
+  await expect(transformationCards.first()).toBeVisible({ timeout: 30000 });
+
+  const secondaryPlanCard = transformationCards.nth(1);
+  const datasetGroovyScript = [
+    'rows.each {',
+    '  def raw = it.amount',
+    '  if (raw != null) {',
+    "    def sanitized = raw.toString().replace(',', '')",
+    '    it.amount = new BigDecimal(sanitized) * 2',
+    '  }',
+    '}'
+  ].join('\n');
+  await secondaryPlanCard.getByLabel('Dataset Groovy Script').fill(datasetGroovyScript);
+  await secondaryPlanCard.getByLabel('Sample file').setInputFiles(groovyPreviewSample);
+  const previewActions = secondaryPlanCard.locator('.preview-actions');
+  const previewButton = previewActions.locator('button').first();
+  const previewResponse = page.waitForResponse((response) => {
+    return (
+      response.request().method() === 'POST' &&
+      response.url().includes('/api/admin/transformations/plan/preview/upload')
+    );
+  });
+  await previewButton.click();
+  const response = await previewResponse;
+  expect(response.ok()).toBeTruthy();
+  await expect(previewButton).toHaveText('Upload & Preview', { timeout: 30000 });
+
+  const transformedColumn = secondaryPlanCard.locator('.preview-column').nth(1);
+  const transformedFirstRow = transformedColumn.locator('pre').first();
+  await expect(transformedFirstRow).toBeVisible({ timeout: 30000 });
+  await expect(transformedFirstRow).toHaveText(/210\.5/, { timeout: 30000 });
+
+  const datasetPreviewScreenshot = 'groovy-source-plan.png';
+  await secondaryPlanCard.screenshot({ path: resolveAssetPath(datasetPreviewScreenshot) });
+  await recordScreen({
+    name: 'Source-level transformation preview',
+    route: '/admin/new',
+    screenshotFile: datasetPreviewScreenshot,
+    assertions: [
+      { description: 'Dataset Groovy script doubles amounts before canonical mapping' },
+      { description: 'Preview confirms transformed rows from the uploaded sample' },
+    ],
+  });
+
+  await page.getByRole('button', { name: 'Next' }).click();
+
   const fieldCards = page.locator('.field-card');
   await configureCanonicalField(fieldCards.first(), {
     canonicalName: 'transactionId',
@@ -435,25 +490,6 @@ async function createGroovyReconciliation(options: {
   await transformationCard.getByLabel('Groovy script').fill(groovyScript);
   await transformationCard.getByRole('button', { name: 'Validate rule' }).click();
   await expect(transformationCard.getByText('Transformation is valid.')).toBeVisible();
-
-  const previewCard = secondaryMapping.locator('.preview-tools');
-  await expect(previewCard).toBeVisible();
-  await previewCard.getByLabel('Value column').fill('amount');
-  await previewCard.getByLabel('Sample file').setInputFiles(groovyPreviewSample);
-  await previewCard.getByRole('button', { name: 'Upload & Preview' }).click();
-  await expect(previewCard.getByText('Latest preview confirmed.')).toBeVisible({ timeout: 30000 });
-
-  const previewScreenshot = 'groovy-sample-preview.png';
-  await previewCard.screenshot({ path: resolveAssetPath(previewScreenshot) });
-  await recordScreen({
-    name: 'Transformation sample preview',
-    route: '/admin/new',
-    screenshotFile: previewScreenshot,
-    assertions: [
-      { description: 'Sample upload applies Groovy transformation before publish' },
-      { description: 'Preview result confirms transformed value for admin' }
-    ]
-  });
 
   await addCanonicalField(page, fieldCards, 2, {
     canonicalName: 'currency',
@@ -595,7 +631,7 @@ async function duplicateFromTemplate(options: {
   const existingDescription = await descriptionField.inputValue();
   await descriptionField.fill(`${existingDescription}\n\nAutomation clone created for regression coverage.`);
 
-  for (let i = 0; i < 5; i += 1) {
+  for (let i = 0; i < 6; i += 1) {
     await page.getByRole('button', { name: 'Next' }).click();
   }
 
@@ -779,9 +815,27 @@ async function testGroovyInWizard(options: {
   await page.locator('.detail-header .actions').getByRole('button', { name: 'Edit' }).click();
   await expect(page).toHaveURL(new RegExp(`/admin/${definitionId}/edit$`));
   await expect(page.getByRole('heading', { name: 'Edit reconciliation' })).toBeVisible();
-  for (let i = 0; i < 2; i += 1) {
-    await page.getByRole('button', { name: 'Next' }).click();
-  }
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  const transformationCards = page.locator('.source-transformation-card');
+  await expect(transformationCards.first()).toBeVisible({ timeout: 30000 });
+  const groovyCard = transformationCards
+    .filter({ has: page.locator('.source-code', { hasText: 'GROOVY_B' }) })
+    .first();
+  await expect(groovyCard).toBeVisible({ timeout: 30000 });
+
+  const loadRecentButton = groovyCard.getByRole('button', { name: 'Load recent rows' });
+  await loadRecentButton.click();
+  const rawPreview = groovyCard.locator('.preview-column').first().locator('pre').first();
+  await expect(rawPreview).toBeVisible({ timeout: 30000 });
+
+  const applyPlanButton = groovyCard.getByRole('button', { name: 'Apply plan to current rows' });
+  await applyPlanButton.click();
+  const transformedPreview = groovyCard.locator('.preview-column').nth(1).locator('pre').first();
+  await expect(transformedPreview).toBeVisible({ timeout: 30000 });
+
+  await page.getByRole('button', { name: 'Next' }).click();
 
   const fieldCards = page.locator('.field-card');
   const fieldCardCount = await fieldCards.count();
@@ -861,10 +915,15 @@ async function testGroovyInWizard(options: {
   } else {
     await expect(transformationCard).toBeVisible();
   }
-  await transformationCard.getByRole('button', { name: 'Load sample rows' }).click();
-  await expect(transformationCard.getByLabel('Sample row')).toBeVisible({ timeout: 30000 });
+  const groovyTestResponse = page.waitForResponse((response) => {
+    return (
+      response.request().method() === 'POST' &&
+      response.url().includes('/api/admin/transformations/groovy/test')
+    );
+  });
   await transformationCard.getByRole('button', { name: 'Run Groovy test' }).click();
-  await expect(transformationCard.getByText('Test result', { exact: false })).toBeVisible({ timeout: 30000 });
+  const testResponse = await groovyTestResponse;
+  expect(testResponse.ok()).toBeTruthy();
 
   await page.screenshot({ path: resolveAssetPath(screenshotName), fullPage: true });
   await recordScreen({
@@ -872,8 +931,8 @@ async function testGroovyInWizard(options: {
     route: `/admin/${definitionId}/edit`,
     screenshotFile: screenshotName,
     assertions: [
-      { description: 'Sample selector populates from latest ingestion batch' },
-      { description: 'Groovy test output displayed for transformed amount' },
+      { description: 'Transformations step supplies preview rows for Groovy testing' },
+      { description: 'Groovy test endpoint executes successfully for scripted amount' },
       { description: 'Validation button confirms compiled script' },
     ],
   });

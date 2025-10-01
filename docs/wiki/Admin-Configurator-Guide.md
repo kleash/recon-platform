@@ -105,7 +105,27 @@ you can pause and resume.
 - Responses may return arrays or objects; set **Record path** (dot-separated) to isolate the desired
   structure when the LLM wraps the payload.
 
-### 4.3 Schema & Transformations
+### 4.3 Transformations
+
+- The **Transformations** step sits between Sources and Schema and captures source-level
+  preprocessing. Each source owns its own transformation plan so you can normalise data before it is
+  mapped to canonical fields.
+- A transformation plan is executed in three phases:
+  1. **Dataset Groovy script** (optional) runs once per preview and can reshape or annotate the full
+     list of rows.
+  2. **Row operations** execute in order. Use filters to keep or exclude records, aggregations to
+     roll up rows (sum, average, min/max, count, first/last), and split rules to explode delimited
+     values into multiple rows.
+  3. **Column operations** run after row processing. Combine fields into a new column, apply
+     function pipelines, or round numeric values.
+- Every input on this step now ships with a tooltip. Hover the information icon beside a field to
+  see when the value is evaluated and how it affects the preview.
+- **Preview workflow:** upload a sample file (CSV, delimited text, Excel, JSON, XML) or load the
+  latest ingested rows. Apply the plan at any time to compare the raw dataset and the transformed
+  output side-by-side. The Groovy transformation tester picks up these preview rows so you can run
+  expressions against real data before publishing.
+
+### 4.4 Schema
 
 - Define canonical fields with roles (`KEY`, `COMPARE`, `CLASSIFIER`, etc.), tolerances, and display
   hints.
@@ -115,40 +135,28 @@ you can pause and resume.
   - Groovy scripts (multi-statement supported)
   - Excel-style formulas
   - UI-based function pipelines
-  - LLM prompt templates that call OpenAI to normalise or enrich field values
 - Use **Validate** to compile transformations immediately. Errors display inline with actionable
-  messages.
-- **Preview & Test panel:** Upload a sample file (CSV, delimited text, Excel, JSON, or XML) and
-  specify whether headers are present, the delimiter, or a record path to simulate transformations
-  before any data is ingested. The preview runs the full transformation chain against the first ten
-  records and highlights errors per row. You can still load recent ingestion rows and run the
-  Groovy tester against live data when you want to compare behaviour with production batches.
+  messages. Groovy scripts can be generated with the inline assistant and executed against the rows
+  prepared in the Transformations step.
+- **Legacy expression** retains the historical mapping expression that existed before the new
+  transformation engine. It is executed first when present so migrations remain backward compatible.
+- **Ordinal** controls the relative ordering of source mappings when multiple columns feed into a
+  single canonical field. Lower numbers run first.
 
-#### LLM prompt transformations
-
-- Author the prompt template, optional JSON schema, and result path directly in the wizard. Inline
-  validation checks compilation, JSON schema structure, and OpenAI client configuration before you
-  save.
-- Tokens such as `{{value}}`, `{{rawRecord}}`, and `{{schema}}` expose the current field, full source
-  payload, and shape hints to the prompt. Toggle **Include raw record context** off when you only want
-  the current value sent to the LLM.
-- Use sample rows with the preview panel to exercise prompts and inspect the returned JSON before
-  publishing.
-
-### 4.4 Reports (Optional)
+### 4.5 Reports (Optional)
 
 - Configure export templates: column order, highlighting, inclusion of matched/mismatched/missing
   records, and file naming conventions.
 - Templates map directly to report jobs defined in the automation suite.
 
-### 4.5 Access
+### 4.6 Access
 
 - Assign LDAP groups as **Maker**, **Checker**, or **Viewer**. You can scope entries by product,
   sub-product, and entity.
 - Configure notification preferences for publish events or ingestion failures. URP’s notification
   bridge handles channel delivery (email, Slack, etc.).
 
-### 4.6 Review & Publish
+### 4.7 Review & Publish
 
 - Inspect the generated summary (definition metadata, sources, schema counts, access matrix).
 - Choose **Save draft** to revisit later or **Publish** to make the reconciliation available to
@@ -228,21 +236,20 @@ value = amount
 
 ### 6.2 Sample Data Preview
 
-- The *Preview & Test* panel supports two complementary workflows:
-  - **Upload sample file:** Drop a CSV, delimited text, Excel workbook, JSON document, or XML payload,
-    tell the wizard whether headers are present (or set them implicitly with `COLUMN_1`, `COLUMN_2`,
-    ...), tweak the delimiter or sheet name, and optionally provide a record path for hierarchical
-    formats. The wizard previews the first ten rows, runs the entire transformation chain, and calls
-    out row-level errors so you can adjust scripts without ingesting data. The maximum upload size
-    defaults to 2 MiB and can be tuned with the `admin.transformations.preview.max-upload-bytes`
-    configuration property.
-  - **Load live samples:** Once a batch has completed, you can still fetch persisted rows and launch
-    the Groovy tester to validate against production data. Both upload and live samples share the
-    same diff view so you can compare raw and transformed values quickly.
-- Formula and pipeline transformations reuse the same panel, so a single preview covers mixed chains
-  (e.g. Groovy followed by pipeline cleanup).
-- To prevent accidental publishes, the wizard requires at least one successful preview per mapping
-  that contains active transformations before you can leave the Schema step.
+- The **Transformations** step owns previewing. Every source exposes the same two workflows:
+  - **Upload sample file:** Drop a CSV, delimited text, Excel workbook, JSON document, or XML payload
+    and provide parsing hints (headers, delimiter, sheet name, record path, encoding, row limit). The
+    wizard runs the dataset script, row operations, and column operations and renders a side-by-side
+    JSON view of raw versus transformed rows. The default upload limit is 2 MiB and can be tuned via
+    `admin.transformations.preview.max-upload-bytes`.
+  - **Load live samples:** After the first ingestion succeeds, use *Load recent rows* to fetch the
+    latest persisted batch. The preview panel marks which rows were used so you can cross-check
+    production inputs ahead of canonical mapping changes.
+- Groovy testers pull from the most recent preview dataset, allowing you to exercise field-level
+  scripts with exactly the same input that the plan produced.
+- Use previews liberally; they are lightweight and do not mutate stored batches. Once you are
+  satisfied with the plan, move to the Schema step to wire canonical mappings on top of the
+  normalised output.
 
 ### 6.3 Harness & Automation Support
 

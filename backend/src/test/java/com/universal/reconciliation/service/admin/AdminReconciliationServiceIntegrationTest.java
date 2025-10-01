@@ -160,7 +160,8 @@ class AdminReconciliationServiceIntegrationTest {
                 "Weekdays by 18:00",
                 "America/New_York",
                 60,
-                "{\"delimiter\":\",\"}");
+                "{\"delimiter\":\",\"}",
+                null);
         AdminSourceRequest ledgerSource = new AdminSourceRequest(
                 null,
                 "GL_LEDGER",
@@ -168,6 +169,7 @@ class AdminReconciliationServiceIntegrationTest {
                 IngestionAdapterType.CSV_FILE,
                 false,
                 "Ledger staging extract",
+                null,
                 null,
                 null,
                 null,

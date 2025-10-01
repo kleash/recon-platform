@@ -38,6 +38,7 @@ import com.universal.reconciliation.service.SystemActivityService;
 import com.universal.reconciliation.service.ingestion.IngestionAdapterRequest;
 import com.universal.reconciliation.service.ingestion.SourceIngestionService;
 import com.universal.reconciliation.service.transform.DataTransformationService;
+import com.universal.reconciliation.service.transform.SourceTransformationPlanMapper;
 import com.universal.reconciliation.service.transform.TransformationEvaluationException;
 import jakarta.transaction.Transactional;
 import java.time.Instant;
@@ -72,18 +73,21 @@ public class AdminReconciliationService {
     private final AdminReconciliationValidator validator;
     private final SourceIngestionService sourceIngestionService;
     private final DataTransformationService transformationService;
+    private final SourceTransformationPlanMapper transformationPlanMapper;
 
     public AdminReconciliationService(
             ReconciliationDefinitionRepository definitionRepository,
             SystemActivityService systemActivityService,
             AdminReconciliationValidator validator,
             SourceIngestionService sourceIngestionService,
-            DataTransformationService transformationService) {
+            DataTransformationService transformationService,
+            SourceTransformationPlanMapper transformationPlanMapper) {
         this.definitionRepository = definitionRepository;
         this.systemActivityService = systemActivityService;
         this.validator = validator;
         this.sourceIngestionService = sourceIngestionService;
         this.transformationService = transformationService;
+        this.transformationPlanMapper = transformationPlanMapper;
     }
 
     @Transactional(Transactional.TxType.SUPPORTS)
@@ -372,6 +376,7 @@ public class AdminReconciliationService {
             source.setArrivalTimezone(trimToNull(request.arrivalTimezone()));
             source.setArrivalSlaMinutes(request.arrivalSlaMinutes());
             source.setAdapterOptions(trimToNull(request.adapterOptions()));
+            source.setTransformationPlan(transformationPlanMapper.serialize(request.transformationPlan()));
             source.touch();
             updated.add(source);
         }
@@ -604,6 +609,7 @@ public class AdminReconciliationService {
                         source.getArrivalTimezone(),
                         source.getArrivalSlaMinutes(),
                         source.getAdapterOptions(),
+                        transformationPlanMapper.deserialize(source.getTransformationPlan()).orElse(null),
                         source.getCreatedAt(),
                         source.getUpdatedAt()))
                 .toList();

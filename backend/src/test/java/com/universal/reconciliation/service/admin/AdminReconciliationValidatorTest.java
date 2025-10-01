@@ -14,13 +14,19 @@ import com.universal.reconciliation.domain.enums.FieldDataType;
 import com.universal.reconciliation.domain.enums.FieldRole;
 import com.universal.reconciliation.domain.enums.IngestionAdapterType;
 import com.universal.reconciliation.domain.enums.ReconciliationLifecycleStatus;
+import com.universal.reconciliation.service.transform.SourceTransformationPlanProcessor;
 import java.math.BigDecimal;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 class AdminReconciliationValidatorTest {
 
-    private final AdminReconciliationValidator validator = new AdminReconciliationValidator();
+    private final SourceTransformationPlanProcessor transformationPlanProcessor =
+            Mockito.mock(SourceTransformationPlanProcessor.class);
+
+    private final AdminReconciliationValidator validator =
+            new AdminReconciliationValidator(transformationPlanProcessor);
 
     @Test
     void validate_acceptsValidConfiguration() {
@@ -37,6 +43,7 @@ class AdminReconciliationValidatorTest {
                                 null,
                                 null,
                                 null,
+                                null,
                                 null),
                         new AdminSourceRequest(
                                 null,
@@ -44,6 +51,7 @@ class AdminReconciliationValidatorTest {
                                 "General Ledger",
                                 IngestionAdapterType.DATABASE,
                                 false,
+                                null,
                                 null,
                                 null,
                                 null,
@@ -70,6 +78,7 @@ class AdminReconciliationValidatorTest {
                                 null,
                                 null,
                                 null,
+                                null,
                                 null),
                         new AdminSourceRequest(
                                 null,
@@ -77,6 +86,7 @@ class AdminReconciliationValidatorTest {
                                 "General Ledger",
                                 IngestionAdapterType.DATABASE,
                                 true,
+                                null,
                                 null,
                                 null,
                                 null,
@@ -120,6 +130,7 @@ class AdminReconciliationValidatorTest {
                                 null,
                                 null,
                                 null,
+                                null,
                                 null)),
                 List.of(compareField));
 
@@ -153,6 +164,7 @@ class AdminReconciliationValidatorTest {
                                 "Custody",
                                 IngestionAdapterType.CSV_FILE,
                                 true,
+                                null,
                                 null,
                                 null,
                                 null,
@@ -196,6 +208,7 @@ class AdminReconciliationValidatorTest {
                                 null,
                                 null,
                                 null,
+                                null,
                                 null)),
                 List.of(compareField, buildKeyField()));
 
@@ -217,6 +230,7 @@ class AdminReconciliationValidatorTest {
                 null,
                 null,
                 -5,
+                null,
                 null);
 
         AdminReconciliationRequest request = buildRequest(List.of(source), List.of(buildKeyField()));
@@ -247,6 +261,7 @@ class AdminReconciliationValidatorTest {
                         "Custody",
                         IngestionAdapterType.CSV_FILE,
                         true,
+                        null,
                         null,
                         null,
                         null,
@@ -292,6 +307,7 @@ class AdminReconciliationValidatorTest {
                         "Custody",
                         IngestionAdapterType.CSV_FILE,
                         true,
+                        null,
                         null,
                         null,
                         null,

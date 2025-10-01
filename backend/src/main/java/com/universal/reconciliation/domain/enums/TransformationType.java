@@ -7,7 +7,5 @@ package com.universal.reconciliation.domain.enums;
 public enum TransformationType {
     GROOVY_SCRIPT,
     EXCEL_FORMULA,
-    FUNCTION_PIPELINE,
-    LLM_PROMPT
+    FUNCTION_PIPELINE
 }
-

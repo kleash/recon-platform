@@ -12,9 +12,10 @@ import com.universal.reconciliation.domain.dto.admin.GroovyScriptGenerationReque
 import com.universal.reconciliation.domain.dto.admin.GroovyScriptGenerationResponse;
 import com.universal.reconciliation.domain.dto.admin.GroovyScriptTestRequest;
 import com.universal.reconciliation.domain.dto.admin.GroovyScriptTestResponse;
-import com.universal.reconciliation.domain.dto.admin.TransformationFilePreviewResponse;
-import com.universal.reconciliation.domain.dto.admin.TransformationFilePreviewUploadRequest;
-import com.universal.reconciliation.domain.dto.admin.TransformationPreviewRequest;
+import com.universal.reconciliation.domain.dto.admin.SourceTransformationApplyRequest;
+import com.universal.reconciliation.domain.dto.admin.SourceTransformationApplyResponse;
+import com.universal.reconciliation.domain.dto.admin.SourceTransformationPreviewResponse;
+import com.universal.reconciliation.domain.dto.admin.SourceTransformationPreviewUploadRequest;
 import com.universal.reconciliation.domain.dto.admin.TransformationSampleResponse;
 import com.universal.reconciliation.domain.entity.ReconciliationDefinition;
 import com.universal.reconciliation.domain.entity.ReconciliationSource;
@@ -22,7 +23,6 @@ import com.universal.reconciliation.domain.entity.SourceDataBatch;
 import com.universal.reconciliation.domain.entity.SourceDataRecord;
 import com.universal.reconciliation.domain.enums.DataBatchStatus;
 import com.universal.reconciliation.domain.enums.TransformationSampleFileType;
-import com.universal.reconciliation.domain.enums.TransformationType;
 import com.universal.reconciliation.repository.ReconciliationDefinitionRepository;
 import com.universal.reconciliation.repository.ReconciliationSourceRepository;
 import com.universal.reconciliation.repository.SourceDataBatchRepository;
@@ -31,6 +31,8 @@ import com.universal.reconciliation.service.admin.GroovyScriptAuthoringService;
 import com.universal.reconciliation.service.transform.DataTransformationService;
 import com.universal.reconciliation.service.transform.TransformationEvaluationException;
 import com.universal.reconciliation.service.transform.TransformationSampleFileService;
+import com.universal.reconciliation.service.transform.SourceTransformationPlanProcessor;
+import com.universal.reconciliation.domain.transform.SourceTransformationPlan;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -67,6 +69,9 @@ class AdminTransformationServiceTest {
     @Mock
     private GroovyScriptAuthoringService groovyScriptAuthoringService;
 
+    @Mock
+    private SourceTransformationPlanProcessor transformationPlanProcessor;
+
     private AdminTransformationService service;
 
     @BeforeEach
@@ -79,7 +84,8 @@ class AdminTransformationServiceTest {
                 recordRepository,
                 new ObjectMapper(),
                 sampleFileService,
-                groovyScriptAuthoringService);
+                groovyScriptAuthoringService,
+                transformationPlanProcessor);
     }
 
     @Test
@@ -144,62 +150,46 @@ class AdminTransformationServiceTest {
     }
 
     @Test
-    void previewFromSampleFileTransformsRows() {
-        TransformationPreviewRequest.PreviewTransformationDto transformationDto =
-                new TransformationPreviewRequest.PreviewTransformationDto(
-                        TransformationType.GROOVY_SCRIPT, "return value * 2", null, 1, true);
-        TransformationFilePreviewUploadRequest request = new TransformationFilePreviewUploadRequest(
+    void previewPlanTransformsRows() {
+        SourceTransformationPlan plan = new SourceTransformationPlan();
+        SourceTransformationPreviewUploadRequest request = new SourceTransformationPreviewUploadRequest(
                 TransformationSampleFileType.CSV,
                 true,
                 ",",
                 null,
                 null,
-                "Amount",
                 null,
                 null,
-                List.of(transformationDto));
-        Map<String, Object> sampleRow = Map.of("Amount", "100");
+                plan);
+        List<Map<String, Object>> rawRows = List.of(Map.of("Amount", "100"));
+        List<Map<String, Object>> transformedRows = List.of(Map.of("Amount", "200"));
         MultipartFile file = Mockito.mock(MultipartFile.class);
-        when(sampleFileService.parseSamples(request, file)).thenReturn(List.of(sampleRow));
-        when(transformationService.applyTransformations(any(), eq("100"), anyMap())).thenReturn("200");
 
-        TransformationFilePreviewResponse response = service.previewFromSampleFile(request, file);
+        when(sampleFileService.parseSamples(request, file)).thenReturn(rawRows);
+        Mockito.doNothing().when(transformationPlanProcessor).validate(plan);
+        when(transformationPlanProcessor.apply(plan, rawRows)).thenReturn(transformedRows);
 
-        assertThat(response.rows()).hasSize(1);
-        TransformationFilePreviewResponse.Row row = response.rows().get(0);
-        assertThat(row.rowNumber()).isEqualTo(1);
-        assertThat(row.valueBefore()).isEqualTo("100");
-        assertThat(row.transformedValue()).isEqualTo("200");
-        assertThat(row.error()).isNull();
+        SourceTransformationPreviewResponse response = service.previewPlan(request, file);
+
+        assertThat(response.rawRows()).isEqualTo(rawRows);
+        assertThat(response.transformedRows()).isEqualTo(transformedRows);
+        verify(transformationPlanProcessor).validate(plan);
     }
 
     @Test
-    void previewFromSampleFileCapturesTransformationErrors() {
-        TransformationPreviewRequest.PreviewTransformationDto transformationDto =
-                new TransformationPreviewRequest.PreviewTransformationDto(
-                        TransformationType.GROOVY_SCRIPT, "return value * 2", null, 1, true);
-        TransformationFilePreviewUploadRequest request = new TransformationFilePreviewUploadRequest(
-                TransformationSampleFileType.CSV,
-                false,
-                ",",
-                null,
-                null,
-                "COLUMN_1",
-                null,
-                null,
-                List.of(transformationDto));
-        Map<String, Object> sampleRow = Map.of("COLUMN_1", "100");
-        MultipartFile file = Mockito.mock(MultipartFile.class);
-        when(sampleFileService.parseSamples(request, file)).thenReturn(List.of(sampleRow));
-        when(transformationService.applyTransformations(any(), eq("100"), anyMap()))
-                .thenThrow(new TransformationEvaluationException("Boom"));
+    void applyPlanDelegatesToProcessor() {
+        SourceTransformationPlan plan = new SourceTransformationPlan();
+        List<Map<String, Object>> rows = List.of(Map.of("Amount", "100"));
+        List<Map<String, Object>> transformed = List.of(Map.of("Amount", "110"));
 
-        TransformationFilePreviewResponse response = service.previewFromSampleFile(request, file);
+        Mockito.doNothing().when(transformationPlanProcessor).validate(plan);
+        when(transformationPlanProcessor.apply(plan, rows)).thenReturn(transformed);
 
-        assertThat(response.rows()).singleElement().satisfies(row -> {
-            assertThat(row.transformedValue()).isNull();
-            assertThat(row.error()).isEqualTo("Boom");
-        });
+        SourceTransformationApplyRequest request = new SourceTransformationApplyRequest(plan, rows);
+        SourceTransformationApplyResponse response = service.applyPlan(request);
+
+        assertThat(response.transformedRows()).isEqualTo(transformed);
+        verify(transformationPlanProcessor).validate(plan);
     }
 
 }

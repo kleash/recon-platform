@@ -9,6 +9,7 @@ import com.universal.reconciliation.domain.dto.admin.AdminSourceRequest;
 import com.universal.reconciliation.domain.enums.ComparisonLogic;
 import com.universal.reconciliation.domain.enums.FieldRole;
 import com.universal.reconciliation.domain.enums.TransformationType;
+import com.universal.reconciliation.service.transform.SourceTransformationPlanProcessor;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -26,6 +27,12 @@ import org.springframework.util.StringUtils;
  */
 @Component
 public class AdminReconciliationValidator {
+
+    private final SourceTransformationPlanProcessor transformationPlanProcessor;
+
+    public AdminReconciliationValidator(SourceTransformationPlanProcessor transformationPlanProcessor) {
+        this.transformationPlanProcessor = transformationPlanProcessor;
+    }
 
     public void validate(AdminReconciliationRequest request) {
         ensureSourcesAreValid(request.sources());
@@ -52,6 +59,7 @@ public class AdminReconciliationValidator {
                 throw new IllegalArgumentException(
                         "Arrival SLA minutes cannot be negative for source " + source.code());
             }
+            transformationPlanProcessor.validate(source.transformationPlan());
         }
         if (anchorCount == 0) {
             throw new IllegalArgumentException("At least one source must be flagged as the anchor source.");
@@ -164,10 +172,6 @@ public class AdminReconciliationValidator {
             if (type == TransformationType.FUNCTION_PIPELINE && !StringUtils.hasText(transformation.configuration())) {
                 throw new IllegalArgumentException(
                         "Function pipeline configuration is required for field " + canonicalFieldName);
-            }
-            if (type == TransformationType.LLM_PROMPT && !StringUtils.hasText(transformation.configuration())) {
-                throw new IllegalArgumentException(
-                        "LLM prompt configuration is required for field " + canonicalFieldName);
             }
             if (transformation.displayOrder() == null) {
                 index++;

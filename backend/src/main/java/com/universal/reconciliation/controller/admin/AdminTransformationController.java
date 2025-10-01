@@ -4,10 +4,10 @@ import com.universal.reconciliation.domain.dto.admin.GroovyScriptGenerationReque
 import com.universal.reconciliation.domain.dto.admin.GroovyScriptGenerationResponse;
 import com.universal.reconciliation.domain.dto.admin.GroovyScriptTestRequest;
 import com.universal.reconciliation.domain.dto.admin.GroovyScriptTestResponse;
-import com.universal.reconciliation.domain.dto.admin.TransformationFilePreviewResponse;
-import com.universal.reconciliation.domain.dto.admin.TransformationFilePreviewUploadRequest;
-import com.universal.reconciliation.domain.dto.admin.TransformationPreviewRequest;
-import com.universal.reconciliation.domain.dto.admin.TransformationPreviewResponse;
+import com.universal.reconciliation.domain.dto.admin.SourceTransformationApplyRequest;
+import com.universal.reconciliation.domain.dto.admin.SourceTransformationApplyResponse;
+import com.universal.reconciliation.domain.dto.admin.SourceTransformationPreviewResponse;
+import com.universal.reconciliation.domain.dto.admin.SourceTransformationPreviewUploadRequest;
 import com.universal.reconciliation.domain.dto.admin.TransformationSampleResponse;
 import com.universal.reconciliation.domain.dto.admin.TransformationValidationRequest;
 import com.universal.reconciliation.domain.dto.admin.TransformationValidationResponse;
@@ -44,17 +44,17 @@ public class AdminTransformationController {
         return transformationService.validate(request);
     }
 
-    @PostMapping("/preview")
-    public TransformationPreviewResponse preview(
-            @Valid @RequestBody TransformationPreviewRequest request) {
-        return transformationService.preview(request);
+    @PostMapping(value = "/plan/preview/upload", consumes = {"multipart/form-data"})
+    public SourceTransformationPreviewResponse previewPlanFromFile(
+            @Valid @RequestPart("request") SourceTransformationPreviewUploadRequest request,
+            @RequestPart("file") MultipartFile file) {
+        return transformationService.previewPlan(request, file);
     }
 
-    @PostMapping(value = "/preview/upload", consumes = {"multipart/form-data"})
-    public TransformationFilePreviewResponse previewFromFile(
-            @Valid @RequestPart("request") TransformationFilePreviewUploadRequest request,
-            @RequestPart("file") MultipartFile file) {
-        return transformationService.previewFromSampleFile(request, file);
+    @PostMapping("/plan/apply")
+    public SourceTransformationApplyResponse applyPlan(
+            @Valid @RequestBody SourceTransformationApplyRequest request) {
+        return transformationService.applyPlan(request);
     }
 
     @PostMapping("/groovy/generate")

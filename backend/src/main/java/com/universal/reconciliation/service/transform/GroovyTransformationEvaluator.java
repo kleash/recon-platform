@@ -5,12 +5,16 @@ import groovy.lang.Binding;
 import groovy.lang.GroovyClassLoader;
 import groovy.lang.Script;
 import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import org.codehaus.groovy.control.CompilerConfiguration;
 import org.codehaus.groovy.control.customizers.SecureASTCustomizer;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 /**
  * Compiles and executes Groovy snippets inside a sandboxed class-loader.
@@ -38,8 +42,7 @@ class GroovyTransformationEvaluator {
             return currentValue;
         }
         try {
-            Class<? extends Script> scriptClass = compiledScripts.computeIfAbsent(scriptBody, this::compileScript);
-            Script script = scriptClass.getDeclaredConstructor().newInstance();
+            Script script = instantiateScript(scriptBody);
             Binding binding = new Binding();
             binding.setVariable("value", currentValue);
             binding.setVariable("row", rawRecord);
@@ -65,9 +68,47 @@ class GroovyTransformationEvaluator {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    List<Map<String, Object>> evaluateDataset(String expression, List<Map<String, Object>> rows) {
+        if (!StringUtils.hasText(expression)) {
+            return rows;
+        }
+        try {
+            List<Map<String, Object>> working = rows == null ? List.of() : rows;
+            Script script = instantiateScript(expression);
+            Binding binding = new Binding();
+            binding.setVariable("rows", working);
+            binding.setVariable("records", working);
+            binding.setVariable("data", working);
+            script.setBinding(binding);
+            Object result = script.run();
+            if (result instanceof List<?> listResult) {
+                return coerceRows(listResult);
+            }
+            Object mutated = binding.hasVariable("rows") ? binding.getVariable("rows") : null;
+            if (mutated instanceof List<?> mutatedList) {
+                return coerceRows(mutatedList);
+            }
+            return working;
+        } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException ex) {
+            throw new TransformationEvaluationException("Failed to execute Groovy transformation", ex);
+        } catch (TransformationEvaluationException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            throw new TransformationEvaluationException("Groovy transformation failed: " + ex.getMessage(), ex);
+        }
+    }
+
     void validateExpression(String expression) {
         if (expression == null || expression.isBlank()) {
             throw new TransformationEvaluationException("Groovy expression cannot be empty");
+        }
+        compiledScripts.computeIfAbsent(expression, this::compileScript);
+    }
+
+    void validateDatasetScript(String expression) {
+        if (!StringUtils.hasText(expression)) {
+            return;
         }
         compiledScripts.computeIfAbsent(expression, this::compileScript);
     }
@@ -86,6 +127,35 @@ class GroovyTransformationEvaluator {
         } catch (Exception ex) {
             throw new TransformationEvaluationException("Groovy compilation error: " + ex.getMessage(), ex);
         }
+    }
+
+    private Script instantiateScript(String scriptBody)
+            throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
+        Class<? extends Script> scriptClass = compiledScripts.computeIfAbsent(scriptBody, this::compileScript);
+        return scriptClass.getDeclaredConstructor().newInstance();
+    }
+
+    private List<Map<String, Object>> coerceRows(List<?> rawRows) {
+        List<Map<String, Object>> coerced = new ArrayList<>();
+        for (Object candidate : rawRows) {
+            if (candidate == null) {
+                continue;
+            }
+            if (!(candidate instanceof Map<?, ?> map)) {
+                throw new TransformationEvaluationException(
+                        "Groovy dataset script must return a list of maps (found " + candidate.getClass() + ")");
+            }
+            Map<String, Object> row = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                Object key = entry.getKey();
+                if (key == null) {
+                    continue;
+                }
+                row.put(String.valueOf(key), entry.getValue());
+            }
+            coerced.add(row);
+        }
+        return coerced;
     }
 
     private SecureASTCustomizer buildSecurityCustomizer() {

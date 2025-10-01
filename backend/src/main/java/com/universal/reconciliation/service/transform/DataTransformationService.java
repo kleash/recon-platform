@@ -17,17 +17,13 @@ public class DataTransformationService {
     private final GroovyTransformationEvaluator groovyEvaluator;
     private final ExcelFormulaTransformationEvaluator excelEvaluator;
     private final FunctionPipelineTransformationEvaluator pipelineEvaluator;
-    private final OpenAiTransformationEvaluator openAiEvaluator;
-
     public DataTransformationService(
             GroovyTransformationEvaluator groovyEvaluator,
             ExcelFormulaTransformationEvaluator excelEvaluator,
-            FunctionPipelineTransformationEvaluator pipelineEvaluator,
-            OpenAiTransformationEvaluator openAiEvaluator) {
+            FunctionPipelineTransformationEvaluator pipelineEvaluator) {
         this.groovyEvaluator = groovyEvaluator;
         this.excelEvaluator = excelEvaluator;
         this.pipelineEvaluator = pipelineEvaluator;
-        this.openAiEvaluator = openAiEvaluator;
     }
 
     public Object applyTransformations(CanonicalFieldMapping mapping, Object value, Map<String, Object> rawRecord) {
@@ -50,7 +46,6 @@ public class DataTransformationService {
                 case GROOVY_SCRIPT -> groovyEvaluator.evaluate(transformation, current, safeRecord);
                 case EXCEL_FORMULA -> excelEvaluator.evaluate(transformation, current, safeRecord);
                 case FUNCTION_PIPELINE -> pipelineEvaluator.evaluate(transformation, current, safeRecord);
-                case LLM_PROMPT -> openAiEvaluator.evaluate(transformation, current, safeRecord);
             };
         }
         return current;
@@ -65,7 +60,6 @@ public class DataTransformationService {
             case GROOVY_SCRIPT -> groovyEvaluator.validateExpression(transformation.getExpression());
             case EXCEL_FORMULA -> excelEvaluator.validateExpression(transformation.getExpression());
             case FUNCTION_PIPELINE -> pipelineEvaluator.validateConfiguration(transformation.getConfiguration());
-            case LLM_PROMPT -> openAiEvaluator.validateConfiguration(transformation.getConfiguration());
         }
     }
 

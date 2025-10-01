@@ -1,5 +1,7 @@
 package com.universal.reconciliation.controller.admin;
 
+import com.universal.reconciliation.domain.dto.admin.GroovyScriptGenerationRequest;
+import com.universal.reconciliation.domain.dto.admin.GroovyScriptGenerationResponse;
 import com.universal.reconciliation.domain.dto.admin.GroovyScriptTestRequest;
 import com.universal.reconciliation.domain.dto.admin.GroovyScriptTestResponse;
 import com.universal.reconciliation.domain.dto.admin.TransformationFilePreviewResponse;
@@ -53,6 +55,12 @@ public class AdminTransformationController {
             @Valid @RequestPart("request") TransformationFilePreviewUploadRequest request,
             @RequestPart("file") MultipartFile file) {
         return transformationService.previewFromSampleFile(request, file);
+    }
+
+    @PostMapping("/groovy/generate")
+    public GroovyScriptGenerationResponse generateGroovy(
+            @Valid @RequestBody GroovyScriptGenerationRequest request) {
+        return transformationService.generateGroovyScript(request);
     }
 
     @PostMapping("/groovy/test")

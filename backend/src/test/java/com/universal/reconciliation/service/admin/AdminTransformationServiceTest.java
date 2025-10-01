@@ -8,6 +8,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.universal.reconciliation.domain.dto.admin.GroovyScriptGenerationRequest;
+import com.universal.reconciliation.domain.dto.admin.GroovyScriptGenerationResponse;
 import com.universal.reconciliation.domain.dto.admin.GroovyScriptTestRequest;
 import com.universal.reconciliation.domain.dto.admin.GroovyScriptTestResponse;
 import com.universal.reconciliation.domain.dto.admin.TransformationFilePreviewResponse;
@@ -25,6 +27,7 @@ import com.universal.reconciliation.repository.ReconciliationDefinitionRepositor
 import com.universal.reconciliation.repository.ReconciliationSourceRepository;
 import com.universal.reconciliation.repository.SourceDataBatchRepository;
 import com.universal.reconciliation.repository.SourceDataRecordRepository;
+import com.universal.reconciliation.service.admin.GroovyScriptAuthoringService;
 import com.universal.reconciliation.service.transform.DataTransformationService;
 import com.universal.reconciliation.service.transform.TransformationEvaluationException;
 import com.universal.reconciliation.service.transform.TransformationSampleFileService;
@@ -61,6 +64,9 @@ class AdminTransformationServiceTest {
     @Mock
     private TransformationSampleFileService sampleFileService;
 
+    @Mock
+    private GroovyScriptAuthoringService groovyScriptAuthoringService;
+
     private AdminTransformationService service;
 
     @BeforeEach
@@ -72,7 +78,22 @@ class AdminTransformationServiceTest {
                 batchRepository,
                 recordRepository,
                 new ObjectMapper(),
-                sampleFileService);
+                sampleFileService,
+                groovyScriptAuthoringService);
+    }
+
+    @Test
+    void generateGroovyScriptDelegatesToAuthoringService() {
+        GroovyScriptGenerationRequest request = new GroovyScriptGenerationRequest(
+                "Trim value", "Trade Reference", null, "SOURCE_A", "trade_ref", " value ", Map.of());
+        GroovyScriptGenerationResponse generated = new GroovyScriptGenerationResponse(
+                "return value?.toString()?.trim()", "Trim whitespace from trade reference");
+        when(groovyScriptAuthoringService.generate(request)).thenReturn(generated);
+
+        GroovyScriptGenerationResponse response = service.generateGroovyScript(request);
+
+        assertThat(response).isEqualTo(generated);
+        verify(transformationService).validateGroovyScript("return value?.toString()?.trim()");
     }
 
     @Test

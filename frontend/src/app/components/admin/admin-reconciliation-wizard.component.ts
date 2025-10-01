@@ -34,6 +34,7 @@ import {
   TransformationFilePreviewRow,
   TransformationSampleFileType,
   TransformationSampleRow,
+  GroovyScriptGenerationRequest,
   GroovyScriptTestRequest,
   TransformationType,
   TransformationValidationRequest,
@@ -82,6 +83,14 @@ type SampleUploadUiState = {
   confirmed: boolean;
   stale: boolean;
 };
+
+type GroovyAssistantState = {
+  prompt: string;
+  generating: boolean;
+  summary?: string;
+  error?: string;
+};
+
 
 @Component({
   selector: 'urp-admin-reconciliation-wizard',
@@ -174,6 +183,7 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
   transformationSamples: Record<string, TransformationSampleRow[]> = {};
   selectedSampleIndex: Record<string, number> = {};
   groovyTestState: Record<string, { running: boolean; result?: string; error?: string }> = {};
+  groovyAssistantState: Record<string, GroovyAssistantState> = {};
   sampleUploadState: Record<string, SampleUploadUiState> = {};
   schemaPreviewWarning: string | null = null;
 
@@ -705,6 +715,7 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     const next: Record<string, { value: string; raw: string; result?: string; error?: string }> = {};
     const uploadNext: Record<string, SampleUploadUiState> = {};
     const validKeys = new Set<string>();
+    const transformationKeys = new Set<string>();
     this.canonicalFields.controls.forEach((_, fieldIndex) => {
       this.sourceMappings(fieldIndex).controls.forEach((__, mappingIndex) => {
         const key = this.previewKey(fieldIndex, mappingIndex);
@@ -729,12 +740,29 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
         };
         uploadNext[key] = merged;
         validKeys.add(key);
+        this.mappingTransformations(fieldIndex, mappingIndex).controls.forEach((_, transformationIndex) => {
+          transformationKeys.add(this.transformationKey(fieldIndex, mappingIndex, transformationIndex));
+        });
       });
+    });
+    const nextGroovyTestState: typeof this.groovyTestState = {};
+    const nextGroovyAssistantState: typeof this.groovyAssistantState = {};
+    transformationKeys.forEach((transformationKey) => {
+      const testState = this.groovyTestState[transformationKey];
+      if (testState) {
+        nextGroovyTestState[transformationKey] = testState;
+      }
+      const assistantState = this.groovyAssistantState[transformationKey];
+      if (assistantState) {
+        nextGroovyAssistantState[transformationKey] = assistantState;
+      }
     });
     this.previewState = next;
     this.sampleUploadState = uploadNext;
     this.previewConfirmations = new Set([...this.previewConfirmations].filter((key) => validKeys.has(key)));
     this.previewStaleKeys = new Set([...this.previewStaleKeys].filter((key) => validKeys.has(key)));
+    this.groovyTestState = nextGroovyTestState;
+    this.groovyAssistantState = nextGroovyAssistantState;
   }
 
   private applySampleToPreview(fieldIndex: number, mappingIndex: number, sampleIndex: number): void {
@@ -775,6 +803,156 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     state: { running: boolean; result?: string; error?: string }
   ): void {
     this.groovyTestState[this.transformationKey(fieldIndex, mappingIndex, transformationIndex)] = state;
+  }
+
+  getGroovyAssistantState(
+    fieldIndex: number,
+    mappingIndex: number,
+    transformationIndex: number
+  ): GroovyAssistantState {
+    const key = this.transformationKey(fieldIndex, mappingIndex, transformationIndex);
+    return this.getOrCreateGroovyAssistantState(key);
+  }
+
+  onGroovyPromptChange(
+    fieldIndex: number,
+    mappingIndex: number,
+    transformationIndex: number,
+    event: Event
+  ): void {
+    const prompt = (event.target as HTMLTextAreaElement | null)?.value ?? '';
+    const key = this.transformationKey(fieldIndex, mappingIndex, transformationIndex);
+    this.setGroovyAssistantState(key, { prompt, summary: undefined, error: undefined });
+  }
+
+  generateGroovyScript(fieldIndex: number, mappingIndex: number, transformationIndex: number): void {
+    const key = this.transformationKey(fieldIndex, mappingIndex, transformationIndex);
+    const assistantState = this.getOrCreateGroovyAssistantState(key);
+    const prompt = assistantState.prompt?.trim();
+    if (!prompt) {
+      this.setGroovyAssistantState(key, {
+        generating: false,
+        summary: undefined,
+        error: 'Describe the transformation before generating a script.'
+      });
+      return;
+    }
+
+    const transformationGroup = this.mappingTransformations(fieldIndex, mappingIndex).at(
+      transformationIndex
+    ) as FormGroup;
+    const fieldGroup = this.canonicalFields.at(fieldIndex) as FormGroup;
+    const mappingGroup = this.sourceMappings(fieldIndex).at(mappingIndex) as FormGroup;
+
+    const preview = this.previewState[this.previewKey(fieldIndex, mappingIndex)];
+    let rawRecord: Record<string, unknown> | undefined;
+    if (preview?.raw) {
+      const rawText = preview.raw.trim();
+      if (rawText.length > 0) {
+        try {
+          rawRecord = JSON.parse(rawText) as Record<string, unknown>;
+        } catch (error) {
+          this.setGroovyAssistantState(key, {
+            generating: false,
+            summary: undefined,
+            error: 'Sample row must be valid JSON before generating a script.'
+          });
+          return;
+        }
+      }
+    }
+
+    const dataType = (fieldGroup.get('dataType')?.value as FieldDataType | null) ?? null;
+    const sampleValue = preview ? this.coerceSampleValue(preview.value, dataType) : undefined;
+    const fieldName =
+      this.normalize(fieldGroup.get('displayName')?.value) ??
+      this.normalize(fieldGroup.get('canonicalName')?.value) ??
+      'Field';
+    const sourceCode = this.normalize(mappingGroup.get('sourceCode')?.value);
+    const sourceColumn = this.normalize(mappingGroup.get('sourceColumn')?.value);
+
+    const payload: GroovyScriptGenerationRequest = {
+      prompt,
+      fieldName,
+      fieldDataType: dataType,
+      sourceCode: sourceCode ?? null,
+      sourceColumn: sourceColumn ?? null,
+      sampleValue,
+      rawRecord: rawRecord ?? undefined
+    };
+
+    this.setGroovyAssistantState(key, { generating: true, summary: undefined, error: undefined });
+
+    this.state
+      .generateGroovyScript(payload)
+      .pipe(take(1))
+      .subscribe({
+        next: (response) => {
+          transformationGroup.get('expression')?.setValue(response.script ?? '', { emitEvent: true });
+          transformationGroup.get('expression')?.markAsDirty();
+          this.invalidateMappingPreview(fieldIndex, mappingIndex);
+          this.setGroovyAssistantState(key, {
+            generating: false,
+            summary: response.summary ?? undefined,
+            error: undefined
+          });
+        },
+        error: (error) => {
+          const message =
+            typeof error?.error === 'string' ? error.error : 'Unable to generate Groovy script.';
+          this.setGroovyAssistantState(key, {
+            generating: false,
+            summary: undefined,
+            error: message
+          });
+        }
+      });
+  }
+
+  private getOrCreateGroovyAssistantState(key: string): GroovyAssistantState {
+    if (!this.groovyAssistantState[key]) {
+      this.groovyAssistantState[key] = { prompt: '', generating: false };
+    }
+    return this.groovyAssistantState[key];
+  }
+
+  private setGroovyAssistantState(key: string, updates: Partial<GroovyAssistantState>): void {
+    const current = this.getOrCreateGroovyAssistantState(key);
+    Object.assign(current, updates);
+  }
+
+  private coerceSampleValue(value: string | undefined, dataType: FieldDataType | null): unknown {
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+    const trimmed = value.trim();
+    if (trimmed.length === 0 || trimmed.toLowerCase() === 'null') {
+      return null;
+    }
+    if (!dataType) {
+      const numeric = Number(trimmed);
+      if (!Number.isNaN(numeric)) {
+        return numeric;
+      }
+      if (trimmed.toLowerCase() === 'true' || trimmed.toLowerCase() === 'false') {
+        return trimmed.toLowerCase() === 'true';
+      }
+      return trimmed;
+    }
+    switch (dataType) {
+      case 'INTEGER': {
+        const parsed = Number.parseInt(trimmed, 10);
+        return Number.isNaN(parsed) ? trimmed : parsed;
+      }
+      case 'DECIMAL': {
+        const parsed = Number(trimmed);
+        return Number.isNaN(parsed) ? trimmed : parsed;
+      }
+      case 'DATE':
+        return trimmed;
+      default:
+        return trimmed;
+    }
   }
 
   private transformationKey(fieldIndex: number, mappingIndex: number, transformationIndex: number): string {

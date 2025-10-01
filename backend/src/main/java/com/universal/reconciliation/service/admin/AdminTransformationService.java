@@ -2,6 +2,8 @@ package com.universal.reconciliation.service.admin;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.universal.reconciliation.domain.dto.admin.GroovyScriptGenerationRequest;
+import com.universal.reconciliation.domain.dto.admin.GroovyScriptGenerationResponse;
 import com.universal.reconciliation.domain.dto.admin.GroovyScriptTestRequest;
 import com.universal.reconciliation.domain.dto.admin.GroovyScriptTestResponse;
 import com.universal.reconciliation.domain.dto.admin.TransformationFilePreviewResponse;
@@ -52,6 +54,7 @@ public class AdminTransformationService {
     private final SourceDataRecordRepository recordRepository;
     private final ObjectMapper objectMapper;
     private final TransformationSampleFileService sampleFileService;
+    private final GroovyScriptAuthoringService groovyScriptAuthoringService;
 
     public AdminTransformationService(
             DataTransformationService transformationService,
@@ -60,7 +63,8 @@ public class AdminTransformationService {
             SourceDataBatchRepository batchRepository,
             SourceDataRecordRepository recordRepository,
             ObjectMapper objectMapper,
-            TransformationSampleFileService sampleFileService) {
+            TransformationSampleFileService sampleFileService,
+            GroovyScriptAuthoringService groovyScriptAuthoringService) {
         this.transformationService = transformationService;
         this.definitionRepository = definitionRepository;
         this.sourceRepository = sourceRepository;
@@ -68,6 +72,7 @@ public class AdminTransformationService {
         this.recordRepository = recordRepository;
         this.objectMapper = objectMapper;
         this.sampleFileService = sampleFileService;
+        this.groovyScriptAuthoringService = groovyScriptAuthoringService;
     }
 
     public TransformationValidationResponse validate(@Valid TransformationValidationRequest request) {
@@ -92,6 +97,12 @@ public class AdminTransformationService {
         } catch (TransformationEvaluationException ex) {
             throw ex;
         }
+    }
+
+    public GroovyScriptGenerationResponse generateGroovyScript(@Valid GroovyScriptGenerationRequest request) {
+        GroovyScriptGenerationResponse response = groovyScriptAuthoringService.generate(request);
+        transformationService.validateGroovyScript(response.script());
+        return response;
     }
 
     public GroovyScriptTestResponse testGroovyScript(@Valid GroovyScriptTestRequest request) {

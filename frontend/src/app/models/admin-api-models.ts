@@ -106,6 +106,21 @@ export interface TransformationSampleResponse {
   rows: TransformationSampleRow[];
 }
 
+export interface GroovyScriptGenerationRequest {
+  prompt: string;
+  fieldName: string;
+  fieldDataType?: FieldDataType | null;
+  sourceCode?: string | null;
+  sourceColumn?: string | null;
+  sampleValue?: unknown;
+  rawRecord?: Record<string, unknown>;
+}
+
+export interface GroovyScriptGenerationResponse {
+  script: string;
+  summary?: string | null;
+}
+
 export interface GroovyScriptTestRequest {
   script: string;
   value?: unknown;

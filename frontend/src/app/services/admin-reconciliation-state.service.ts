@@ -16,6 +16,8 @@ import {
   TransformationFilePreviewUploadRequest,
   TransformationFilePreviewResponse,
   TransformationSampleResponse,
+  GroovyScriptGenerationRequest,
+  GroovyScriptGenerationResponse,
   GroovyScriptTestRequest,
   GroovyScriptTestResponse
 } from '../models/admin-api-models';
@@ -268,6 +270,19 @@ export class AdminReconciliationStateService {
       catchError((error) => {
         console.error('Failed to load transformation samples', error);
         this.notifications.push('Unable to load sample source rows.', 'error');
+        return throwError(() => error);
+      })
+    );
+  }
+
+  generateGroovyScript(
+    payload: GroovyScriptGenerationRequest
+  ): Observable<GroovyScriptGenerationResponse> {
+    return this.api.generateGroovyScript(payload).pipe(
+      catchError((error) => {
+        console.error('Groovy script generation failed', error);
+        const message = error?.error ?? 'Unable to generate Groovy script.';
+        this.notifications.push(message, 'error');
         return throwError(() => error);
       })
     );

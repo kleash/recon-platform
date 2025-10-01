@@ -205,6 +205,33 @@
                         ></textarea
                       ></label>
                       <div class="groovy-tools">
+                        <ng-container *ngIf="getGroovyAssistantState(i, m, t) as assistantState">
+                          <div class="groovy-assistant">
+                            <label>
+                              Describe transformation<textarea
+                                rows="3"
+                                [value]="assistantState.prompt"
+                                placeholder="Explain how the source value should be transformed"
+                                (input)="onGroovyPromptChange(i, m, t, $event)"
+                              ></textarea>
+                            </label>
+                            <div class="groovy-assistant-actions">
+                              <button
+                                type="button"
+                                class="secondary"
+                                (click)="generateGroovyScript(i, m, t)"
+                                [disabled]="assistantState.generating"
+                              >
+                                {{ assistantState.generating ? 'Generating…' : 'Generate with AI' }}
+                              </button>
+                              <span class="hint" *ngIf="assistantState.generating">Requesting Groovy script…</span>
+                            </div>
+                            <p class="hint" *ngIf="assistantState.summary && !assistantState.generating">
+                              {{ assistantState.summary }}
+                            </p>
+                            <p class="error" *ngIf="assistantState.error">{{ assistantState.error }}</p>
+                          </div>
+                        </ng-container>
                         <div class="groovy-actions">
                           <button
                             type="button"

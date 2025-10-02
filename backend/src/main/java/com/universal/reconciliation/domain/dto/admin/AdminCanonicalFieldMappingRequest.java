@@ -12,6 +12,8 @@ public record AdminCanonicalFieldMappingRequest(
         @NotBlank String sourceColumn,
         String transformationExpression,
         String defaultValue,
+        String sourceDateFormat,
+        String targetDateFormat,
         Integer ordinalPosition,
         boolean required,
         List<AdminCanonicalFieldTransformationRequest> transformations) {}

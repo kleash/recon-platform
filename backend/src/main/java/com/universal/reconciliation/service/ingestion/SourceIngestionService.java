@@ -172,11 +172,51 @@ public class SourceIngestionService {
                     throw new IllegalArgumentException(
                             "Transformation failed for field " + field.getCanonicalName() + ": " + ex.getMessage(), ex);
                 }
+                rawValue = normalizeDateWithMapping(rawValue, mapping, field);
             }
             Object normalised = convert(rawValue, field);
             payload.put(field.getCanonicalName(), normalised);
         }
         return payload;
+    }
+
+    private Object normalizeDateWithMapping(Object rawValue, CanonicalFieldMapping mapping, CanonicalField field) {
+        if (rawValue == null || mapping == null) {
+            return rawValue;
+        }
+        if (!StringUtils.hasText(mapping.getSourceDateFormat())) {
+            return rawValue;
+        }
+        FieldDataType dataType = field.getDataType();
+        String sourceFormat = mapping.getSourceDateFormat();
+        try {
+            if (dataType == FieldDataType.DATE) {
+                DateTimeFormatter input = DateTimeFormatter.ofPattern(sourceFormat);
+                DateTimeFormatter output = StringUtils.hasText(mapping.getTargetDateFormat())
+                        ? DateTimeFormatter.ofPattern(mapping.getTargetDateFormat())
+                        : DateTimeFormatter.ISO_LOCAL_DATE;
+                LocalDate parsed = LocalDate.parse(rawValue.toString(), input);
+                return parsed.format(output);
+            }
+            if (dataType == FieldDataType.DATETIME) {
+                DateTimeFormatter input = DateTimeFormatter.ofPattern(sourceFormat);
+                DateTimeFormatter output = StringUtils.hasText(mapping.getTargetDateFormat())
+                        ? DateTimeFormatter.ofPattern(mapping.getTargetDateFormat())
+                        : DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+                LocalDateTime parsed = LocalDateTime.parse(rawValue.toString(), input);
+                return parsed.format(output);
+            }
+        } catch (DateTimeParseException ex) {
+            throw new IllegalArgumentException(
+                    "Unable to normalise date value '"
+                            + rawValue
+                            + "' for field "
+                            + field.getCanonicalName()
+                            + " using format "
+                            + sourceFormat,
+                    ex);
+        }
+        return rawValue;
     }
 
     private Object convert(Object rawValue, CanonicalField field) {

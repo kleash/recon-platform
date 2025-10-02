@@ -3,6 +3,7 @@ package com.universal.reconciliation.domain.dto.admin;
 import com.universal.reconciliation.domain.enums.IngestionAdapterType;
 import com.universal.reconciliation.domain.transform.SourceTransformationPlan;
 import java.time.Instant;
+import java.util.List;
 
 /**
  * Represents a data source definition exposed through the admin APIs.
@@ -20,5 +21,6 @@ public record AdminSourceDto(
         Integer arrivalSlaMinutes,
         String adapterOptions,
         SourceTransformationPlan transformationPlan,
+        List<String> availableColumns,
         Instant createdAt,
         Instant updatedAt) {}

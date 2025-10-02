@@ -115,7 +115,16 @@ class AdminReconciliationValidatorTest {
                 2,
                 true,
                 List.of(new AdminCanonicalFieldMappingRequest(
-                        null, "CUSTODY", "net_amount", null, null, 1, true, List.of())));
+                        null,
+                        "CUSTODY",
+                        "net_amount",
+                        null,
+                        null,
+                        null,
+                        null,
+                        1,
+                        true,
+                        List.of())));
 
         AdminReconciliationRequest request = buildRequest(
                 List.of(
@@ -154,7 +163,16 @@ class AdminReconciliationValidatorTest {
                 1,
                 true,
                 List.of(new AdminCanonicalFieldMappingRequest(
-                        null, "UNKNOWN", "trade_id", null, null, 1, true, List.of())));
+                        null,
+                        "UNKNOWN",
+                        "trade_id",
+                        null,
+                        null,
+                        null,
+                        null,
+                        1,
+                        true,
+                        List.of())));
 
         AdminReconciliationRequest request = buildRequest(
                 List.of(
@@ -193,7 +211,16 @@ class AdminReconciliationValidatorTest {
                 2,
                 true,
                 List.of(new AdminCanonicalFieldMappingRequest(
-                        null, "CUSTODY", "net_amount", null, null, 1, true, List.of())));
+                        null,
+                        "CUSTODY",
+                        "net_amount",
+                        null,
+                        null,
+                        null,
+                        null,
+                        1,
+                        true,
+                        List.of())));
 
         AdminReconciliationRequest request = buildRequest(
                 List.of(
@@ -347,7 +374,16 @@ class AdminReconciliationValidatorTest {
                 true,
                 List.of(
                         new AdminCanonicalFieldMappingRequest(
-                                null, "CUSTODY", "trade_id", null, null, 1, true, List.of())));
+                                null,
+                                "CUSTODY",
+                                "trade_id",
+                                null,
+                                null,
+                                null,
+                                null,
+                                1,
+                                true,
+                                List.of())));
     }
 
     private AdminReconciliationRequest buildRequest(

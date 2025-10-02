@@ -33,6 +33,9 @@ import com.universal.reconciliation.domain.entity.ReportTemplate;
 import com.universal.reconciliation.domain.entity.SourceDataBatch;
 import com.universal.reconciliation.domain.enums.ReconciliationLifecycleStatus;
 import com.universal.reconciliation.domain.enums.SystemEventType;
+import com.universal.reconciliation.domain.transform.ColumnOperationConfig;
+import com.universal.reconciliation.domain.transform.RowOperationConfig;
+import com.universal.reconciliation.domain.transform.SourceTransformationPlan;
 import com.universal.reconciliation.repository.ReconciliationDefinitionRepository;
 import com.universal.reconciliation.service.SystemActivityService;
 import com.universal.reconciliation.service.ingestion.IngestionAdapterRequest;
@@ -60,6 +63,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 /**
  * Orchestrates administrative CRUD operations for reconciliation definitions.
@@ -448,6 +452,8 @@ public class AdminReconciliationService {
             mapping.setSourceColumn(request.sourceColumn());
             mapping.setTransformationExpression(request.transformationExpression());
             mapping.setDefaultValue(request.defaultValue());
+            mapping.setSourceDateFormat(trimToNull(request.sourceDateFormat()));
+            mapping.setTargetDateFormat(trimToNull(request.targetDateFormat()));
             mapping.setOrdinalPosition(request.ordinalPosition());
             mapping.setRequired(request.required());
             syncTransformations(mapping, request.transformations());
@@ -597,21 +603,25 @@ public class AdminReconciliationService {
     private AdminReconciliationDetailDto mapDetail(ReconciliationDefinition definition) {
         List<AdminSourceDto> sources = definition.getSources().stream()
                 .sorted(Comparator.comparing(ReconciliationSource::getCode))
-                .map(source -> new AdminSourceDto(
-                        source.getId(),
-                        source.getCode(),
-                        source.getDisplayName(),
-                        source.getAdapterType(),
-                        source.isAnchor(),
-                        source.getDescription(),
-                        source.getConnectionConfig(),
-                        source.getArrivalExpectation(),
-                        source.getArrivalTimezone(),
-                        source.getArrivalSlaMinutes(),
-                        source.getAdapterOptions(),
-                        transformationPlanMapper.deserialize(source.getTransformationPlan()).orElse(null),
-                        source.getCreatedAt(),
-                        source.getUpdatedAt()))
+                .map(source -> {
+                    var plan = transformationPlanMapper.deserialize(source.getTransformationPlan()).orElse(null);
+                    return new AdminSourceDto(
+                            source.getId(),
+                            source.getCode(),
+                            source.getDisplayName(),
+                            source.getAdapterType(),
+                            source.isAnchor(),
+                            source.getDescription(),
+                            source.getConnectionConfig(),
+                            source.getArrivalExpectation(),
+                            source.getArrivalTimezone(),
+                            source.getArrivalSlaMinutes(),
+                            source.getAdapterOptions(),
+                            plan,
+                            resolveAvailableColumns(source, plan),
+                            source.getCreatedAt(),
+                            source.getUpdatedAt());
+                })
                 .toList();
 
         List<AdminCanonicalFieldDto> fields = definition.getCanonicalFields().stream()
@@ -637,6 +647,8 @@ public class AdminReconciliationService {
                                         mapping.getSourceColumn(),
                                         mapping.getTransformationExpression(),
                                         mapping.getDefaultValue(),
+                                        mapping.getSourceDateFormat(),
+                                        mapping.getTargetDateFormat(),
                                         mapping.getOrdinalPosition(),
                                         mapping.isRequired(),
                                         mapping.getTransformations().stream()
@@ -729,6 +741,101 @@ public class AdminReconciliationService {
                 reportTemplates,
                 accessEntries,
                 ingestionBatches);
+    }
+
+    private List<String> resolveAvailableColumns(ReconciliationSource source, SourceTransformationPlan plan) {
+        LinkedHashSet<String> columns = new LinkedHashSet<>();
+        if (source.getFieldMappings() != null) {
+            source.getFieldMappings().forEach(mapping -> addColumn(columns, mapping.getSourceColumn()));
+        }
+        if (plan != null) {
+            if (plan.getColumnOperations() != null) {
+                plan.getColumnOperations().forEach(operation -> collectColumnsFromColumnOp(operation, columns));
+            }
+            if (plan.getRowOperations() != null) {
+                plan.getRowOperations().forEach(operation -> collectColumnsFromRowOp(operation, columns));
+            }
+        }
+        return columns.stream()
+                .filter(StringUtils::hasText)
+                .map(String::trim)
+                .sorted(String.CASE_INSENSITIVE_ORDER)
+                .toList();
+    }
+
+    private void collectColumnsFromColumnOp(ColumnOperationConfig operation, LinkedHashSet<String> columns) {
+        if (operation == null || operation.getType() == null) {
+            return;
+        }
+        switch (operation.getType()) {
+            case COMBINE -> {
+                ColumnOperationConfig.CombineOperation combine = operation.getCombine();
+                if (combine != null) {
+                    addColumn(columns, combine.getTargetColumn());
+                    if (combine.getSources() != null) {
+                        combine.getSources().forEach(sourceColumn -> addColumn(columns, sourceColumn));
+                    }
+                }
+            }
+            case PIPELINE -> {
+                ColumnOperationConfig.PipelineOperation pipeline = operation.getPipeline();
+                if (pipeline != null) {
+                    addColumn(columns, pipeline.getTargetColumn());
+                    addColumn(columns, pipeline.getSourceColumn());
+                }
+            }
+            case ROUND -> {
+                ColumnOperationConfig.RoundOperation round = operation.getRound();
+                if (round != null) {
+                    addColumn(columns, round.getTargetColumn());
+                    addColumn(columns, round.getSourceColumn());
+                }
+            }
+        }
+    }
+
+    private void collectColumnsFromRowOp(RowOperationConfig operation, LinkedHashSet<String> columns) {
+        if (operation == null || operation.getType() == null) {
+            return;
+        }
+        switch (operation.getType()) {
+            case FILTER -> {
+                RowOperationConfig.FilterOperation filter = operation.getFilter();
+                if (filter != null) {
+                    addColumn(columns, filter.getColumn());
+                }
+            }
+            case AGGREGATE -> {
+                RowOperationConfig.AggregateOperation aggregate = operation.getAggregate();
+                if (aggregate != null) {
+                    if (aggregate.getGroupBy() != null) {
+                        aggregate.getGroupBy().forEach(groupColumn -> addColumn(columns, groupColumn));
+                    }
+                    if (aggregate.getAggregations() != null) {
+                        aggregate.getAggregations().forEach(agg -> {
+                            addColumn(columns, agg.getSourceColumn());
+                            addColumn(columns, agg.getResultColumn());
+                        });
+                    }
+                    if (aggregate.getRetainColumns() != null) {
+                        aggregate.getRetainColumns().forEach(retain -> addColumn(columns, retain));
+                    }
+                }
+            }
+            case SPLIT -> {
+                RowOperationConfig.SplitOperation split = operation.getSplit();
+                if (split != null) {
+                    addColumn(columns, split.getSourceColumn());
+                    addColumn(columns, split.getTargetColumn());
+                }
+            }
+        }
+    }
+
+    private void addColumn(LinkedHashSet<String> columns, String value) {
+        if (StringUtils.hasText(value)) {
+            columns.add(value.trim());
+        }
     }
 
     private ReconciliationDefinition loadDefinition(Long id) {

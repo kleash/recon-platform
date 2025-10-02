@@ -7,6 +7,7 @@ import com.universal.reconciliation.domain.dto.admin.AdminReconciliationRequest;
 import com.universal.reconciliation.domain.dto.admin.AdminReportTemplateRequest;
 import com.universal.reconciliation.domain.dto.admin.AdminSourceRequest;
 import com.universal.reconciliation.domain.enums.ComparisonLogic;
+import com.universal.reconciliation.domain.enums.FieldDataType;
 import com.universal.reconciliation.domain.enums.FieldRole;
 import com.universal.reconciliation.domain.enums.TransformationType;
 import com.universal.reconciliation.service.transform.SourceTransformationPlanProcessor;
@@ -143,6 +144,12 @@ public class AdminReconciliationValidator {
             if (!StringUtils.hasText(mapping.sourceColumn())) {
                 throw new IllegalArgumentException(
                         "Source column is required for mapping on field " + field.canonicalName());
+            }
+            if (StringUtils.hasText(mapping.sourceDateFormat())
+                    && field.dataType() != FieldDataType.DATE
+                    && field.dataType() != FieldDataType.DATETIME) {
+                throw new IllegalArgumentException(
+                        "Date formatting provided for non-date field " + field.canonicalName());
             }
             ensureTransformationsValid(field.canonicalName(), mapping);
         }

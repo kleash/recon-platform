@@ -117,6 +117,8 @@ type SampleUploadUiState = {
 
 type MappingPreviewState = { value: string; raw: string; result?: string; error?: string };
 
+type MatchRuleType = 'FULL' | 'CASE_INSENSITIVE' | 'THRESHOLD' | 'DATE' | 'DISPLAY_ONLY';
+
 
 @Component({
   selector: 'urp-admin-reconciliation-wizard',
@@ -130,6 +132,7 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     { key: 'definition', label: 'Definition' },
     { key: 'sources', label: 'Sources' },
     { key: 'transformations', label: 'Transformations' },
+    { key: 'matching', label: 'Matching rules' },
     { key: 'schema', label: 'Schema' },
     { key: 'reports', label: 'Reports' },
     { key: 'access', label: 'Access' },
@@ -159,6 +162,13 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
   ];
   readonly dataTypes: FieldDataType[] = ['STRING', 'DECIMAL', 'INTEGER', 'DATE'];
   readonly comparisonLogics: ComparisonLogic[] = ['EXACT_MATCH', 'CASE_INSENSITIVE', 'NUMERIC_THRESHOLD', 'DATE_ONLY'];
+  readonly matchTypeOptions: Array<{ value: MatchRuleType; label: string }> = [
+    { value: 'FULL', label: 'Full match' },
+    { value: 'CASE_INSENSITIVE', label: 'Case insensitive' },
+    { value: 'THRESHOLD', label: 'Numeric threshold' },
+    { value: 'DATE', label: 'Date match' },
+    { value: 'DISPLAY_ONLY', label: 'Display only' }
+  ];
   readonly reportSources: ReportColumnSource[] = ['SOURCE_A', 'SOURCE_B', 'BREAK_METADATA'];
   readonly accessRoles: AccessRole[] = ['VIEWER', 'MAKER', 'CHECKER'];
   readonly transformationTypes: TransformationType[] = ['GROOVY_SCRIPT', 'EXCEL_FORMULA', 'FUNCTION_PIPELINE'];
@@ -309,6 +319,168 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
 
   sourceMappings(index: number): FormArray<FormGroup> {
     return this.canonicalFields.at(index).get('mappings') as FormArray<FormGroup>;
+  }
+
+  matchTypeFor(fieldGroup: FormGroup): MatchRuleType {
+    const role = fieldGroup.get('role')?.value as FieldRole | null;
+    const logic = fieldGroup.get('comparisonLogic')?.value as ComparisonLogic | null;
+    if (role === 'DISPLAY') {
+      return 'DISPLAY_ONLY';
+    }
+    switch (logic) {
+      case 'NUMERIC_THRESHOLD':
+        return 'THRESHOLD';
+      case 'DATE_ONLY':
+        return 'DATE';
+      case 'CASE_INSENSITIVE':
+        return 'CASE_INSENSITIVE';
+      default:
+        return 'FULL';
+    }
+  }
+
+  matchTypeOptionsFor(fieldGroup: FormGroup): Array<{ value: MatchRuleType; label: string }> {
+    const role = fieldGroup.get('role')?.value as FieldRole | null;
+    if (role === 'KEY') {
+      return this.matchTypeOptions.filter((option) => option.value === 'FULL');
+    }
+    return this.matchTypeOptions;
+  }
+
+  onMatchTypeChange(fieldIndex: number, rawValue: string): void {
+    const matchType = rawValue as MatchRuleType;
+    const fieldGroup = this.canonicalFields.at(fieldIndex) as FormGroup;
+    if (!fieldGroup) {
+      return;
+    }
+    const roleControl = fieldGroup.get('role');
+    const comparisonControl = fieldGroup.get('comparisonLogic');
+    const dataTypeControl = fieldGroup.get('dataType');
+    const thresholdControl = fieldGroup.get('thresholdPercentage');
+
+    switch (matchType) {
+      case 'DISPLAY_ONLY':
+        roleControl?.setValue('DISPLAY');
+        comparisonControl?.setValue('EXACT_MATCH');
+        thresholdControl?.setValue(null);
+        break;
+      case 'THRESHOLD':
+        if (roleControl && roleControl.value === 'DISPLAY') {
+          roleControl.setValue('COMPARE');
+        }
+        comparisonControl?.setValue('NUMERIC_THRESHOLD');
+        dataTypeControl?.setValue('DECIMAL');
+        if (thresholdControl?.value === null || thresholdControl?.value === undefined) {
+          thresholdControl?.setValue(0.0);
+        }
+        break;
+      case 'DATE':
+        if (roleControl && roleControl.value === 'DISPLAY') {
+          roleControl.setValue('COMPARE');
+        }
+        comparisonControl?.setValue('DATE_ONLY');
+        if (dataTypeControl && dataTypeControl.value !== 'DATE') {
+          dataTypeControl.setValue('DATE');
+        }
+        thresholdControl?.setValue(null);
+        break;
+      case 'CASE_INSENSITIVE':
+        if (roleControl && roleControl.value === 'DISPLAY') {
+          roleControl.setValue('COMPARE');
+        }
+        comparisonControl?.setValue('CASE_INSENSITIVE');
+        thresholdControl?.setValue(null);
+        break;
+      default:
+        if (roleControl && roleControl.value === 'DISPLAY') {
+          roleControl.setValue('COMPARE');
+        }
+        comparisonControl?.setValue('EXACT_MATCH');
+        thresholdControl?.setValue(null);
+        break;
+    }
+
+    const mappings = this.sourceMappings(fieldIndex);
+    if (matchType === 'DATE') {
+      mappings.controls.forEach((mappingGroup) => {
+        const targetControl = mappingGroup.get('targetDateFormat');
+        if (!targetControl?.value) {
+          targetControl?.setValue('yyyy-MM-dd');
+        }
+      });
+    } else {
+      mappings.controls.forEach((mappingGroup) => {
+        mappingGroup.get('sourceDateFormat')?.setValue('');
+        mappingGroup.get('targetDateFormat')?.setValue('');
+      });
+    }
+
+    fieldGroup.markAsDirty();
+  }
+
+  isDateMatch(fieldGroup: FormGroup): boolean {
+    return this.matchTypeFor(fieldGroup) === 'DATE';
+  }
+
+  isThresholdMatch(fieldGroup: FormGroup): boolean {
+    return this.matchTypeFor(fieldGroup) === 'THRESHOLD';
+  }
+
+  isDisplayOnly(fieldGroup: FormGroup): boolean {
+    return this.matchTypeFor(fieldGroup) === 'DISPLAY_ONLY';
+  }
+
+  availableColumnsFor(sourceCode: string | null | undefined): string[] {
+    if (!sourceCode) {
+      return [];
+    }
+    const sourceGroup = this.sources.controls.find(
+      (group) => (group.get('code')?.value as string | null) === sourceCode
+    );
+    const value = sourceGroup?.get('availableColumns')?.value;
+    if (Array.isArray(value)) {
+      return [...new Set(value.filter((entry): entry is string => !!entry))].sort((a, b) =>
+        a.localeCompare(b)
+      );
+    }
+    return [];
+  }
+
+  columnsForMapping(fieldIndex: number, mappingIndex: number): string[] {
+    const mappingGroup = this.sourceMappings(fieldIndex).at(mappingIndex) as FormGroup | undefined;
+    if (!mappingGroup) {
+      return [];
+    }
+    const sourceCode = mappingGroup.get('sourceCode')?.value as string | null;
+    const columns = this.availableColumnsFor(sourceCode);
+    const current = mappingGroup.get('sourceColumn')?.value as string | null;
+    if (current && !columns.includes(current)) {
+      return [current, ...columns];
+    }
+    return columns;
+  }
+
+  get sourceOptionList(): Array<{ code: string; label: string }> {
+    return this.sources.controls
+      .map((group) => {
+        const code = group.get('code')?.value as string | null;
+        if (!code) {
+          return null;
+        }
+        const label = (group.get('displayName')?.value as string | null) || code;
+        return { code, label };
+      })
+      .filter((entry): entry is { code: string; label: string } => entry !== null);
+  }
+
+  isAnchorSource(code: string | null | undefined): boolean {
+    if (!code) {
+      return false;
+    }
+    const sourceGroup = this.sources.controls.find(
+      (group) => (group.get('code')?.value as string | null) === code
+    );
+    return !!sourceGroup?.get('anchor')?.value;
   }
 
   mappingTransformations(fieldIndex: number, mappingIndex: number): FormArray<FormGroup> {
@@ -1111,6 +1283,7 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       arrivalTimezone: [source?.arrivalTimezone ?? ''],
       arrivalSlaMinutes: [source?.arrivalSlaMinutes ?? null, [Validators.min(0)]],
       adapterOptions: [source?.adapterOptions ?? ''],
+      availableColumns: [source?.availableColumns ?? []],
       llmOptions: this.createLlmAdapterOptionsGroup(),
       transformationPlan: this.createTransformationPlanGroup(source?.transformationPlan ?? null)
     });
@@ -1879,6 +2052,8 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       sourceColumn: [mapping?.sourceColumn ?? '', Validators.required],
       transformationExpression: [mapping?.transformationExpression ?? ''],
       defaultValue: [mapping?.defaultValue ?? ''],
+      sourceDateFormat: [mapping?.sourceDateFormat ?? ''],
+      targetDateFormat: [mapping?.targetDateFormat ?? ''],
       ordinalPosition: [mapping?.ordinalPosition ?? null],
       required: [mapping?.required ?? false],
       transformations: this.fb.array<FormGroup>(
@@ -2148,6 +2323,8 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
             sourceColumn: mappingValue.sourceColumn,
             transformationExpression: this.normalize(mappingValue.transformationExpression),
             defaultValue: this.normalize(mappingValue.defaultValue),
+            sourceDateFormat: this.normalize(mappingValue.sourceDateFormat),
+            targetDateFormat: this.normalize(mappingValue.targetDateFormat),
             ordinalPosition: this.normalizeNumber(mappingValue.ordinalPosition),
             required: !!mappingValue.required,
             transformations: this.buildTransformationsPayload(fieldIndex, mappingIndex)

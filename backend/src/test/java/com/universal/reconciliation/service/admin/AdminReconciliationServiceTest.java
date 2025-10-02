@@ -35,6 +35,9 @@ import com.universal.reconciliation.domain.enums.DataBatchStatus;
 import com.universal.reconciliation.domain.enums.ReconciliationLifecycleStatus;
 import com.universal.reconciliation.domain.enums.SystemEventType;
 import com.universal.reconciliation.domain.enums.TransformationType;
+import com.universal.reconciliation.domain.transform.ColumnOperationConfig;
+import com.universal.reconciliation.domain.transform.RowOperationConfig;
+import com.universal.reconciliation.domain.transform.SourceTransformationPlan;
 import com.universal.reconciliation.repository.ReconciliationDefinitionRepository;
 import com.universal.reconciliation.service.SystemActivityService;
 import com.universal.reconciliation.service.ingestion.IngestionAdapterRequest;
@@ -43,6 +46,7 @@ import com.universal.reconciliation.service.transform.DataTransformationService;
 import com.universal.reconciliation.service.transform.SourceTransformationPlanMapper;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -222,9 +226,27 @@ class AdminReconciliationServiceTest {
                         true,
                         List.of(
                                 new AdminCanonicalFieldMappingRequest(
-                                        null, "CUSTODY", "trade_id", null, null, 1, true, List.of()),
+                                        null,
+                                        "CUSTODY",
+                                        "trade_id",
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        1,
+                                        true,
+                                        List.of()),
                                 new AdminCanonicalFieldMappingRequest(
-                                        null, "GL", "trade_id", null, null, 1, true, List.of())))),
+                                        null,
+                                        "GL",
+                                        "trade_id",
+                                        null,
+                                        null,
+                                        null,
+                                        null,
+                                        1,
+                                        true,
+                                        List.of())))),
                 List.of(),
                 List.of(new AdminAccessControlEntryRequest(
                         null,
@@ -258,6 +280,70 @@ class AdminReconciliationServiceTest {
         verify(systemActivityService)
                 .recordEvent(SystemEventType.RECONCILIATION_CONFIG_CHANGE, "Reconciliation CUSTODY_GL created by admin.user");
         verify(validator).validate(request);
+    }
+
+    @Test
+    void get_populatesAvailableColumnsFromPlanAndMappings() {
+        SourceTransformationPlan plan = new SourceTransformationPlan();
+        ColumnOperationConfig pipeline = new ColumnOperationConfig();
+        ColumnOperationConfig.PipelineOperation pipelineOperation = new ColumnOperationConfig.PipelineOperation();
+        pipelineOperation.setTargetColumn("normalized_date");
+        pipelineOperation.setSourceColumn("tradeDateRaw");
+        pipeline.setType(ColumnOperationConfig.ColumnOperationType.PIPELINE);
+        pipeline.setPipeline(pipelineOperation);
+        plan.setColumnOperations(new ArrayList<>(List.of(pipeline)));
+
+        RowOperationConfig aggregateRow = new RowOperationConfig();
+        RowOperationConfig.AggregateOperation aggregateOperation = new RowOperationConfig.AggregateOperation();
+        RowOperationConfig.Aggregation aggregation = new RowOperationConfig.Aggregation();
+        aggregation.setSourceColumn("amount");
+        aggregation.setResultColumn("amount_sum");
+        aggregateOperation.getAggregations().add(aggregation);
+        aggregateRow.setType(RowOperationConfig.RowOperationType.AGGREGATE);
+        aggregateRow.setAggregate(aggregateOperation);
+        plan.setRowOperations(new ArrayList<>(List.of(aggregateRow)));
+
+        ReconciliationDefinition definition = new ReconciliationDefinition();
+        definition.setId(88L);
+        definition.setCode("AVAILABLE_COLUMNS");
+
+        ReconciliationSource source = new ReconciliationSource();
+        source.setId(99L);
+        source.setDefinition(definition);
+        source.setCode("CUSTODY");
+        source.setDisplayName("Custody Feed");
+        source.setAdapterType(IngestionAdapterType.CSV_FILE);
+        source.setAnchor(true);
+        SourceTransformationPlanMapper mapper = new SourceTransformationPlanMapper(new ObjectMapper());
+        source.setTransformationPlan(mapper.serialize(plan));
+        definition.getSources().add(source);
+
+        CanonicalField field = new CanonicalField();
+        field.setDefinition(definition);
+        field.setCanonicalName("normalizedDate");
+        field.setDisplayName("Normalized Date");
+        field.setRole(FieldRole.COMPARE);
+        field.setDataType(FieldDataType.DATE);
+        field.setComparisonLogic(ComparisonLogic.DATE_ONLY);
+        definition.getCanonicalFields().add(field);
+
+        CanonicalFieldMapping mapping = new CanonicalFieldMapping();
+        mapping.setCanonicalField(field);
+        mapping.setSource(source);
+        mapping.setSourceColumn("normalized_date");
+        mapping.setRequired(true);
+        mapping.setSourceDateFormat("MM/dd/yyyy");
+        mapping.setTargetDateFormat("yyyy-MM-dd");
+        field.getMappings().add(mapping);
+        source.getFieldMappings().add(mapping);
+
+        when(definitionRepository.findById(88L)).thenReturn(Optional.of(definition));
+
+        AdminReconciliationDetailDto detail = service.get(88L);
+
+        assertThat(detail.sources()).hasSize(1);
+        assertThat(detail.sources().get(0).availableColumns())
+                .containsExactlyInAnyOrder("amount", "amount_sum", "normalized_date", "tradeDateRaw");
     }
 
     @Test

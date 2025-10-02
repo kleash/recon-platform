@@ -133,6 +133,11 @@
               <li *ngFor="let mapping of field.mappings">
                 <strong>{{ mapping.sourceCode }}</strong>: {{ mapping.sourceColumn }}
                 <span *ngIf="mapping.transformationExpression"> · {{ mapping.transformationExpression }}</span>
+                <div *ngIf="mapping.sourceDateFormat || mapping.targetDateFormat" class="date-format-summary">
+                  <span>Date formats:</span>
+                  <span *ngIf="mapping.sourceDateFormat">input {{ mapping.sourceDateFormat }}</span>
+                  <span *ngIf="mapping.targetDateFormat">normalized {{ mapping.targetDateFormat }}</span>
+                </div>
                 <div *ngIf="mapping.transformations?.length" class="transformation-summary">
                   <span>Rules:</span>
                   <ul>

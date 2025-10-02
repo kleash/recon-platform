@@ -87,23 +87,58 @@ type CanonicalFieldConfig = {
   mappings: Array<{ source: string; column: string }>;
 };
 
+function resolveMatchType(config: CanonicalFieldConfig): 'FULL' | 'CASE_INSENSITIVE' | 'THRESHOLD' | 'DATE' | 'DISPLAY_ONLY' {
+  switch (config.comparison) {
+    case 'CASE_INSENSITIVE':
+      return 'CASE_INSENSITIVE';
+    case 'NUMERIC_THRESHOLD':
+      return 'THRESHOLD';
+    case 'DATE_ONLY':
+      return 'DATE';
+    default:
+      return config.role === 'DISPLAY' ? 'DISPLAY_ONLY' : 'FULL';
+  }
+}
+
 async function configureCanonicalField(field: Locator, config: CanonicalFieldConfig) {
   await expect(field).toBeVisible();
   await field.getByLabel('Canonical name').fill(config.canonicalName);
   await field.getByLabel('Display name').fill(config.displayName);
   await field.getByLabel('Role').selectOption(config.role);
   await field.getByLabel('Data type').selectOption(config.dataType);
-  await field.getByLabel('Comparison').selectOption(config.comparison);
+  const comparisonControl = field.getByLabel('Comparison', { exact: true });
+  if ((await comparisonControl.count()) > 0) {
+    await comparisonControl.selectOption(config.comparison);
+  } else {
+    const matchTypeControl = field.getByLabel('Match type', { exact: true });
+    if ((await matchTypeControl.count()) > 0) {
+      await matchTypeControl.selectOption(resolveMatchType(config));
+    }
+  }
 
   const mappings = field.locator('.mapping-row');
   for (const [index, mapping] of config.mappings.entries()) {
     if (index > 0) {
-      await field.getByRole('button', { name: 'Add mapping' }).click();
+      const addMappingButton = field
+        .getByRole('button', { name: /Add (mapping|source mapping)/i })
+        .first();
+      await addMappingButton.click();
     }
     const row = mappings.nth(index);
     await expect(row).toBeVisible();
-    await row.getByLabel('Source', { exact: true }).fill(mapping.source);
-    await row.getByLabel('Column', { exact: true }).fill(mapping.column);
+    const sourceSelect = row.locator('select[formcontrolname="sourceCode"]');
+    if ((await sourceSelect.count()) > 0) {
+      await sourceSelect.selectOption(mapping.source);
+    } else {
+      await row.getByLabel('Source', { exact: true }).fill(mapping.source);
+    }
+
+    const columnInput = row.locator('[formcontrolname="sourceColumn"]');
+    if ((await columnInput.count()) > 0) {
+      await columnInput.fill(mapping.column);
+    } else {
+      await row.getByLabel('Column', { exact: true }).fill(mapping.column);
+    }
   }
 }
 
@@ -113,7 +148,7 @@ async function addCanonicalField(
   index: number,
   config: CanonicalFieldConfig
 ) {
-  await page.getByRole('button', { name: 'Add canonical field' }).click();
+  await page.getByRole('button', { name: /Add (canonical field|rule)/i }).first().click();
   const field = fieldCards.nth(index);
   await configureCanonicalField(field, config);
 }
@@ -173,105 +208,97 @@ async function createReconciliationFromScratch(options: {
 
   await page.getByRole('button', { name: 'Next' }).click();
 
+  const matchingCards = page.locator('.matching-card');
+  await expect(matchingCards.first()).toBeVisible({ timeout: 30000 });
+
+  const canonicalFieldConfigs: CanonicalFieldConfig[] = [
+    {
+      canonicalName: 'transactionId',
+      displayName: 'Transaction ID',
+      role: 'KEY',
+      dataType: 'STRING',
+      comparison: 'EXACT_MATCH',
+      mappings: [
+        { source: 'CASH', column: 'transactionId' },
+        { source: 'GL', column: 'transactionId' }
+      ]
+    },
+    {
+      canonicalName: 'amount',
+      displayName: 'Amount',
+      role: 'COMPARE',
+      dataType: 'DECIMAL',
+      comparison: 'EXACT_MATCH',
+      mappings: [
+        { source: 'CASH', column: 'amount' },
+        { source: 'GL', column: 'amount' }
+      ]
+    },
+    {
+      canonicalName: 'currency',
+      displayName: 'Currency',
+      role: 'COMPARE',
+      dataType: 'STRING',
+      comparison: 'CASE_INSENSITIVE',
+      mappings: [
+        { source: 'CASH', column: 'currency' },
+        { source: 'GL', column: 'currency' }
+      ]
+    },
+    {
+      canonicalName: 'tradeDate',
+      displayName: 'Trade Date',
+      role: 'COMPARE',
+      dataType: 'DATE',
+      comparison: 'DATE_ONLY',
+      mappings: [
+        { source: 'CASH', column: 'tradeDate' },
+        { source: 'GL', column: 'tradeDate' }
+      ]
+    },
+    {
+      canonicalName: 'product',
+      displayName: 'Product',
+      role: 'PRODUCT',
+      dataType: 'STRING',
+      comparison: 'EXACT_MATCH',
+      mappings: [
+        { source: 'CASH', column: 'product' },
+        { source: 'GL', column: 'product' }
+      ]
+    },
+    {
+      canonicalName: 'subProduct',
+      displayName: 'Sub Product',
+      role: 'SUB_PRODUCT',
+      dataType: 'STRING',
+      comparison: 'EXACT_MATCH',
+      mappings: [
+        { source: 'CASH', column: 'subProduct' },
+        { source: 'GL', column: 'subProduct' }
+      ]
+    },
+    {
+      canonicalName: 'entityName',
+      displayName: 'Entity',
+      role: 'ENTITY',
+      dataType: 'STRING',
+      comparison: 'EXACT_MATCH',
+      mappings: [
+        { source: 'CASH', column: 'entityName' },
+        { source: 'GL', column: 'entityName' }
+      ]
+    }
+  ];
+
+  await configureCanonicalField(matchingCards.first(), canonicalFieldConfigs[0]);
+  for (let index = 1; index < canonicalFieldConfigs.length; index += 1) {
+    await addCanonicalField(page, matchingCards, index, canonicalFieldConfigs[index]);
+  }
+
+  await page.getByRole('button', { name: 'Next' }).click();
   const fieldCards = page.locator('.field-card');
-  await configureCanonicalField(fieldCards.first(), {
-    canonicalName: 'transactionId',
-    displayName: 'Transaction ID',
-    role: 'KEY',
-    dataType: 'STRING',
-    comparison: 'EXACT_MATCH',
-    mappings: [
-      { source: 'CASH', column: 'transactionId' },
-      { source: 'GL', column: 'transactionId' }
-    ]
-  });
-
-  await addCanonicalField(page, fieldCards, 1, {
-    canonicalName: 'amount',
-    displayName: 'Amount',
-    role: 'COMPARE',
-    dataType: 'DECIMAL',
-    comparison: 'EXACT_MATCH',
-    mappings: [
-      { source: 'CASH', column: 'amount' },
-      { source: 'GL', column: 'amount' }
-    ]
-  });
-
-  await addCanonicalField(page, fieldCards, 2, {
-    canonicalName: 'currency',
-    displayName: 'Currency',
-    role: 'COMPARE',
-    dataType: 'STRING',
-    comparison: 'CASE_INSENSITIVE',
-    mappings: [
-      { source: 'CASH', column: 'currency' },
-      { source: 'GL', column: 'currency' }
-    ]
-  });
-
-  await addCanonicalField(page, fieldCards, 3, {
-    canonicalName: 'tradeDate',
-    displayName: 'Trade Date',
-    role: 'COMPARE',
-    dataType: 'DATE',
-    comparison: 'DATE_ONLY',
-    mappings: [
-      { source: 'CASH', column: 'tradeDate' },
-      { source: 'GL', column: 'tradeDate' }
-    ]
-  });
-
-  await addCanonicalField(page, fieldCards, 4, {
-    canonicalName: 'product',
-    displayName: 'Product',
-    role: 'PRODUCT',
-    dataType: 'STRING',
-    comparison: 'EXACT_MATCH',
-    mappings: [
-      { source: 'CASH', column: 'product' },
-      { source: 'GL', column: 'product' }
-    ]
-  });
-
-  await addCanonicalField(page, fieldCards, 5, {
-    canonicalName: 'subProduct',
-    displayName: 'Sub Product',
-    role: 'SUB_PRODUCT',
-    dataType: 'STRING',
-    comparison: 'EXACT_MATCH',
-    mappings: [
-      { source: 'CASH', column: 'subProduct' },
-      { source: 'GL', column: 'subProduct' }
-    ]
-  });
-
-  await page.getByRole('button', { name: 'Add canonical field' }).click();
-  const entityField = fieldCards.nth(6);
-  await expect(entityField).toBeVisible();
-  await entityField.getByLabel('Canonical name').fill('entityName');
-  await entityField.getByLabel('Display name').fill('Entity');
-  await entityField.getByLabel('Role').selectOption('ENTITY');
-  await entityField.getByLabel('Data type').selectOption('STRING');
-  await entityField.getByLabel('Comparison').selectOption('EXACT_MATCH');
-  const entityMappings = entityField.locator('.mapping-row');
-  await entityMappings
-    .nth(0)
-    .getByLabel('Source')
-    .fill('CASH');
-  await entityMappings
-    .nth(0)
-    .getByLabel('Column', { exact: true })
-    .fill('entityName');
-  await entityField.getByRole('button', { name: 'Add mapping' }).click();
-  await entityMappings
-    .nth(1)
-    .getByLabel('Source')
-    .fill('GL');
-  await entityMappings
-    .nth(1)
-    .getByLabel('Column', { exact: true })
-    .fill('entityName');
+  await expect(fieldCards.first()).toBeVisible({ timeout: 30000 });
 
   await page.getByRole('button', { name: 'Next' }).click();
 
@@ -452,8 +479,10 @@ async function createGroovyReconciliation(options: {
 
   await page.getByRole('button', { name: 'Next' }).click();
 
-  const fieldCards = page.locator('.field-card');
-  await configureCanonicalField(fieldCards.first(), {
+  const matchingCards = page.locator('.matching-card');
+  await expect(matchingCards.first()).toBeVisible({ timeout: 30000 });
+
+  await configureCanonicalField(matchingCards.first(), {
     canonicalName: 'transactionId',
     displayName: 'Transaction ID',
     role: 'KEY',
@@ -465,7 +494,7 @@ async function createGroovyReconciliation(options: {
     ]
   });
 
-  await addCanonicalField(page, fieldCards, 1, {
+  await addCanonicalField(page, matchingCards, 1, {
     canonicalName: 'amount',
     displayName: 'Amount',
     role: 'COMPARE',
@@ -476,6 +505,23 @@ async function createGroovyReconciliation(options: {
       { source: 'GROOVY_B', column: 'amount' }
     ]
   });
+
+  await addCanonicalField(page, matchingCards, 2, {
+    canonicalName: 'currency',
+    displayName: 'Currency',
+    role: 'COMPARE',
+    dataType: 'STRING',
+    comparison: 'CASE_INSENSITIVE',
+    mappings: [
+      { source: 'GROOVY_A', column: 'currency' },
+      { source: 'GROOVY_B', column: 'currency' }
+    ]
+  });
+
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  const fieldCards = page.locator('.field-card');
+  await expect(fieldCards.first()).toBeVisible({ timeout: 30000 });
 
   const amountField = fieldCards.nth(1);
   await expect(amountField).toBeVisible({ timeout: 30000 });
@@ -490,18 +536,6 @@ async function createGroovyReconciliation(options: {
   await transformationCard.getByLabel('Groovy script').fill(groovyScript);
   await transformationCard.getByRole('button', { name: 'Validate rule' }).click();
   await expect(transformationCard.getByText('Transformation is valid.')).toBeVisible();
-
-  await addCanonicalField(page, fieldCards, 2, {
-    canonicalName: 'currency',
-    displayName: 'Currency',
-    role: 'COMPARE',
-    dataType: 'STRING',
-    comparison: 'CASE_INSENSITIVE',
-    mappings: [
-      { source: 'GROOVY_A', column: 'currency' },
-      { source: 'GROOVY_B', column: 'currency' }
-    ]
-  });
 
   await page.getByRole('button', { name: 'Next' }).click();
 
@@ -631,7 +665,7 @@ async function duplicateFromTemplate(options: {
   const existingDescription = await descriptionField.inputValue();
   await descriptionField.fill(`${existingDescription}\n\nAutomation clone created for regression coverage.`);
 
-  for (let i = 0; i < 6; i += 1) {
+  for (let i = 0; i < 7; i += 1) {
     await page.getByRole('button', { name: 'Next' }).click();
   }
 
@@ -835,6 +869,7 @@ async function testGroovyInWizard(options: {
   const transformedPreview = groovyCard.locator('.preview-column').nth(1).locator('pre').first();
   await expect(transformedPreview).toBeVisible({ timeout: 30000 });
 
+  await page.getByRole('button', { name: 'Next' }).click();
   await page.getByRole('button', { name: 'Next' }).click();
 
   const fieldCards = page.locator('.field-card');

@@ -61,7 +61,7 @@ Use this checklist whenever you set up a new reconciliation:
 2. ✅ Gather business requirements: sources, key fields, tolerances, break classifications.
 3. ✅ Verify sample data availability for each source (CSV, database extracts, APIs).
 4. ✅ Log into the Administration workspace and launch **New reconciliation**.
-5. ✅ Complete the six-step wizard (definition → sources → schema → reports → access → review).
+5. ✅ Complete the eight-step wizard (definition → sources → transformations → matching → schema → reports → access → review).
 6. ✅ Validate transformations (Groovy/Excel/pipeline) and preview results using sample data.
 7. ✅ Publish the reconciliation and notify maker/checker teams.
 8. ✅ Trigger an ingestion test using the CLI or API and confirm analytics in the results workspace.
@@ -125,7 +125,20 @@ you can pause and resume.
   output side-by-side. The Groovy transformation tester picks up these preview rows so you can run
   expressions against real data before publishing.
 
-### 4.4 Schema
+### 4.4 Matching Rules
+
+- Review the columns surfaced for each source after transformations. The configurator auto-populates
+  available fields so you can map anchor and secondary sources quickly.
+- Pick a match type for every canonical field: full match, case-insensitive, numeric threshold, date
+  match, or display-only context. Thresholds are captured as percentages; display-only fields are
+  excluded from the matching engine but remain visible to analysts.
+- For date comparisons, capture the incoming format per source and the normalized format that should
+  be written into the canonical payload. These settings are applied automatically during ingestion so
+  the matching engine always evaluates ISO-aligned dates.
+- Add or remove source-specific mappings in the same view—no need to jump back to the schema step for
+  basic adjustments.
+
+### 4.5 Schema
 
 - Define canonical fields with roles (`KEY`, `COMPARE`, `CLASSIFIER`, etc.), tolerances, and display
   hints.
@@ -143,20 +156,20 @@ you can pause and resume.
 - **Ordinal** controls the relative ordering of source mappings when multiple columns feed into a
   single canonical field. Lower numbers run first.
 
-### 4.5 Reports (Optional)
+### 4.6 Reports (Optional)
 
 - Configure export templates: column order, highlighting, inclusion of matched/mismatched/missing
   records, and file naming conventions.
 - Templates map directly to report jobs defined in the automation suite.
 
-### 4.6 Access
+### 4.7 Access
 
 - Assign LDAP groups as **Maker**, **Checker**, or **Viewer**. You can scope entries by product,
   sub-product, and entity.
 - Configure notification preferences for publish events or ingestion failures. URP’s notification
   bridge handles channel delivery (email, Slack, etc.).
 
-### 4.7 Review & Publish
+### 4.8 Review & Publish
 
 - Inspect the generated summary (definition metadata, sources, schema counts, access matrix).
 - Choose **Save draft** to revisit later or **Publish** to make the reconciliation available to

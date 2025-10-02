@@ -162,6 +162,7 @@ export interface AdminSource {
   arrivalTimezone?: string | null;
   arrivalSlaMinutes?: number | null;
   adapterOptions?: string | null;
+  availableColumns?: string[] | null;
   createdAt?: string | null;
   updatedAt?: string | null;
   transformationPlan?: SourceTransformationPlan | null;
@@ -173,6 +174,8 @@ export interface AdminCanonicalFieldMapping {
   sourceColumn: string;
   transformationExpression?: string | null;
   defaultValue?: string | null;
+  sourceDateFormat?: string | null;
+  targetDateFormat?: string | null;
   ordinalPosition?: number | null;
   required: boolean;
   transformations: AdminCanonicalFieldTransformation[];

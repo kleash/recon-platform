@@ -190,9 +190,27 @@ class AdminReconciliationServiceIntegrationTest {
                 true,
                 List.of(
                         new AdminCanonicalFieldMappingRequest(
-                                null, "CUSTODY_FEED", "trade_id", null, null, 0, true, List.of()),
+                                null,
+                                "CUSTODY_FEED",
+                                "trade_id",
+                                null,
+                                null,
+                                null,
+                                null,
+                                0,
+                                true,
+                                List.of()),
                         new AdminCanonicalFieldMappingRequest(
-                                null, "GL_LEDGER", "trade_id", null, null, 0, true, List.of())));
+                                null,
+                                "GL_LEDGER",
+                                "trade_id",
+                                null,
+                                null,
+                                null,
+                                null,
+                                0,
+                                true,
+                                List.of())));
 
         AdminCanonicalFieldRequest netAmount = new AdminCanonicalFieldRequest(
                 null,
@@ -208,9 +226,27 @@ class AdminReconciliationServiceIntegrationTest {
                 true,
                 List.of(
                         new AdminCanonicalFieldMappingRequest(
-                                null, "CUSTODY_FEED", "net_amount", null, null, 0, true, List.of()),
+                                null,
+                                "CUSTODY_FEED",
+                                "net_amount",
+                                null,
+                                null,
+                                null,
+                                null,
+                                0,
+                                true,
+                                List.of()),
                         new AdminCanonicalFieldMappingRequest(
-                                null, "GL_LEDGER", "net_amount", null, null, 0, true, List.of())));
+                                null,
+                                "GL_LEDGER",
+                                "net_amount",
+                                null,
+                                null,
+                                null,
+                                null,
+                                0,
+                                true,
+                                List.of())));
 
         AdminCanonicalFieldRequest currency = new AdminCanonicalFieldRequest(
                 null,
@@ -226,9 +262,27 @@ class AdminReconciliationServiceIntegrationTest {
                 true,
                 List.of(
                         new AdminCanonicalFieldMappingRequest(
-                                null, "CUSTODY_FEED", "currency", null, null, 0, true, List.of()),
+                                null,
+                                "CUSTODY_FEED",
+                                "currency",
+                                null,
+                                null,
+                                null,
+                                null,
+                                0,
+                                true,
+                                List.of()),
                         new AdminCanonicalFieldMappingRequest(
-                                null, "GL_LEDGER", "currency", null, null, 0, true, List.of())));
+                                null,
+                                "GL_LEDGER",
+                                "currency",
+                                null,
+                                null,
+                                null,
+                                null,
+                                0,
+                                true,
+                                List.of())));
 
         AdminReportTemplateRequest reportTemplate = new AdminReportTemplateRequest(
                 null,

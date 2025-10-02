@@ -611,3 +611,88 @@
   color: #64748b;
   font-size: 0.85rem;
 }
+
+.matching-step {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.matching-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.matching-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.matching-card {
+  border: 1px solid #dcdfe3;
+  border-radius: 8px;
+  background: #fff;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.matching-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.matching-identifiers {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+}
+
+.matching-meta {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+}
+
+.matching-formatting label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-width: 18rem;
+}
+
+.source-mappings {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.mapping-row {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  align-items: end;
+}
+
+.mapping-source label,
+.mapping-column label,
+.mapping-date label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.mapping-date {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+}
+
+.mapping-actions {
+  display: flex;
+  align-items: center;
+}

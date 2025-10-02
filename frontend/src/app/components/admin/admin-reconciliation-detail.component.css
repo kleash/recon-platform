@@ -170,6 +170,16 @@
   padding-left: 1.1rem;
 }
 
+.date-format-summary {
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.date-format-summary span + span {
+  margin-left: 0.5rem;
+}
+
 .reports {
   margin-top: 2rem;
   display: grid;

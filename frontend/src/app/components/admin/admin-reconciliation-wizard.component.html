@@ -537,6 +537,144 @@
       </article>
     </section>
 
+    <section *ngSwitchCase="'matching'" formArrayName="canonicalFields" class="matching-step">
+      <header class="matching-header">
+        <div>
+          <h3>Matching rules</h3>
+          <p>
+            Choose how canonical fields compare across sources. Pick the transformed columns for each source,
+            tune matching logic, or flag fields as display-only context.
+          </p>
+        </div>
+        <button type="button" class="secondary" (click)="addCanonicalField()">Add rule</button>
+      </header>
+
+      <div class="matching-grid">
+        <article
+          *ngFor="let fieldGroup of canonicalFields.controls; let i = index"
+          [formGroupName]="i"
+          class="matching-card"
+        >
+          <header class="matching-card-header">
+            <div class="matching-identifiers">
+              <label>
+                Display name
+                <input type="text" formControlName="displayName" placeholder="e.g. Trade Amount" />
+              </label>
+              <label>
+                Canonical name
+                <input type="text" formControlName="canonicalName" placeholder="tradeAmount" />
+              </label>
+            </div>
+            <button
+              type="button"
+              class="link danger"
+              (click)="removeCanonicalField(i)"
+              *ngIf="canonicalFields.length > 1"
+            >
+              Remove
+            </button>
+          </header>
+
+          <div class="matching-meta">
+            <label>
+              Role
+              <select formControlName="role">
+                <option *ngFor="let role of fieldRoles" [value]="role">{{ role }}</option>
+              </select>
+            </label>
+            <label>
+              Data type
+              <select formControlName="dataType">
+                <option *ngFor="let type of dataTypes" [value]="type">{{ type }}</option>
+              </select>
+            </label>
+            <label>
+              Match type
+              <select
+                [value]="matchTypeFor(fieldGroup)"
+                (change)="onMatchTypeChange(i, $any($event.target).value)"
+              >
+                <option *ngFor="let option of matchTypeOptionsFor(fieldGroup)" [value]="option.value">
+                  {{ option.label }}
+                </option>
+              </select>
+            </label>
+            <label *ngIf="isThresholdMatch(fieldGroup)">
+              Threshold (%)
+              <input type="number" formControlName="thresholdPercentage" step="0.01" />
+            </label>
+          </div>
+
+          <div class="matching-formatting" *ngIf="isDateMatch(fieldGroup)">
+            <label>
+              Display format hint
+              <input type="text" formControlName="formattingHint" placeholder="e.g. yyyy-MM-dd" />
+            </label>
+          </div>
+
+          <div class="source-mappings" formArrayName="mappings">
+            <div
+              *ngFor="let mappingGroup of sourceMappings(i).controls; let m = index"
+              [formGroupName]="m"
+              class="mapping-row"
+            >
+              <div class="mapping-source">
+                <label>
+                  Source
+                  <select formControlName="sourceCode">
+                    <option value="">Select source</option>
+                    <option *ngFor="let source of sourceOptionList" [value]="source.code">
+                      {{ source.label }}
+                      <span *ngIf="isAnchorSource(source.code)">(anchor)</span>
+                    </option>
+                  </select>
+                </label>
+              </div>
+              <div class="mapping-column">
+                <label>
+                  Column
+                  <input
+                    type="text"
+                    formControlName="sourceColumn"
+                    [attr.list]="'columns-' + i + '-' + m"
+                    placeholder="Select or type column"
+                  />
+                  <datalist [id]="'columns-' + i + '-' + m">
+                    <option *ngFor="let column of columnsForMapping(i, m)" [value]="column"></option>
+                  </datalist>
+                </label>
+                <p class="hint" *ngIf="columnsForMapping(i, m).length === 0">
+                  Upload transformation samples or map fields in the schema step to surface columns.
+                </p>
+              </div>
+              <div class="mapping-date" *ngIf="isDateMatch(fieldGroup)">
+                <label>
+                  Input format
+                  <input type="text" formControlName="sourceDateFormat" placeholder="e.g. dd/MM/yyyy" />
+                </label>
+                <label>
+                  Normalized format
+                  <input type="text" formControlName="targetDateFormat" placeholder="Defaults to yyyy-MM-dd" />
+                </label>
+              </div>
+              <div class="mapping-actions">
+                <button
+                  type="button"
+                  class="link"
+                  (click)="removeMapping(i, m)"
+                  *ngIf="sourceMappings(i).length > 1"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+            <button type="button" class="secondary" (click)="addMapping(i)">Add source mapping</button>
+          </div>
+        </article>
+      </div>
+    </section>
+
     <section *ngSwitchCase="'schema'" formArrayName="canonicalFields" class="schema-step">
       <article *ngFor="let fieldGroup of canonicalFields.controls; let i = index" [formGroupName]="i" class="field-card">
         <header>

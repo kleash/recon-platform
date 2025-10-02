@@ -50,6 +50,12 @@ public class CanonicalFieldMapping {
     @Column(name = "default_value")
     private String defaultValue;
 
+    @Column(name = "source_date_format")
+    private String sourceDateFormat;
+
+    @Column(name = "target_date_format")
+    private String targetDateFormat;
+
     @Column(name = "ordinal_position")
     private Integer ordinalPosition;
 

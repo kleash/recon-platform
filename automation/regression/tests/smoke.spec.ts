@@ -105,7 +105,7 @@ test('admin users can author reconciliations through the administration workspac
 
   await page.locator('a.primary-action', { hasText: 'New reconciliation' }).click();
   await expect(page.getByRole('heading', { name: 'Create reconciliation' })).toBeVisible();
-  await expect(page.getByText('Step 1 of 7 · Definition')).toBeVisible();
+  await expect(page.getByText('Step 1 of 8 · Definition')).toBeVisible();
   await expect(page.getByLabel('Code')).toBeVisible();
 
   const wizardScreenshot = '05-admin-wizard.png';

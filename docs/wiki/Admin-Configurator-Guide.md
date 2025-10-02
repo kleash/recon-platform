@@ -112,14 +112,28 @@ you can pause and resume.
   mapped to canonical fields.
 - A transformation plan is executed in three phases:
   1. **Dataset Groovy script** (optional) runs once per preview and can reshape or annotate the full
-     list of rows.
+     list of rows. The editor now includes an **AI prompt** helper that sends the prompt, available
+     column list, and sample row to the platform LLM so you can bootstrap scripts without leaving the
+     configurator. Generated scripts are validated automatically before the preview refreshes.
   2. **Row operations** execute in order. Use filters to keep or exclude records, aggregations to
      roll up rows (sum, average, min/max, count, first/last), and split rules to explode delimited
      values into multiple rows.
-  3. **Column operations** run after row processing. Combine fields into a new column, apply
-     function pipelines, or round numeric values.
+  3. **Column operations** run after row processing. Combine fields into a new column, build
+     function pipelines with the visual step editor, or round numeric values. Pipelines no longer
+     require hand-authoring JSON—the UI serialises the step graph for you.
 - Every input on this step now ships with a tooltip. Hover the information icon beside a field to
   see when the value is evaluated and how it affects the preview.
+- Preview controls provide per-format parsing options:
+  - CSV/Delimited files support header toggles, custom delimiters, encoding, **skip rows**, and row
+    limits.
+  - Excel uploads can refresh the workbook to list available sheets, select one or many tabs, and
+    optionally append the sheet name to each previewed row via a custom column.
+  - JSON/XML uploads expose record-path navigation so you can extract the correct array without
+    editing the payload.
+  - All formats let you persist encoding and row limits so previews mirror production ingestion.
+- The wizard caches discovered columns back onto the source definition as soon as you preview data.
+  Those columns populate the mapping dropdowns in the Matching and Schema steps, keeping the flow
+  inline.
 - **Preview workflow:** upload a sample file (CSV, delimited text, Excel, JSON, XML) or load the
   latest ingested rows. Apply the plan at any time to compare the raw dataset and the transformed
   output side-by-side. The Groovy transformation tester picks up these preview rows so you can run
@@ -206,11 +220,19 @@ value = amount
 
 #### AI-assisted Groovy authoring
 
-- Open the **Describe transformation** assistant inside the Groovy editor to capture the business requirement in plain language.
-- Load a sample row before requesting a script so the LLM receives the current value (`value`) and raw source payload (`row`/`raw`) context automatically.
-- The platform injects Groovy sandbox rules (no imports, bindings only) and posts the request to the configured OpenAI endpoint.
-- The returned script is written directly into the editor and a short summary is displayed beneath the assistant. Always run **Validate** and **Run Groovy test** afterwards to confirm the behaviour.
-- If OpenAI credentials are missing or the call fails, the assistant surfaces the error and preserves the prompt so you can retry after adjusting settings.
+- Open the **Describe transformation** assistant inside either the dataset Groovy editor (on the
+  Transformations step) or a field-level Groovy editor (on the Schema/Matching step) to capture the
+  business requirement in plain language.
+- Load a sample row before requesting a script so the LLM receives the current value (`value`), raw
+  source payload (`row`/`raw`), and the list of available columns. Dataset prompts also forward the
+  entire previewed row list so cross-record operations can be suggested.
+- The platform injects Groovy sandbox rules (no imports, bindings only) and posts the request to the
+  configured OpenAI endpoint.
+- The returned script is written directly into the editor and a short summary is displayed beneath
+  the assistant. Always run **Validate** and (for field-level scripts) **Run Groovy test** afterwards
+  to confirm the behaviour.
+- If OpenAI credentials are missing or the call fails, the assistant surfaces the error and preserves
+  the prompt so you can retry after adjusting settings.
 
 ### 5.2 Excel-style Formulas
 
@@ -227,6 +249,8 @@ value = amount
   - `trim`, `uppercase`, `lowercase`
   - `replace(pattern, replacement)`
   - `parseDate(format, targetFormat)`
+- Each step now exposes its arguments inline—add, remove, or reorder steps without editing raw JSON.
+  The configurator serialises the pipeline to the required configuration string automatically.
 - Pipelines run in order; you can rearrange or disable individual steps. Use this mode for common
   cleanup tasks when scripting is overkill.
 
@@ -251,10 +275,10 @@ value = amount
 
 - The **Transformations** step owns previewing. Every source exposes the same two workflows:
   - **Upload sample file:** Drop a CSV, delimited text, Excel workbook, JSON document, or XML payload
-    and provide parsing hints (headers, delimiter, sheet name, record path, encoding, row limit). The
-    wizard runs the dataset script, row operations, and column operations and renders a side-by-side
-    JSON view of raw versus transformed rows. The default upload limit is 2 MiB and can be tuned via
-    `admin.transformations.preview.max-upload-bytes`.
+    and provide parsing hints (headers, delimiter, sheet selection, record path, encoding, skip rows,
+    row limit). The wizard runs the dataset script, row operations, and column operations and renders
+    a side-by-side JSON view of raw versus transformed rows. The default upload limit is 2 MiB and
+    can be tuned via `admin.transformations.preview.max-upload-bytes`.
   - **Load live samples:** After the first ingestion succeeds, use *Load recent rows* to fetch the
     latest persisted batch. The preview panel marks which rows were used so you can cross-check
     production inputs ahead of canonical mapping changes.

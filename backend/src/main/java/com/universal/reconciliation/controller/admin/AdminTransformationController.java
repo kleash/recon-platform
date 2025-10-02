@@ -14,6 +14,7 @@ import com.universal.reconciliation.domain.dto.admin.TransformationValidationRes
 import com.universal.reconciliation.service.admin.AdminTransformationService;
 import com.universal.reconciliation.service.transform.TransformationEvaluationException;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -49,6 +50,11 @@ public class AdminTransformationController {
             @Valid @RequestPart("request") SourceTransformationPreviewUploadRequest request,
             @RequestPart("file") MultipartFile file) {
         return transformationService.previewPlan(request, file);
+    }
+
+    @PostMapping(value = "/plan/preview/sheets", consumes = {"multipart/form-data"})
+    public List<String> listSheetNames(@RequestPart("file") MultipartFile file) {
+        return transformationService.listSampleSheetNames(file);
     }
 
     @PostMapping("/plan/apply")

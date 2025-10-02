@@ -143,6 +143,54 @@ class SourceTransformationPlanProcessorTest {
     }
 
     @Test
+    void columnOperationsAreAppliedBeforeAndAfterAggregation() {
+        SourceTransformationPlan plan = new SourceTransformationPlan();
+
+        ColumnOperationConfig combineConfig = new ColumnOperationConfig();
+        ColumnOperationConfig.CombineOperation combine = new ColumnOperationConfig.CombineOperation();
+        combine.setTargetColumn("matchingKey");
+        combine.getSources().addAll(List.of("tradeId", "curve"));
+        combine.setDelimiter("|");
+        combineConfig.setType(ColumnOperationConfig.ColumnOperationType.COMBINE);
+        combineConfig.setCombine(combine);
+
+        ColumnOperationConfig roundConfig = new ColumnOperationConfig();
+        ColumnOperationConfig.RoundOperation round = new ColumnOperationConfig.RoundOperation();
+        round.setTargetColumn("amount");
+        round.setScale(2);
+        round.setRoundingMode(RoundingMode.HALF_EVEN);
+        roundConfig.setType(ColumnOperationConfig.ColumnOperationType.ROUND);
+        roundConfig.setRound(round);
+
+        plan.getColumnOperations().addAll(List.of(combineConfig, roundConfig));
+
+        RowOperationConfig aggregateConfig = new RowOperationConfig();
+        RowOperationConfig.AggregateOperation aggregate = new RowOperationConfig.AggregateOperation();
+        aggregate.getGroupBy().addAll(List.of("tradeId", "curve"));
+        RowOperationConfig.Aggregation sum = new RowOperationConfig.Aggregation();
+        sum.setSourceColumn("amount");
+        sum.setResultColumn("amount");
+        sum.setFunction(RowOperationConfig.AggregationFunction.SUM);
+        aggregate.getAggregations().add(sum);
+        aggregateConfig.setType(RowOperationConfig.RowOperationType.AGGREGATE);
+        aggregateConfig.setAggregate(aggregate);
+        plan.getRowOperations().add(aggregateConfig);
+
+        List<Map<String, Object>> rows = List.of(
+                Map.of("tradeId", "T1", "curve", "USD", "amount", "100.125"),
+                Map.of("tradeId", "T1", "curve", "USD", "amount", "50.377"));
+
+        List<Map<String, Object>> result = processor.apply(plan, rows);
+
+        assertThat(result)
+                .singleElement()
+                .satisfies(row -> {
+                    assertThat(row.get("matchingKey")).isEqualTo("T1|USD");
+                    assertThat(row.get("amount")).isEqualTo(new java.math.BigDecimal("150.50"));
+                });
+    }
+
+    @Test
     void validateRejectsSplitWithoutSourceColumn() {
         SourceTransformationPlan plan = new SourceTransformationPlan();
         RowOperationConfig config = new RowOperationConfig();

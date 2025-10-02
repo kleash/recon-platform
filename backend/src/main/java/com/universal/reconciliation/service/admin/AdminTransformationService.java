@@ -109,6 +109,10 @@ public class AdminTransformationService {
         return new SourceTransformationPreviewResponse(rawRows, transformedRows);
     }
 
+    public List<String> listSampleSheetNames(MultipartFile file) {
+        return sampleFileService.listSheetNames(file);
+    }
+
     public SourceTransformationApplyResponse applyPlan(@Valid SourceTransformationApplyRequest request) {
         var plan = request.transformationPlan();
         transformationPlanProcessor.validate(plan);

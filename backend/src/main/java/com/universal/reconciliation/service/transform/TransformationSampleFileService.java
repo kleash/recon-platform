@@ -81,6 +81,21 @@ public class TransformationSampleFileService {
         };
     }
 
+    public List<String> listSheetNames(MultipartFile file) {
+        Objects.requireNonNull(file, "Sample file is required");
+        enforceUploadSize(file);
+        try (InputStream inputStream = file.getInputStream(); Workbook workbook = WorkbookFactory.create(inputStream)) {
+            List<String> names = new ArrayList<>();
+            int total = workbook.getNumberOfSheets();
+            for (int index = 0; index < total; index++) {
+                names.add(workbook.getSheetAt(index).getSheetName());
+            }
+            return names;
+        } catch (IOException ex) {
+            throw new TransformationEvaluationException("Failed to read Excel sample file", ex);
+        }
+    }
+
     private void enforceUploadSize(MultipartFile file) {
         long size = file.getSize();
         if (size > maxUploadBytes) {
@@ -103,6 +118,7 @@ public class TransformationSampleFileService {
             builder.setSkipHeaderRecord(true);
         }
         CSVFormat format = builder.build();
+        int skipRows = Math.max(Optional.ofNullable(request.skipRows()).orElse(0), 0);
         try (Reader reader = new InputStreamReader(file.getInputStream(), charset);
                 CSVParser parser = new CSVParser(reader, format)) {
             List<Map<String, Object>> rows = new ArrayList<>();
@@ -115,7 +131,12 @@ public class TransformationSampleFileService {
                 }
             }
             int processed = 0;
+            int skipped = 0;
             for (CSVRecord record : parser) {
+                if (skipped < skipRows) {
+                    skipped++;
+                    continue;
+                }
                 if (!hasHeader && headers.isEmpty()) {
                     headers = generateColumnHeaders(record.size());
                 } else {
@@ -142,51 +163,105 @@ public class TransformationSampleFileService {
     private List<Map<String, Object>> parseExcelFile(
             MultipartFile file, SourceTransformationPreviewUploadRequest request, int limit) {
         boolean hasHeader = request.hasHeader();
+        int skipRows = Math.max(Optional.ofNullable(request.skipRows()).orElse(0), 0);
+        String sheetNameColumn = StringUtils.hasText(request.sheetNameColumn())
+                ? request.sheetNameColumn()
+                : "_sheet";
         try (InputStream inputStream = file.getInputStream(); Workbook workbook = WorkbookFactory.create(inputStream)) {
-            Sheet sheet = resolveSheet(workbook, request.sheetName());
-            if (sheet == null) {
-                throw new TransformationEvaluationException("Unable to locate the requested sheet in the workbook");
+            List<Sheet> sheets = resolveSheets(workbook, request);
+            if (sheets.isEmpty()) {
+                throw new TransformationEvaluationException("Unable to locate any requested sheets in the workbook");
             }
             DataFormatter formatter = new DataFormatter(Locale.ENGLISH);
             FormulaEvaluator evaluator = workbook.getCreationHelper().createFormulaEvaluator();
             List<Map<String, Object>> rows = new ArrayList<>();
-            List<String> headers = new ArrayList<>();
-            int processed = 0;
-            Iterator<Row> iterator = sheet.iterator();
-            while (iterator.hasNext()) {
-                Row current = iterator.next();
-                if (current == null) {
-                    continue;
-                }
-                if (hasHeader && headers.isEmpty()) {
-                    headers = extractExcelHeaders(current, formatter, evaluator);
-                    continue;
-                }
-                if (!hasHeader && headers.isEmpty()) {
-                    headers = generateColumnHeaders(detectExcelColumnCount(current));
-                } else {
-                    expandHeaders(headers, detectExcelColumnCount(current));
-                }
-                Map<String, Object> row = new LinkedHashMap<>();
-                for (int i = 0; i < headers.size(); i++) {
-                    Cell cell = current.getCell(i, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
-                    if (cell == null) {
+            for (Sheet sheet : sheets) {
+                List<String> headers = new ArrayList<>();
+                int skipped = 0;
+                Iterator<Row> iterator = sheet.iterator();
+                while (iterator.hasNext()) {
+                    if (rows.size() >= limit) {
+                        return rows;
+                    }
+                    Row current = iterator.next();
+                    if (current == null) {
                         continue;
                     }
-                    row.put(headers.get(i), readExcelCell(cell, formatter, evaluator));
+                    if (hasHeader && headers.isEmpty()) {
+                        headers = extractExcelHeaders(current, formatter, evaluator);
+                        continue;
+                    }
+                    if (skipped < skipRows) {
+                        skipped++;
+                        continue;
+                    }
+                    if (!hasHeader && headers.isEmpty()) {
+                        headers = generateColumnHeaders(detectExcelColumnCount(current));
+                    } else {
+                        expandHeaders(headers, detectExcelColumnCount(current));
+                    }
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    for (int i = 0; i < headers.size(); i++) {
+                        Cell cell = current.getCell(i, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
+                        if (cell == null) {
+                            continue;
+                        }
+                        row.put(headers.get(i), readExcelCell(cell, formatter, evaluator));
+                    }
+                    if (!row.isEmpty()) {
+                        if (request.includeSheetNameColumn()) {
+                            row.put(sheetNameColumn, sheet.getSheetName());
+                        }
+                        rows.add(row);
+                    }
                 }
-                if (!row.isEmpty()) {
-                    rows.add(row);
-                    processed++;
-                }
-                if (processed >= limit) {
-                    break;
-                }
+            }
+            if (rows.size() > limit) {
+                return new ArrayList<>(rows.subList(0, limit));
             }
             return rows;
         } catch (IOException ex) {
             throw new TransformationEvaluationException("Failed to read Excel sample file", ex);
         }
+    }
+
+    private List<Sheet> resolveSheets(Workbook workbook, SourceTransformationPreviewUploadRequest request) {
+        List<Sheet> resolved = new ArrayList<>();
+        int sheetCount = workbook.getNumberOfSheets();
+        if (sheetCount <= 0) {
+            return resolved;
+        }
+        if (request.includeAllSheets()) {
+            for (int index = 0; index < sheetCount; index++) {
+                resolved.add(workbook.getSheetAt(index));
+            }
+            return resolved;
+        }
+        List<String> requestedNames = request.sheetNames();
+        if (requestedNames != null && !requestedNames.isEmpty()) {
+            Map<String, Sheet> lookup = new LinkedHashMap<>();
+            for (int index = 0; index < sheetCount; index++) {
+                Sheet sheet = workbook.getSheetAt(index);
+                lookup.put(sheet.getSheetName().trim().toLowerCase(Locale.ENGLISH), sheet);
+            }
+            for (String rawName : requestedNames) {
+                if (!StringUtils.hasText(rawName)) {
+                    continue;
+                }
+                Sheet matched = lookup.get(rawName.trim().toLowerCase(Locale.ENGLISH));
+                if (matched != null && !resolved.contains(matched)) {
+                    resolved.add(matched);
+                }
+            }
+            if (!resolved.isEmpty()) {
+                return resolved;
+            }
+        }
+        Sheet fallback = resolveSheet(workbook, request.sheetName());
+        if (fallback != null) {
+            resolved.add(fallback);
+        }
+        return resolved;
     }
 
     private List<Map<String, Object>> parseJsonFile(
@@ -306,7 +381,17 @@ public class TransformationSampleFileService {
 
     private Sheet resolveSheet(Workbook workbook, String sheetName) {
         if (StringUtils.hasText(sheetName)) {
-            return workbook.getSheet(sheetName);
+            Sheet exact = workbook.getSheet(sheetName);
+            if (exact != null) {
+                return exact;
+            }
+            String normalized = sheetName.trim().toLowerCase(Locale.ENGLISH);
+            for (int index = 0; index < workbook.getNumberOfSheets(); index++) {
+                Sheet candidate = workbook.getSheetAt(index);
+                if (candidate.getSheetName().trim().toLowerCase(Locale.ENGLISH).equals(normalized)) {
+                    return candidate;
+                }
+            }
         }
         return workbook.getNumberOfSheets() > 0 ? workbook.getSheetAt(0) : null;
     }

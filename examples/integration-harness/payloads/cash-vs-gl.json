@@ -23,7 +23,40 @@
       "arrivalExpectation": "Weekdays by 06:30 Eastern",
       "arrivalTimezone": "America/New_York",
       "arrivalSlaMinutes": 30,
-      "adapterOptions": "{\"delimiter\":\",\"}"
+      "adapterOptions": "{\"delimiter\":\",\"}",
+      "transformationPlan": {
+        "datasetGroovyScript": "rows.each { current ->\n  def currency = current.currency\n  if (currency != null) {\n    current.currency = currency.toString().trim()\n  }\n}",
+        "rowOperations": [
+          {
+            "type": "FILTER",
+            "filter": {
+              "column": "transactionId",
+              "mode": "RETAIN_MATCHING",
+              "operator": "IS_NOT_BLANK",
+              "caseInsensitive": false
+            }
+          }
+        ],
+        "columnOperations": [
+          {
+            "type": "PIPELINE",
+            "pipeline": {
+              "targetColumn": "currency",
+              "sourceColumn": "currency",
+              "configuration": "{\"steps\": [{\"function\": \"TRIM\", \"args\": []}, {\"function\": \"TO_UPPERCASE\", \"args\": []}]}"
+            }
+          },
+          {
+            "type": "ROUND",
+            "round": {
+              "targetColumn": "amount",
+              "sourceColumn": "amount",
+              "scale": 2,
+              "roundingMode": "HALF_EVEN"
+            }
+          }
+        ]
+      }
     },
     {
       "id": null,
@@ -36,7 +69,32 @@
       "arrivalExpectation": "Weekdays by 06:45 Eastern",
       "arrivalTimezone": "America/New_York",
       "arrivalSlaMinutes": 45,
-      "adapterOptions": "{\"delimiter\":\",\"}"
+      "adapterOptions": "{\"delimiter\":\",\"}",
+      "transformationPlan": {
+        "datasetGroovyScript": "rows.each { current ->\n  if (current.notes == null) {\n    current.notes = ''\n  }\n}",
+        "rowOperations": [
+          {
+            "type": "FILTER",
+            "filter": {
+              "column": "status",
+              "mode": "EXCLUDE_MATCHING",
+              "operator": "EQUALS",
+              "caseInsensitive": true,
+              "value": "IGNORED"
+            }
+          }
+        ],
+        "columnOperations": [
+          {
+            "type": "PIPELINE",
+            "pipeline": {
+              "targetColumn": "product",
+              "sourceColumn": "product",
+              "configuration": "{\"steps\": [{\"function\": \"TRIM\", \"args\": []}, {\"function\": \"TO_UPPERCASE\", \"args\": []}]}"
+            }
+          }
+        ]
+      }
     }
   ],
   "canonicalFields": [

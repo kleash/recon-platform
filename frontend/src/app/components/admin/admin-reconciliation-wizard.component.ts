@@ -52,6 +52,7 @@ import {
   TransformationValidationResponse
 } from '../../models/admin-api-models';
 import { AdminReconciliationStateService } from '../../services/admin-reconciliation-state.service';
+import { InfoIconTooltipDirective } from './info-icon-tooltip.directive';
 
 interface WizardStep {
   key: string;
@@ -131,7 +132,7 @@ type MatchRuleType = 'FULL' | 'CASE_INSENSITIVE' | 'THRESHOLD' | 'DATE' | 'DISPL
 @Component({
   selector: 'urp-admin-reconciliation-wizard',
   standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, NgIf, NgFor, AsyncPipe],
+  imports: [CommonModule, ReactiveFormsModule, NgIf, NgFor, AsyncPipe, InfoIconTooltipDirective],
   templateUrl: './admin-reconciliation-wizard.component.html',
   styleUrls: ['./admin-reconciliation-wizard.component.css']
 })

@@ -15,13 +15,6 @@ Welcome, automated contributor! Follow these ground rules to collaborate effecti
 3. **Prefer incremental commits.** Group logically-related changes and provide descriptive commit messages.
 4. **Respect configuration over code.** Extend metadata-driven constructs instead of hardcoding reconciliation behavior.
 5. **Keep test cases up to date.** Any code change that affects features, workflows, or onboarding must update the relevant test cases in backend, frontend, automation smoke, example integration harness, and bootstrap scripts.
-6. **Update knowledgebase in wiki.** Analyze new changes and update following docs for any features, changes or refactor:
-   * **COMPONENTS.md** Component catalog with usage examples
-   * **MILESTONES.md** Development history and lessons learned
-   * **ARCHITECTURE.md** How everything connects and why
-   * **DECISIONS.md** Technical choices and their rationale
-   * **PATTERNS.md** Reusable code patterns and conventions
-   * **TROUBLESHOOTING.md** Common issues and solutions
 
 ## Quality Gates
 - **Backend tests:** `cd backend && ./mvnw test`

@@ -9,3 +9,4 @@ automation/regression/reports/
 .idea/
 .DS_Store
 examples/**/target/
+libraries/ingestion-sdk/target/

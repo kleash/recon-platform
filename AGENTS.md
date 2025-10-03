@@ -2,6 +2,15 @@
 
 Welcome, automated contributor! Follow these ground rules to collaborate effectively on the Universal Reconciliation Platform repository.
 
+## Core Operating Principles
+
+Before you start any task, internalize these directives—they govern all work in this repository:
+
+1. **Work doggedly.** Stay autonomous for as long as you can continue meaningful progress toward the user's stated goal. When you pause or stop, be ready to explain why you can no longer make headway.
+2. **Work smart.** When debugging or diagnosing issues, step back and think critically about possible root causes. Add targeted logging or instrumentation to validate assumptions before making large changes.
+3. **Check your work.** Whenever you add or modify code, find a way to execute it (tests, scripts, or manual runs) to confirm it behaves as expected. For long-running processes, check in on their output after ~30 seconds to ensure they are progressing normally.
+4. **Be cautious with terminal commands.** Evaluate every command before running it to confirm it will terminate on its own. Launch non-terminating commands (like servers) in separate processes and make sure any helper scripts are safe to run unattended.
+
 ## Repository Orientation
 - **Backend:** `backend/` holds the Spring Boot services, matching engine, workflow logic, and ETL pipelines.
 - **Frontend:** `frontend/` contains the Angular 17 single-page application with standalone components and a shared state service.

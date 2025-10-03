@@ -23,6 +23,7 @@
    ```
 4. Create override files if environment-specific settings are required:
    - Duplicate `backend/src/main/resources/application.yml` to `application-local.yml` and adjust the datasource URL or LDAP bases.
+   - Provide an OpenAI API key when experimenting with the LLM ingestion adapter by setting `APP_INTEGRATIONS_OPENAI_API_KEY` (environment variable) or the equivalent entry in `application-local.yml`.
    - Update `frontend/src/environments/environment.ts` with the correct `apiBaseUrl` for your backend instance.
 5. Ensure MariaDB (or H2) credentials match the Spring profile you intend to run.
 
@@ -35,9 +36,10 @@
 
 ### 3.4 Data Seeding & Sample Jobs
 - **Schema creation:** `spring.jpa.hibernate.ddl-auto=update` creates or updates tables automatically for development profiles. For a clean rebuild, start H2 with `-Dspring.jpa.hibernate.ddl-auto=create` once and revert to `update` afterward.
-- **Sample ETL:** `SampleEtlRunner` executes the registered pipelines (`SecuritiesPositionEtlPipeline`, `SimpleCashGlEtlPipeline`) during startup, loading demo records into `source_a_records`, `source_b_records`, and attaching a reconciliation definition.
-- **Refreshing data:** Restarting the backend clears the in-memory H2 database. For MariaDB, run `DELETE FROM source_a_records`, `source_b_records`, and `break_items` before rerunning the application to let the ETL pipelines repopulate data.
+- **Example pipelines:** `EtlBootstrapper` discovers any `EtlPipeline` beans on the classpath (for example those shipped under `examples/` or the integration harness) and executes them during startup. Pipelines now populate the canonical tables (`source_data_batches`, `source_data_records`) instead of the legacy `source_a_records`/`source_b_records` pair.
+- **Refreshing data:** Restarting the backend clears the in-memory H2 database. For MariaDB, truncate `source_data_records`, `source_data_batches`, and `break_items` (plus any example-specific tables) before rerunning the application so the pipelines repopulate data.
 - **User identities:** `ldap-data.ldif` seeds demo users and groups when using the embedded LDAP server. Update this file or point Spring LDAP to an external directory for enterprise integration.
+- **Manual ingestion:** When exercising ingestion APIs directly, call `POST /api/admin/reconciliations/{id}/sources/{code}/batches` with the configured adapter type. `SourceIngestionService` applies transformation plans and persists canonical payloads using the same path that the configurator and CLI employ.
 
 ### 3.5 Local Dev Helper Script
 You can automate setup and local runtime tasks with `./scripts/local-dev.sh`:

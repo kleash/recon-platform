@@ -12,6 +12,7 @@ align stakeholders, and ensure downstream teams understand the breadth of functi
 | **Maker-Checker Workflow** | Approval queue, bulk transitions, audit history | Break actions resolve allowed transitions via `BreakAccessService`, write audit rows, and expose a checker queue API. |
 | **Export Flexibility** | Async dataset jobs, synchronous run exports, metadata-rich payloads | CSV/JSONL/XLSX exports capture filters, hash, row count, and use background jobs to avoid blocking UI threads. |
 | **Ingestion Telemetry** | Source batch uploads with SLAs and activity feed integration | Multipart ingestion endpoint stores batches, checksums, and surfaces success/failure in the activity feed. |
+| **AI-Assisted Ingestion** | LLM document adapter, prompt templates, schema-aware extraction | Unstructured files (PDF, e-mail, office docs) are parsed via Apache Tika and OpenAI then normalised into canonical rows with provenance metadata. |
 
 ## Executive Overview
 - **Audience:** product owners, delivery leads, and stakeholders who need a concise overview of platform value.
@@ -50,6 +51,7 @@ graph TD
 | Analytics | Saved views | Persist personalised grid layouts, share via tokens, and set user defaults. | Analysts |
 | Reporting | Async dataset exports | Queue CSV/JSONL/XLSX jobs with full filter context, poll status, and download artifacts when ready. | Analysts, audit |
 | Reporting | Immediate run exports | Generate XLSX summaries for any run, including filter metadata and audit notes. | Analysts |
+| Ingestion | Unstructured document ingestion | LLM-backed adapter extracts schema-aligned records from PDFs, emails, and office documents using configurable prompts and extraction hints. | Data engineering |
 | Security | LDAP-authenticated access | Authenticate via LDAP, map groups to roles, and enforce dimensional entitlements. | Platform users |
 | Observability | Activity feed | Chronicle runs, workflow transitions, exports, and configuration publishes for support teams. | Support, risk |
 | Observability | Metrics & health checks | Spring Boot actuators and Jacoco coverage thresholds guard code health. | SRE teams |

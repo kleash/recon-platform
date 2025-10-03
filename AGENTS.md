@@ -22,7 +22,7 @@ Welcome, automated contributor! Follow these ground rules to collaborate effecti
 - **Automation smoke (Playwright):** `cd automation/regression && npm install && npm test`
 - **Examples integration harness:** `examples/integration-harness/scripts/run_multi_example_e2e.sh`
 - **Bootstrap scripts:** `./scripts/local-dev.sh bootstrap` (and `seed` once the stack is running) to confirm local helpers stay healthy.
-- **Historical volume seed:** `./scripts/seed-historical.sh` followed by `./scripts/verify-historical-seed.sh` (use the lighter `--days 3 --runs-per-day 1 --skip-export-check` combo to mirror CI) to ensure large-scale data workflows continue to pass.
+- **Historical volume seed:** `./scripts/seed-historical.sh --days 3 --runs-per-day 1 --report-format NONE --ci-mode` followed by `./scripts/verify-historical-seed.sh --days 3 --runs-per-day 1 --skip-export-check` to mirror the lightweight CI cadence and ensure large-scale data workflows continue to pass.
 - Include command outputs in pull request descriptions when applicable.
 
 ## Automation & E2E Toolkit

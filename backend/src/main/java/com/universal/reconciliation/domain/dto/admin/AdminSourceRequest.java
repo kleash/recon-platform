@@ -4,6 +4,7 @@ import com.universal.reconciliation.domain.enums.IngestionAdapterType;
 import com.universal.reconciliation.domain.transform.SourceTransformationPlan;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import java.util.List;
 
 /**
  * Source definition used when creating or updating reconciliations.
@@ -20,4 +21,5 @@ public record AdminSourceRequest(
         String arrivalTimezone,
         Integer arrivalSlaMinutes,
         String adapterOptions,
-        SourceTransformationPlan transformationPlan) {}
+        SourceTransformationPlan transformationPlan,
+        List<AdminSourceSchemaFieldRequest> schemaFields) {}

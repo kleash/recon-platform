@@ -21,6 +21,7 @@ public record AdminSourceDto(
         Integer arrivalSlaMinutes,
         String adapterOptions,
         SourceTransformationPlan transformationPlan,
+        List<AdminSourceSchemaFieldDto> schemaFields,
         List<String> availableColumns,
         Instant createdAt,
         Instant updatedAt) {}

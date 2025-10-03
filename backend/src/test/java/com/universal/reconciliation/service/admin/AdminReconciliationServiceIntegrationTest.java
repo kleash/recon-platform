@@ -14,6 +14,7 @@ import com.universal.reconciliation.domain.dto.admin.AdminReconciliationSchemaDt
 import com.universal.reconciliation.domain.dto.admin.AdminReportColumnRequest;
 import com.universal.reconciliation.domain.dto.admin.AdminReportTemplateRequest;
 import com.universal.reconciliation.domain.dto.admin.AdminSourceRequest;
+import com.universal.reconciliation.domain.dto.admin.AdminSourceSchemaFieldRequest;
 import com.universal.reconciliation.domain.enums.AccessRole;
 import com.universal.reconciliation.domain.enums.ComparisonLogic;
 import com.universal.reconciliation.domain.enums.DataBatchStatus;
@@ -161,7 +162,10 @@ class AdminReconciliationServiceIntegrationTest {
                 "America/New_York",
                 60,
                 "{\"delimiter\":\",\"}",
-                null);
+                null,
+                List.of(
+                        new AdminSourceSchemaFieldRequest("trade_id", "Trade ID", FieldDataType.STRING, true, null),
+                        new AdminSourceSchemaFieldRequest("net_amount", "Net Amount", FieldDataType.DECIMAL, true, null)));
         AdminSourceRequest ledgerSource = new AdminSourceRequest(
                 null,
                 "GL_LEDGER",
@@ -174,7 +178,10 @@ class AdminReconciliationServiceIntegrationTest {
                 null,
                 null,
                 null,
-                null);
+                null,
+                List.of(
+                        new AdminSourceSchemaFieldRequest("trade_id", "Trade ID", FieldDataType.STRING, true, null),
+                        new AdminSourceSchemaFieldRequest("net_amount", "Net Amount", FieldDataType.DECIMAL, true, null)));
 
         AdminCanonicalFieldRequest tradeId = new AdminCanonicalFieldRequest(
                 null,

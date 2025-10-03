@@ -23,7 +23,16 @@
       "arrivalExpectation": "Global cut by 17:30 London",
       "arrivalTimezone": "Europe/London",
       "arrivalSlaMinutes": 45,
-      "adapterOptions": "{\"delimiter\":\",\"}"
+      "adapterOptions": "{\"delimiter\":\",\"}",
+      "schemaFields": [
+        { "name": "transactionId", "displayName": "Position ID", "dataType": "STRING", "required": true },
+        { "name": "accountId", "displayName": "Account", "dataType": "STRING", "required": true },
+        { "name": "isin", "displayName": "ISIN", "dataType": "STRING", "required": true },
+        { "name": "quantity", "displayName": "Quantity", "dataType": "DECIMAL", "required": true },
+        { "name": "marketValue", "displayName": "Market Value", "dataType": "DECIMAL", "required": true },
+        { "name": "valuationCurrency", "displayName": "Valuation CCY", "dataType": "STRING", "required": true },
+        { "name": "valuationDate", "displayName": "Valuation Date", "dataType": "DATE", "required": true }
+      ]
     },
     {
       "id": null,
@@ -36,7 +45,16 @@
       "arrivalExpectation": "Downstream publish by 17:15 London",
       "arrivalTimezone": "Europe/London",
       "arrivalSlaMinutes": 30,
-      "adapterOptions": "{\"delimiter\":\",\"}"
+      "adapterOptions": "{\"delimiter\":\",\"}",
+      "schemaFields": [
+        { "name": "transactionId", "displayName": "Position ID", "dataType": "STRING", "required": true },
+        { "name": "accountId", "displayName": "Account", "dataType": "STRING", "required": true },
+        { "name": "isin", "displayName": "ISIN", "dataType": "STRING", "required": true },
+        { "name": "quantity", "displayName": "Quantity", "dataType": "DECIMAL", "required": true },
+        { "name": "marketValue", "displayName": "Market Value", "dataType": "DECIMAL", "required": true },
+        { "name": "valuationCurrency", "displayName": "Valuation CCY", "dataType": "STRING", "required": true },
+        { "name": "valuationDate", "displayName": "Valuation Date", "dataType": "DATE", "required": true }
+      ]
     }
   ],
   "canonicalFields": [

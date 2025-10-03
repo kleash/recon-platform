@@ -19,7 +19,9 @@ import {
   SourceTransformationPreviewUploadRequest,
   SourceTransformationPreviewResponse,
   SourceTransformationApplyRequest,
-  SourceTransformationApplyResponse
+  SourceTransformationApplyResponse,
+  SourceSchemaInferenceRequest,
+  SourceSchemaInferenceResponse
 } from '../models/admin-api-models';
 import { ApiService } from './api.service';
 import { NotificationService } from './notification.service';
@@ -294,6 +296,19 @@ export class AdminReconciliationStateService {
       catchError((error) => {
         console.error('Failed to preview transformations from file', error);
         this.notifications.push('Unable to preview transformations from the uploaded file.', 'error');
+        return throwError(() => error);
+      })
+    );
+  }
+
+  inferSourceSchema(
+    payload: SourceSchemaInferenceRequest,
+    file: File
+  ): Observable<SourceSchemaInferenceResponse> {
+    return this.api.inferSourceSchema(payload, file).pipe(
+      catchError((error) => {
+        console.error('Failed to infer schema from sample file', error);
+        this.notifications.push('Unable to infer schema from the uploaded file.', 'error');
         return throwError(() => error);
       })
     );

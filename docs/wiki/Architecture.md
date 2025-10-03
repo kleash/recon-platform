@@ -47,6 +47,7 @@ graph LR
 - **Reporting engine:** Builds Excel outputs from database templates and exposes download endpoints via `/api/exports`.
 - **Activity service:** Streams structured events for observability, compliance, and analytics.
 - **Integration connectors:** Metadata-driven ETL pipelines, scheduler/RPA triggers, and Kafka topics orchestrate data ingest and downstream automation.
+- **Admin configurator:** Multi-step Angular wizard backed by REST endpoints. The new Source Schema step persists per-source column metadata which fuels transformation previews and matching dropdowns. Schema inference uses the transformation sample parser to detect column names, data types, and sample rows from uploaded files.
 - **Observability stack:** Activity telemetry and platform metrics flow into enterprise APM/SIEM tooling for health monitoring.
 
 ### 2.3 Design Patterns Used
@@ -165,6 +166,7 @@ erDiagram
 - `ExportService` – Generates Excel exports leveraging Apache POI and the configured report templates.
 - `SystemActivityService` – Persists audit events (`SystemEventType`) and exposes them to the `/api/activity` endpoint.
 - `UserContext` – Lightweight wrapper around Spring Security providing current username and group memberships for downstream services.
+- `AdminSourceSchemaService` – Reuses the transformation preview pipeline to infer per-source schema metadata (field name, data type, required flag, sample rows) from administrator-provided files. `AdminReconciliationService` stores the resulting schema fields alongside each `ReconciliationSource` and exposes them to the UI and schema export endpoints.
 
 ### 5.3 Application Properties
 | Property | Purpose | Example |

@@ -150,6 +150,14 @@ export interface SourceTransformationPlan {
   columnOperations: SourceColumnOperationConfig[];
 }
 
+export interface AdminSourceSchemaField {
+  name: string;
+  displayName?: string | null;
+  dataType: FieldDataType;
+  required: boolean;
+  description?: string | null;
+}
+
 export interface AdminSource {
   id?: number | null;
   code: string;
@@ -162,6 +170,7 @@ export interface AdminSource {
   arrivalTimezone?: string | null;
   arrivalSlaMinutes?: number | null;
   adapterOptions?: string | null;
+  schemaFields?: AdminSourceSchemaField[] | null;
   availableColumns?: string[] | null;
   createdAt?: string | null;
   updatedAt?: string | null;
@@ -198,6 +207,24 @@ export interface TransformationSampleRow {
   externalReference?: string | null;
   rawRecord: Record<string, unknown>;
   canonicalPayload: Record<string, unknown>;
+}
+
+export interface SourceSchemaInferenceRequest {
+  fileType: TransformationSampleFileType;
+  hasHeader: boolean;
+  delimiter?: string;
+  sheetName?: string;
+  sheetNames?: string[];
+  includeAllSheets?: boolean;
+  recordPath?: string;
+  encoding?: string;
+  limit?: number;
+  skipRows?: number;
+}
+
+export interface SourceSchemaInferenceResponse {
+  fields: AdminSourceSchemaField[];
+  sampleRows: Record<string, unknown>[];
 }
 
 export interface TransformationSampleResponse {

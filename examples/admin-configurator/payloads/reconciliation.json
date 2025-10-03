@@ -23,7 +23,12 @@
       "arrivalExpectation": "Weekdays by 18:00",
       "arrivalTimezone": "America/New_York",
       "arrivalSlaMinutes": 60,
-      "adapterOptions": "{\"delimiter\":\",\"}"
+      "adapterOptions": "{\"delimiter\":\",\"}",
+      "schemaFields": [
+        { "name": "trade_id", "displayName": "Trade ID", "dataType": "STRING", "required": true },
+        { "name": "net_amount", "displayName": "Net Amount", "dataType": "DECIMAL", "required": true },
+        { "name": "currency", "displayName": "Currency", "dataType": "STRING", "required": true }
+      ]
     },
     {
       "id": null,
@@ -36,7 +41,12 @@
       "arrivalExpectation": null,
       "arrivalTimezone": null,
       "arrivalSlaMinutes": null,
-      "adapterOptions": null
+      "adapterOptions": null,
+      "schemaFields": [
+        { "name": "trade_id", "displayName": "Trade ID", "dataType": "STRING", "required": true },
+        { "name": "net_amount", "displayName": "Net Amount", "dataType": "DECIMAL", "required": true },
+        { "name": "currency", "displayName": "Currency", "dataType": "STRING", "required": true }
+      ]
     }
   ],
   "canonicalFields": [

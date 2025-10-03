@@ -23,7 +23,16 @@
       "arrivalExpectation": "Morning 09:15 & Evening 18:00 Eastern",
       "arrivalTimezone": "America/New_York",
       "arrivalSlaMinutes": 30,
-      "adapterOptions": "{\"delimiter\":\",\",\"header\":true}"
+      "adapterOptions": "{\"delimiter\":\",\",\"header\":true}",
+      "schemaFields": [
+        { "name": "trade_id", "displayName": "Trade ID", "dataType": "STRING", "required": true },
+        { "name": "source", "displayName": "Source", "dataType": "STRING", "required": true },
+        { "name": "gross_amount", "displayName": "Gross Amount", "dataType": "DECIMAL", "required": true },
+        { "name": "quantity", "displayName": "Quantity", "dataType": "DECIMAL", "required": true },
+        { "name": "currency", "displayName": "Currency", "dataType": "STRING", "required": true },
+        { "name": "trade_date", "displayName": "Trade Date", "dataType": "DATE", "required": true },
+        { "name": "book", "displayName": "Book", "dataType": "STRING", "required": false }
+      ]
     },
     {
       "id": null,
@@ -36,7 +45,16 @@
       "arrivalExpectation": "Morning 08:30 & Evening 17:30 Eastern",
       "arrivalTimezone": "America/New_York",
       "arrivalSlaMinutes": 45,
-      "adapterOptions": "{\"delimiter\":\",\",\"header\":true}"
+      "adapterOptions": "{\"delimiter\":\",\"header\":true}",
+      "schemaFields": [
+        { "name": "trade_id", "displayName": "Trade ID", "dataType": "STRING", "required": true },
+        { "name": "source", "displayName": "Source", "dataType": "STRING", "required": true },
+        { "name": "gross_amount", "displayName": "Gross Amount", "dataType": "DECIMAL", "required": true },
+        { "name": "quantity", "displayName": "Quantity", "dataType": "DECIMAL", "required": true },
+        { "name": "currency", "displayName": "Currency", "dataType": "STRING", "required": true },
+        { "name": "trade_date", "displayName": "Trade Date", "dataType": "DATE", "required": true },
+        { "name": "desk", "displayName": "Desk", "dataType": "STRING", "required": false }
+      ]
     }
   ],
   "canonicalFields": [

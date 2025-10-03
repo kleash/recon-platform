@@ -22,6 +22,8 @@ import com.universal.reconciliation.domain.dto.admin.AdminReportTemplateDto;
 import com.universal.reconciliation.domain.dto.admin.AdminReportTemplateRequest;
 import com.universal.reconciliation.domain.dto.admin.AdminSourceDto;
 import com.universal.reconciliation.domain.dto.admin.AdminSourceRequest;
+import com.universal.reconciliation.domain.dto.admin.AdminSourceSchemaFieldDto;
+import com.universal.reconciliation.domain.dto.admin.AdminSourceSchemaFieldRequest;
 import com.universal.reconciliation.domain.entity.AccessControlEntry;
 import com.universal.reconciliation.domain.entity.CanonicalField;
 import com.universal.reconciliation.domain.entity.CanonicalFieldMapping;
@@ -31,6 +33,8 @@ import com.universal.reconciliation.domain.entity.ReconciliationSource;
 import com.universal.reconciliation.domain.entity.ReportColumn;
 import com.universal.reconciliation.domain.entity.ReportTemplate;
 import com.universal.reconciliation.domain.entity.SourceDataBatch;
+import com.universal.reconciliation.domain.entity.SourceSchemaField;
+import com.universal.reconciliation.domain.enums.FieldDataType;
 import com.universal.reconciliation.domain.enums.ReconciliationLifecycleStatus;
 import com.universal.reconciliation.domain.enums.SystemEventType;
 import com.universal.reconciliation.domain.transform.ColumnOperationConfig;
@@ -256,6 +260,7 @@ public class AdminReconciliationService {
                         source.getArrivalTimezone(),
                         source.getArrivalSlaMinutes(),
                         source.getAdapterOptions(),
+                        mapSchemaFieldsForExport(source.getSchemaFields()),
                         buildIngestionEndpoint(definition.getId(), source.getCode())))
                 .toList();
         List<AdminReconciliationSchemaDto.SchemaFieldDto> fields = definition.getCanonicalFields().stream()
@@ -381,6 +386,7 @@ public class AdminReconciliationService {
             source.setArrivalSlaMinutes(request.arrivalSlaMinutes());
             source.setAdapterOptions(trimToNull(request.adapterOptions()));
             source.setTransformationPlan(transformationPlanMapper.serialize(request.transformationPlan()));
+            applySchemaFields(source, request.schemaFields());
             source.touch();
             updated.add(source);
         }
@@ -618,6 +624,7 @@ public class AdminReconciliationService {
                             source.getArrivalSlaMinutes(),
                             source.getAdapterOptions(),
                             plan,
+                            mapSchemaFields(source.getSchemaFields()),
                             resolveAvailableColumns(source, plan),
                             source.getCreatedAt(),
                             source.getUpdatedAt());
@@ -743,8 +750,40 @@ public class AdminReconciliationService {
                 ingestionBatches);
     }
 
+    private List<AdminSourceSchemaFieldDto> mapSchemaFields(List<SourceSchemaField> schemaFields) {
+        if (schemaFields == null || schemaFields.isEmpty()) {
+            return List.of();
+        }
+        return schemaFields.stream()
+                .map(field -> new AdminSourceSchemaFieldDto(
+                        field.getName(),
+                        field.getDisplayName(),
+                        field.getDataType(),
+                        field.isRequired(),
+                        field.getDescription()))
+                .toList();
+    }
+
+    private List<AdminReconciliationSchemaDto.SchemaSourceFieldDto> mapSchemaFieldsForExport(
+            List<SourceSchemaField> schemaFields) {
+        if (schemaFields == null || schemaFields.isEmpty()) {
+            return List.of();
+        }
+        return schemaFields.stream()
+                .map(field -> new AdminReconciliationSchemaDto.SchemaSourceFieldDto(
+                        field.getName(),
+                        field.getDisplayName(),
+                        field.getDataType(),
+                        field.isRequired(),
+                        field.getDescription()))
+                .toList();
+    }
+
     private List<String> resolveAvailableColumns(ReconciliationSource source, SourceTransformationPlan plan) {
         LinkedHashSet<String> columns = new LinkedHashSet<>();
+        if (source.getSchemaFields() != null) {
+            source.getSchemaFields().forEach(field -> addColumn(columns, field.getName()));
+        }
         if (source.getFieldMappings() != null) {
             source.getFieldMappings().forEach(mapping -> addColumn(columns, mapping.getSourceColumn()));
         }
@@ -836,6 +875,32 @@ public class AdminReconciliationService {
         if (StringUtils.hasText(value)) {
             columns.add(value.trim());
         }
+    }
+
+    private void applySchemaFields(
+            ReconciliationSource source, List<AdminSourceSchemaFieldRequest> schemaRequests) {
+        List<SourceSchemaField> next = new ArrayList<>();
+        if (schemaRequests != null) {
+            for (AdminSourceSchemaFieldRequest request : schemaRequests) {
+                if (request == null || !StringUtils.hasText(request.name())) {
+                    continue;
+                }
+                SourceSchemaField field = new SourceSchemaField();
+                field.setName(request.name().trim());
+                field.setDisplayName(trimToNull(request.displayName()));
+                field.setDescription(trimToNull(request.description()));
+                field.setRequired(request.required());
+                field.setDataType(Optional.ofNullable(request.dataType()).orElse(FieldDataType.STRING));
+                next.add(field);
+            }
+        }
+
+        if (source.getSchemaFields() == null) {
+            source.setSchemaFields(new ArrayList<>());
+        } else {
+            source.getSchemaFields().clear();
+        }
+        source.getSchemaFields().addAll(next);
     }
 
     private ReconciliationDefinition loadDefinition(Long id) {

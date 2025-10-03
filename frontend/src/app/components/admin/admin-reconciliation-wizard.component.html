@@ -118,6 +118,225 @@
       <button type="button" class="secondary" (click)="addSource()">Add source</button>
     </section>
 
+    <section *ngSwitchCase="'schema'" formArrayName="sources" class="schema-step">
+      <header class="schema-summary">
+        <h3>Define source schemas</h3>
+        <p>
+          Upload representative files to auto-populate columns for each source, then refine field names, data types,
+          and requirements. These columns power transformation previews and matching rules.
+        </p>
+      </header>
+
+      <article
+        *ngFor="let sourceGroup of sources.controls; let i = index"
+        [formGroupName]="i"
+        class="schema-card"
+      >
+        <header class="schema-card-header">
+          <div>
+            <h4>{{ sourceGroup.get('displayName')?.value || ('Source ' + (i + 1)) }}</h4>
+            <p class="hint">Code: {{ sourceGroup.get('code')?.value || 'unset' }}</p>
+          </div>
+          <div class="schema-actions">
+            <button
+              type="button"
+              class="secondary"
+              (click)="inferSchemaFromFile(i)"
+              [disabled]="sourcePreviewState[i]?.schemaUploading"
+            >
+              {{ sourcePreviewState[i]?.schemaUploading ? 'Inferring…' : 'Infer schema from file' }}
+            </button>
+          </div>
+        </header>
+
+        <div class="schema-upload-grid">
+          <label>
+            File type
+            <span class="info-icon" title="Select the format of the uploaded sample file.">i</span>
+            <select
+              [value]="sourcePreviewState[i]?.fileType"
+              (change)="setSourcePreviewOption(i, 'fileType', $any($event.target).value)"
+            >
+              <option value="CSV">CSV</option>
+              <option value="DELIMITED">DELIMITED</option>
+              <option value="EXCEL">EXCEL</option>
+              <option value="JSON">JSON</option>
+              <option value="XML">XML</option>
+            </select>
+          </label>
+          <label *ngIf="['CSV','DELIMITED','EXCEL'].includes(sourcePreviewState[i]?.fileType ?? '')" class="checkbox">
+            <input
+              type="checkbox"
+              [checked]="sourcePreviewState[i]?.hasHeader"
+              (change)="setSourcePreviewOption(i, 'hasHeader', $any($event.target).checked)"
+            />
+            Has header row
+          </label>
+          <label *ngIf="['CSV','DELIMITED'].includes(sourcePreviewState[i]?.fileType ?? '')">
+            Delimiter
+            <span class="info-icon" title="Single character separating values in the file.">i</span>
+            <input
+              type="text"
+              maxlength="1"
+              [value]="sourcePreviewState[i]?.delimiter || ','"
+              (input)="setSourcePreviewOption(i, 'delimiter', $any($event.target).value)"
+            />
+          </label>
+          <label *ngIf="sourcePreviewState[i]?.fileType === 'EXCEL'">
+            Sheet name
+            <input
+              type="text"
+              [value]="sourcePreviewState[i]?.sheetName || ''"
+              (input)="setSourcePreviewOption(i, 'sheetName', $any($event.target).value)"
+            />
+          </label>
+          <label *ngIf="sourcePreviewState[i]?.fileType === 'EXCEL'">
+            Sheet selection
+            <select multiple (change)="onSheetSelectionChange(i, $event)">
+              <option
+                *ngFor="let name of sourcePreviewState[i]?.availableSheetNames ?? []"
+                [selected]="sourcePreviewState[i]?.sheetNames?.includes(name)"
+                [value]="name"
+              >
+                {{ name }}
+              </option>
+            </select>
+            <div class="inline-actions">
+              <label class="checkbox">
+                <input
+                  type="checkbox"
+                  [checked]="sourcePreviewState[i]?.includeAllSheets"
+                  (change)="setSourcePreviewOption(i, 'includeAllSheets', $any($event.target).checked)"
+                />
+                Include all sheets
+              </label>
+              <button
+                type="button"
+                class="link"
+                (click)="fetchSheetNames(i)"
+                [disabled]="sourcePreviewState[i]?.sheetNamesLoading"
+              >
+                {{ sourcePreviewState[i]?.sheetNamesLoading ? 'Refreshing…' : 'Refresh list' }}
+              </button>
+            </div>
+          </label>
+          <label *ngIf="sourcePreviewState[i]?.fileType === 'EXCEL' && sourcePreviewState[i]?.includeSheetNameColumn">
+            Sheet name column
+            <input
+              type="text"
+              placeholder="_sheet"
+              [value]="sourcePreviewState[i]?.sheetNameColumn || ''"
+              (input)="setSourcePreviewOption(i, 'sheetNameColumn', $any($event.target).value)"
+            />
+          </label>
+          <label *ngIf="['JSON','XML'].includes(sourcePreviewState[i]?.fileType ?? '')">
+            Record path
+            <span class="info-icon" title="Dot notation path to the array of records in the JSON or XML payload.">i</span>
+            <input
+              type="text"
+              placeholder="e.g. data.items"
+              [value]="sourcePreviewState[i]?.recordPath || ''"
+              (input)="setSourcePreviewOption(i, 'recordPath', $any($event.target).value)"
+            />
+          </label>
+          <label>
+            Encoding
+            <input
+              type="text"
+              placeholder="UTF-8"
+              [value]="sourcePreviewState[i]?.encoding || ''"
+              (input)="setSourcePreviewOption(i, 'encoding', $any($event.target).value)"
+            />
+          </label>
+          <label>
+            Max rows
+            <input
+              type="number"
+              min="1"
+              max="50"
+              [value]="sourcePreviewState[i]?.limit"
+              (input)="setSourcePreviewOption(i, 'limit', Number($any($event.target).value))"
+            />
+          </label>
+          <label *ngIf="['CSV','DELIMITED','EXCEL'].includes(sourcePreviewState[i]?.fileType ?? '')">
+            Skip rows
+            <input
+              type="number"
+              min="0"
+              max="500"
+              [value]="sourcePreviewState[i]?.skipRows || 0"
+              (input)="setSourcePreviewOption(i, 'skipRows', Number($any($event.target).value))"
+            />
+          </label>
+          <label class="file-input">
+            Sample file
+            <input type="file" (change)="onSourceSampleFileSelected(i, $event)" />
+          </label>
+        </div>
+
+        <p class="error" *ngIf="sourcePreviewState[i]?.schemaError">{{ sourcePreviewState[i]?.schemaError }}</p>
+
+        <div class="schema-sample" *ngIf="sourcePreviewState[i]?.schemaSampleRows?.length">
+          <h5>Preview rows</h5>
+          <pre *ngFor="let row of sourcePreviewState[i]?.schemaSampleRows | slice:0:5">{{ row | json }}</pre>
+        </div>
+
+        <section formArrayName="schemaFields" class="schema-fields">
+          <header class="schema-fields-header">
+            <h5>Fields</h5>
+            <p class="hint">
+              Edit detected fields or add new ones. These names populate dropdowns in transformations and matching.
+            </p>
+          </header>
+          <div class="schema-fields-table" *ngIf="schemaFieldsArray(i).length > 0; else noSchemaFields">
+            <div
+              class="schema-field-row"
+              *ngFor="let fieldGroup of schemaFieldsArray(i).controls; let f = index"
+              [formGroupName]="f"
+            >
+              <label>
+                Column name
+                <input
+                  type="text"
+                  formControlName="name"
+                  (input)="onSchemaFieldNameChange(i)"
+                  placeholder="e.g. trade_id"
+                />
+              </label>
+              <label>
+                Display name
+                <input
+                  type="text"
+                  formControlName="displayName"
+                  placeholder="Trade ID"
+                />
+              </label>
+              <label>
+                Data type
+                <select formControlName="dataType">
+                  <option *ngFor="let type of dataTypes" [value]="type">{{ type }}</option>
+                </select>
+              </label>
+              <label class="checkbox">
+                <input type="checkbox" formControlName="required" /> Required
+              </label>
+              <label>
+                Description
+                <input type="text" formControlName="description" placeholder="Optional context" />
+              </label>
+              <button type="button" class="link" (click)="removeSchemaField(i, f)" *ngIf="schemaFieldsArray(i).length > 1">
+                Remove
+              </button>
+            </div>
+          </div>
+          <ng-template #noSchemaFields>
+            <p class="hint">No fields defined yet. Add fields manually or infer them from a sample file.</p>
+          </ng-template>
+          <button type="button" class="secondary" (click)="addSchemaField(i)">Add field</button>
+        </section>
+      </article>
+    </section>
+
     <section *ngSwitchCase="'transformations'" formArrayName="sources" class="transformations-step">
       <p class="hint">
         Upload sample data or load recent rows to preview how source-level transformations change the dataset
@@ -805,7 +1024,7 @@
                   </datalist>
                 </label>
                 <p class="hint" *ngIf="columnsForMapping(i, m).length === 0">
-                  Upload transformation samples or map fields in the schema step to surface columns.
+                  Define fields in the source schema step or infer them from a sample file to surface column options.
                 </p>
               </div>
               <div class="mapping-date" *ngIf="isDateMatch(fieldGroup)">
@@ -833,213 +1052,6 @@
           </div>
         </article>
       </div>
-    </section>
-
-    <section *ngSwitchCase="'schema'" formArrayName="canonicalFields" class="schema-step">
-      <article *ngFor="let fieldGroup of canonicalFields.controls; let i = index" [formGroupName]="i" class="field-card">
-        <header>
-          <h3>Field {{ i + 1 }}</h3>
-          <button type="button" class="link" (click)="removeCanonicalField(i)" *ngIf="canonicalFields.length > 1">Remove</button>
-        </header>
-        <div class="grid">
-          <label>Canonical name<input type="text" formControlName="canonicalName" /></label>
-          <label>Display name<input type="text" formControlName="displayName" /></label>
-          <label>
-            Role
-            <select formControlName="role">
-              <option *ngFor="let role of fieldRoles" [value]="role">{{ role }}</option>
-            </select>
-          </label>
-          <label>
-            Data type
-            <select formControlName="dataType">
-              <option *ngFor="let type of dataTypes" [value]="type">{{ type }}</option>
-            </select>
-          </label>
-          <label>
-            Comparison
-            <select formControlName="comparisonLogic">
-              <option *ngFor="let logic of comparisonLogics" [value]="logic">{{ logic }}</option>
-            </select>
-          </label>
-          <label>Threshold %<input type="number" formControlName="thresholdPercentage" /></label>
-          <label>Display order<input type="number" formControlName="displayOrder" /></label>
-          <label>Formatting hint<input type="text" formControlName="formattingHint" placeholder="e.g. YYYY-MM-DD" /></label>
-          <label class="checkbox"><input type="checkbox" formControlName="required" /> Required</label>
-        </div>
-        <div formArrayName="mappings" class="mappings">
-          <h4>Mappings</h4>
-          <div *ngFor="let mappingGroup of sourceMappings(i).controls; let m = index" [formGroupName]="m" class="mapping-row">
-            <div class="mapping-grid">
-              <label>Source<input type="text" formControlName="sourceCode" (input)="invalidateMappingPreview(i, m)" /></label>
-              <label
-                >Column<input
-                  type="text"
-                  formControlName="sourceColumn"
-                  (input)="onSourceColumnChange(i, m, $any($event.target).value)"
-                />
-              </label>
-              <label>Legacy expression
-                <span class="info-icon" title="Optional expression executed for older ingestion flows before new transformation rules.">i</span>
-                <input type="text" formControlName="transformationExpression" placeholder="Optional legacy expression" />
-              </label>
-              <label>Default
-                <span class="info-icon" title="Value used when the source column is missing or blank.">i</span>
-                <input type="text" formControlName="defaultValue" />
-              </label>
-              <label>Ordinal
-                <span class="info-icon" title="Controls the relative ordering of mappings when multiple columns are processed.">i</span>
-                <input type="number" formControlName="ordinalPosition" />
-              </label>
-              <label class="checkbox"><input type="checkbox" formControlName="required" /> Required</label>
-              <button type="button" class="link" (click)="removeMapping(i, m)">Remove mapping</button>
-            </div>
-
-            <div formArrayName="transformations" class="transformation-list">
-              <h5>Transformations</h5>
-              <div
-                *ngFor="let transformationGroup of mappingTransformations(i, m).controls; let t = index"
-                [formGroupName]="t"
-                class="transformation-card"
-              >
-                <div class="transformation-header">
-                  <label>
-                    Type
-                    <select formControlName="type" (change)="onTransformationTypeChange(i, m, t)">
-                      <option *ngFor="let type of transformationTypes" [value]="type">{{ type }}</option>
-                    </select>
-                  </label>
-                  <label>
-                    Display order
-                    <input type="number" formControlName="displayOrder" />
-                  </label>
-                  <label class="checkbox"><input type="checkbox" formControlName="active" /> Active</label>
-                </div>
-
-                <div class="transformation-body">
-                  <ng-container [ngSwitch]="transformationGroup.get('type')?.value">
-                    <div *ngSwitchCase="'GROOVY_SCRIPT'" class="transformation-editor">
-                      <label
-                        >Groovy script<textarea
-                          formControlName="expression"
-                          rows="4"
-                          placeholder="return value"
-                          (input)="invalidateMappingPreview(i, m)"
-                        ></textarea
-                      ></label>
-                      <div class="groovy-tools">
-                        <ng-container *ngIf="getGroovyAssistantState(i, m, t) as assistantState">
-                          <div class="groovy-assistant">
-                            <label>
-                              Describe transformation<textarea
-                                rows="3"
-                                [value]="assistantState.prompt"
-                                placeholder="Explain how the source value should be transformed"
-                                (input)="onGroovyPromptChange(i, m, t, $event)"
-                              ></textarea>
-                            </label>
-                            <div class="groovy-assistant-actions">
-                              <button
-                                type="button"
-                                class="secondary"
-                                (click)="generateGroovyScript(i, m, t)"
-                                [disabled]="assistantState.generating"
-                              >
-                                {{ assistantState.generating ? 'Generating…' : 'Generate with AI' }}
-                              </button>
-                              <span class="hint" *ngIf="assistantState.generating">Requesting Groovy script…</span>
-                            </div>
-                            <p class="hint" *ngIf="assistantState.summary && !assistantState.generating">
-                              {{ assistantState.summary }}
-                            </p>
-                            <p class="error" *ngIf="assistantState.error">{{ assistantState.error }}</p>
-                          </div>
-                        </ng-container>
-                        <div class="groovy-actions">
-                          <button
-                            type="button"
-                            class="secondary"
-                            (click)="runGroovyTest(i, m, t)"
-                            [disabled]="getGroovyTestState(i, m, t).running"
-                          >
-                            Run Groovy test
-                          </button>
-                          <p class="hint">
-                            Load sample rows for this source in the Transformations step to execute the script with
-                            real data.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <div *ngSwitchCase="'EXCEL_FORMULA'" class="transformation-editor">
-                      <label
-                        >Excel formula<input
-                          type="text"
-                          formControlName="expression"
-                          placeholder="=VALUE"
-                          (input)="invalidateMappingPreview(i, m)"
-                        />
-                      </label>
-                      <p class="hint">Use VALUE or column names (e.g. CASH_AMOUNT) as named references.</p>
-                    </div>
-                    <div *ngSwitchCase="'FUNCTION_PIPELINE'" class="transformation-editor" formArrayName="pipelineSteps">
-                      <div
-                        *ngFor="let stepGroup of pipelineSteps(i, m, t).controls; let s = index"
-                        [formGroupName]="s"
-                        class="pipeline-step"
-                      >
-                        <label>
-                          Function
-                          <select formControlName="function" (change)="invalidateMappingPreview(i, m)">
-                            <option *ngFor="let fn of pipelineFunctionOptions" [value]="fn.value">{{ fn.label }}</option>
-                          </select>
-                        </label>
-                        <div formArrayName="args" class="pipeline-args">
-                          <div
-                            *ngFor="let argCtrl of pipelineStepArgs(i, m, t, s).controls; let a = index"
-                            class="arg-row"
-                          >
-                            <label
-                              >Arg {{ a + 1 }}<input
-                                [formControlName]="a"
-                                placeholder="Value or {{column}}"
-                                (input)="invalidateMappingPreview(i, m)"
-                              />
-                            </label>
-                            <button type="button" class="link" (click)="removePipelineArg(i, m, t, s, a)">Remove</button>
-                          </div>
-                          <button type="button" class="secondary" (click)="addPipelineArg(i, m, t, s)">Add argument</button>
-                        </div>
-                        <button
-                          type="button"
-                          class="link"
-                          (click)="removePipelineStep(i, m, t, s)"
-                          *ngIf="pipelineSteps(i, m, t).length > 1"
-                        >
-                          Remove step
-                        </button>
-                      </div>
-                      <button type="button" class="secondary" (click)="addPipelineStep(i, m, t)">Add step</button>
-                    </div>
-                  </ng-container>
-                </div>
-
-                <div class="transformation-actions">
-                  <button type="button" class="secondary" (click)="validateTransformation(i, m, t)">Validate rule</button>
-                  <button type="button" class="link" (click)="removeTransformation(i, m, t)">Remove</button>
-                </div>
-                <p class="hint" *ngIf="transformationGroup.get('validationMessage')?.value">
-                  {{ transformationGroup.get('validationMessage')?.value }}
-                </p>
-              </div>
-              <button type="button" class="secondary" (click)="addTransformation(i, m)">Add transformation</button>
-            </div>
-
-          </div>
-          <button type="button" class="secondary" (click)="addMapping(i)">Add mapping</button>
-        </div>
-      </article>
-      <button type="button" class="secondary" (click)="addCanonicalField()">Add canonical field</button>
     </section>
 
     <section *ngSwitchCase="'reports'" formArrayName="reportTemplates" class="reports-step">

@@ -21,6 +21,7 @@ import {
   AdminReportColumn,
   AdminReportTemplate,
   AdminSource,
+  AdminSourceSchemaField,
   ComparisonLogic,
   FieldDataType,
   FieldRole,
@@ -49,7 +50,9 @@ import {
   GroovyScriptTestRequest,
   TransformationType,
   TransformationValidationRequest,
-  TransformationValidationResponse
+  TransformationValidationResponse,
+  SourceSchemaInferenceRequest,
+  SourceSchemaInferenceResponse
 } from '../../models/admin-api-models';
 import { AdminReconciliationStateService } from '../../services/admin-reconciliation-state.service';
 import { InfoIconTooltipDirective } from './info-icon-tooltip.directive';
@@ -98,6 +101,10 @@ type SourceTransformationPreviewUiState = {
   rawRows: Record<string, unknown>[];
   transformedRows: Record<string, unknown>[];
   lastRows?: Record<string, unknown>[];
+  schemaUploading: boolean;
+  schemaError?: string;
+  schemaFields: AdminSourceSchemaField[];
+  schemaSampleRows: Record<string, unknown>[];
 };
 
 type SampleUploadUiState = {
@@ -140,9 +147,9 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
   readonly steps: WizardStep[] = [
     { key: 'definition', label: 'Definition' },
     { key: 'sources', label: 'Sources' },
+    { key: 'schema', label: 'Source schema' },
     { key: 'transformations', label: 'Transformations' },
     { key: 'matching', label: 'Matching rules' },
-    { key: 'schema', label: 'Schema' },
     { key: 'reports', label: 'Reports' },
     { key: 'access', label: 'Access' },
     { key: 'review', label: 'Review & Publish' }
@@ -521,12 +528,40 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
 
   addSource(source?: AdminSource): void {
     this.sources.push(this.createSourceGroup(source));
-    this.ensureSourcePreviewState(this.sources.length - 1);
+    const index = this.sources.length - 1;
+    const state = this.ensureSourcePreviewState(index);
+    state.schemaFields = source?.schemaFields ?? [];
+    state.schemaSampleRows = [];
+    state.schemaError = undefined;
+    this.synchronizeAvailableColumns(index);
+    const schemaArray = this.schemaFieldsArray(index);
+    if (schemaArray.length === 0) {
+      schemaArray.push(this.createSchemaFieldGroup());
+    }
   }
 
   removeSource(index: number): void {
     this.sources.removeAt(index);
     this.sourcePreviewState.splice(index, 1);
+  }
+
+  schemaFieldsArray(sourceIndex: number): FormArray<FormGroup> {
+    return this.sources.at(sourceIndex).get('schemaFields') as FormArray<FormGroup>;
+  }
+
+  addSchemaField(sourceIndex: number, field?: AdminSourceSchemaField): void {
+    const array = this.schemaFieldsArray(sourceIndex);
+    array.push(this.createSchemaFieldGroup(field));
+    this.synchronizeAvailableColumns(sourceIndex);
+  }
+
+  removeSchemaField(sourceIndex: number, fieldIndex: number): void {
+    this.schemaFieldsArray(sourceIndex).removeAt(fieldIndex);
+    this.synchronizeAvailableColumns(sourceIndex);
+  }
+
+  onSchemaFieldNameChange(sourceIndex: number): void {
+    this.synchronizeAvailableColumns(sourceIndex);
   }
 
   addCanonicalField(field?: AdminCanonicalField): void {
@@ -1208,6 +1243,7 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
 
     this.sources.clear();
     detail.sources.forEach((source) => this.addSource(source));
+    this.sources.controls.forEach((_, index) => this.synchronizeAvailableColumns(index));
 
     this.canonicalFields.clear();
     detail.canonicalFields.forEach((field) => this.addCanonicalField(field));
@@ -1243,6 +1279,7 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
         id: null
       })
     );
+    this.sources.controls.forEach((_, index) => this.synchronizeAvailableColumns(index));
 
     this.canonicalFields.clear();
     detail.canonicalFields.forEach((field) =>
@@ -1297,7 +1334,10 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       adapterOptions: [source?.adapterOptions ?? ''],
       availableColumns: [source?.availableColumns ?? []],
       llmOptions: this.createLlmAdapterOptionsGroup(),
-      transformationPlan: this.createTransformationPlanGroup(source?.transformationPlan ?? null)
+      transformationPlan: this.createTransformationPlanGroup(source?.transformationPlan ?? null),
+      schemaFields: this.fb.array<FormGroup>(
+        (source?.schemaFields ?? []).map((field) => this.createSchemaFieldGroup(field))
+      )
     });
     this.setupLlmAdapterOptions(group, source?.adapterOptions ?? null, source?.adapterType ?? 'CSV_FILE');
     const codeControl = group.get('code');
@@ -1310,6 +1350,16 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
         previousCode = coerced;
       });
     return group;
+  }
+
+  private createSchemaFieldGroup(field?: AdminSourceSchemaField): FormGroup {
+    return this.fb.group({
+      name: [field?.name ?? '', Validators.required],
+      displayName: [field?.displayName ?? ''],
+      dataType: [field?.dataType ?? 'STRING', Validators.required],
+      required: [field?.required ?? false],
+      description: [field?.description ?? '']
+    });
   }
 
   private createTransformationPlanGroup(plan?: SourceTransformationPlan | null): FormGroup {
@@ -1576,13 +1626,17 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
         recordPath: '',
         encoding: '',
         limit: 10,
-        skipRows: 0,
-        uploading: false,
-        sheetNamesLoading: false,
-        sheetNamesError: undefined,
-        rawRows: [],
-        transformedRows: []
-      };
+      skipRows: 0,
+      uploading: false,
+      sheetNamesLoading: false,
+      sheetNamesError: undefined,
+      rawRows: [],
+      transformedRows: [],
+      schemaUploading: false,
+      schemaFields: [],
+      schemaError: undefined,
+      schemaSampleRows: []
+    };
     }
     return this.sourcePreviewState[index];
   }
@@ -1626,6 +1680,130 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       const numeric = Number(value);
       state.skipRows = Number.isFinite(numeric) ? Math.max(0, Math.floor(numeric)) : 0;
     }
+  }
+
+  inferSchemaFromFile(sourceIndex: number): void {
+    const state = this.ensureSourcePreviewState(sourceIndex);
+    const file = state.file;
+    if (!file) {
+      state.schemaError = 'Select a sample file to infer the schema.';
+      return;
+    }
+    const request = this.buildSchemaInferenceRequest(state);
+    state.schemaUploading = true;
+    state.schemaError = undefined;
+    this.state
+      .inferSourceSchema(request, file)
+      .pipe(finalize(() => (state.schemaUploading = false)))
+      .subscribe({
+        next: (response) => {
+          const fields = response.fields ?? [];
+          state.schemaFields = fields;
+          state.schemaSampleRows = response.sampleRows ?? [];
+          if (state.schemaSampleRows.length > 0) {
+            state.rawRows = state.schemaSampleRows;
+            state.lastRows = state.schemaSampleRows;
+          }
+          this.applySchemaInferenceToForm(sourceIndex, fields);
+          this.synchronizeAvailableColumns(sourceIndex);
+        },
+        error: () => {
+          state.schemaError = 'Unable to infer schema from the uploaded file.';
+        }
+      });
+  }
+
+  private buildSchemaInferenceRequest(
+    state: SourceTransformationPreviewUiState
+  ): SourceSchemaInferenceRequest {
+    const selectedSheets = state.includeAllSheets
+      ? state.availableSheetNames ?? []
+      : (state.sheetNames ?? []).filter((name) => !!name && name.trim().length > 0);
+    return {
+      fileType: state.fileType,
+      hasHeader: state.hasHeader,
+      delimiter: state.delimiter ?? undefined,
+      sheetName: state.sheetName ?? undefined,
+      sheetNames: selectedSheets,
+      includeAllSheets: state.includeAllSheets,
+      recordPath: state.recordPath ?? undefined,
+      encoding: state.encoding ?? undefined,
+      limit: state.limit,
+      skipRows: state.skipRows
+    };
+  }
+
+  private applySchemaInferenceToForm(
+    sourceIndex: number,
+    inferredFields: AdminSourceSchemaField[]
+  ): void {
+    const schemaArray = this.schemaFieldsArray(sourceIndex);
+    const existingByName = new Map<string, FormGroup>();
+    schemaArray.controls.forEach((control) => {
+      const normalized = this.normalize(control.get('name')?.value)?.toLowerCase();
+      if (normalized) {
+        existingByName.set(normalized, control as FormGroup);
+      }
+    });
+
+    const merged: FormGroup[] = [];
+    inferredFields.forEach((field) => {
+      const normalized = this.normalize(field.name)?.toLowerCase();
+      if (!normalized) {
+        return;
+      }
+      const displayName = field.displayName ?? this.humanizeColumnName(field.name);
+      const dataType = field.dataType ?? 'STRING';
+      const description = field.description ?? '';
+      const required = !!field.required;
+      const existing = existingByName.get(normalized);
+      if (existing) {
+        existing.patchValue({
+          name: field.name,
+          displayName,
+          dataType,
+          required,
+          description
+        });
+        existing.markAsDirty();
+        merged.push(existing);
+        existingByName.delete(normalized);
+      } else {
+        merged.push(
+          this.createSchemaFieldGroup({
+            name: field.name,
+            displayName,
+            dataType,
+            required,
+            description
+          })
+        );
+      }
+    });
+
+    existingByName.forEach((group) => merged.push(group));
+
+    schemaArray.clear();
+    merged.forEach((group) => schemaArray.push(group));
+    if (schemaArray.length === 0) {
+      schemaArray.push(this.createSchemaFieldGroup());
+    }
+    schemaArray.markAsDirty();
+    schemaArray.markAsTouched();
+  }
+
+  private humanizeColumnName(column: string): string {
+    if (!column) {
+      return column;
+    }
+    const spaced = column
+      .replace(/[_-]+/g, ' ')
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .trim();
+    if (!spaced) {
+      return column;
+    }
+    return spaced.charAt(0).toUpperCase() + spaced.slice(1);
   }
 
   onSourceSampleFileSelected(index: number, event: Event): void {
@@ -1826,6 +2004,12 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
   private collectColumnsForSourceIndex(sourceIndex: number): string[] {
     const state = this.ensureSourcePreviewState(sourceIndex);
     const columns = new Set(this.collectColumnsFromState(state));
+    this.schemaFieldsArray(sourceIndex).controls.forEach((schemaGroup) => {
+      const name = this.normalize(schemaGroup.get('name')?.value);
+      if (name) {
+        columns.add(name);
+      }
+    });
     this.columnOperations(sourceIndex).controls.forEach((operationGroup) => {
       const type = operationGroup.get('type')?.value as SourceColumnOperationType;
       if (type === 'COMBINE') {
@@ -2589,9 +2773,9 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       case 'definition':
         return this.markGroupAndCheckValid(this.definitionGroup);
       case 'sources':
-        return this.markArrayAndCheckValid(this.sources);
+        return this.markSourcesAndCheckValid();
       case 'schema':
-        return this.markArrayAndCheckValid(this.canonicalFields);
+        return this.markSchemaArraysAndCheckValid();
       case 'reports':
         return this.markArrayAndCheckValid(this.reportTemplates);
       case 'access':
@@ -2611,6 +2795,39 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     return array.valid;
   }
 
+  private markSourcesAndCheckValid(): boolean {
+    let valid = true;
+    this.sources.controls.forEach((group) => {
+      const schemaArray = group.get('schemaFields') as FormArray<FormGroup> | null;
+      if (schemaArray) {
+        schemaArray.disable({ emitEvent: false });
+      }
+      group.markAllAsTouched();
+      if (!group.valid) {
+        valid = false;
+      }
+      if (schemaArray) {
+        schemaArray.enable({ emitEvent: false });
+      }
+    });
+    return valid;
+  }
+
+  private markSchemaArraysAndCheckValid(): boolean {
+    let valid = true;
+    this.sources.controls.forEach((group) => {
+      const schemaArray = group.get('schemaFields') as FormArray<FormGroup> | null;
+      if (!schemaArray) {
+        return;
+      }
+      schemaArray.controls.forEach((control) => control.markAllAsTouched());
+      if (!schemaArray.valid) {
+        valid = false;
+      }
+    });
+    return valid;
+  }
+
   private buildRequest(): AdminReconciliationRequest {
     const definitionValue = this.definitionGroup.value as {
       code: string;
@@ -2627,7 +2844,7 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       version?: number | null;
     };
 
-    const sourcesPayload = this.sources.controls.map((group) => {
+    const sourcesPayload = this.sources.controls.map((group, sourceIndex) => {
       const rawValue = group.getRawValue() as AdminSource & { llmOptions?: LlmAdapterOptionsFormValue };
       const { llmOptions: _llmOptions, ...value } = rawValue;
       return {
@@ -2644,8 +2861,26 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       adapterOptions: this.normalize(value.adapterOptions) ?? null,
       transformationPlan: this.buildTransformationPlanPayload(
         group.get('transformationPlan') as FormGroup
+      ),
+      schemaFields: this.schemaFieldsArray(sourceIndex).controls.map(
+        (schemaGroup) => {
+          const schemaValue = schemaGroup.value as {
+            name: string;
+            displayName?: string | null;
+            dataType: FieldDataType;
+            required: boolean;
+            description?: string | null;
+          };
+          return {
+            name: schemaValue.name,
+            displayName: this.normalize(schemaValue.displayName) ?? undefined,
+            dataType: schemaValue.dataType,
+            required: !!schemaValue.required,
+            description: this.normalize(schemaValue.description) ?? undefined
+          } as AdminSourceSchemaField;
+        }
       )
-    } as AdminSource;
+      } as AdminSource;
   });
 
     const canonicalFieldsPayload = this.canonicalFields.controls.map((fieldGroup, fieldIndex) => {

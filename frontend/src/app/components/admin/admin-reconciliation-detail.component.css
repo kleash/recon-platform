@@ -84,6 +84,26 @@
   background: #f8fafc;
 }
 
+.source-schema {
+  margin-top: 1rem;
+}
+
+.source-schema h5 {
+  margin: 0 0 0.5rem;
+}
+
+.source-schema table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.source-schema th,
+.source-schema td {
+  text-align: left;
+  padding: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
 .source-card header {
   display: flex;
   justify-content: space-between;

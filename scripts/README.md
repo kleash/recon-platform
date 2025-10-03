@@ -51,10 +51,10 @@ For faster execution in CI or local smoke testing you can override the defaults:
 - Maker/checker workflow is complete for any run older than 24 hours
 - Export jobs have been generated and completed
 
-The verifier accepts the same `--days` and `--runs-per-day` flags used during seeding so that CI and local runs remain in sync.
+The verifier accepts the same `--days` and `--runs-per-day` flags used during seeding so that CI and local runs remain in sync. When exports are skipped (`--report-format NONE`), pass `--skip-export-check` to avoid an unnecessary failure.
 
 ```bash
-./scripts/verify-historical-seed.sh --days 30 --runs-per-day 3
+./scripts/verify-historical-seed.sh --days 30 --runs-per-day 3 --skip-export-check
 ```
 
 Run the verifier after any code changes that affect ingestion, reconciliation, workflow, or export behaviour.

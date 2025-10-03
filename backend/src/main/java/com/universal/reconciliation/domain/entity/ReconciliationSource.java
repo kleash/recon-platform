@@ -2,7 +2,9 @@ package com.universal.reconciliation.domain.entity;
 
 import com.universal.reconciliation.domain.enums.IngestionAdapterType;
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -13,9 +15,12 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import lombok.Getter;
 import lombok.Setter;
@@ -72,6 +77,13 @@ public class ReconciliationSource {
 
     @Column(name = "transformation_plan", columnDefinition = "TEXT")
     private String transformationPlan;
+
+    @ElementCollection
+    @CollectionTable(
+            name = "reconciliation_source_schema_fields",
+            joinColumns = @JoinColumn(name = "source_id", nullable = false))
+    @OrderColumn(name = "position")
+    private List<SourceSchemaField> schemaFields = new ArrayList<>();
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();

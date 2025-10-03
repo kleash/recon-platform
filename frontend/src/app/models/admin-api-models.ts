@@ -206,12 +206,14 @@ export interface TransformationSampleResponse {
 
 export interface GroovyScriptGenerationRequest {
   prompt: string;
-  fieldName: string;
+  fieldName?: string;
   fieldDataType?: FieldDataType | null;
   sourceCode?: string | null;
   sourceColumn?: string | null;
   sampleValue?: unknown;
   rawRecord?: Record<string, unknown>;
+  availableColumns?: string[] | null;
+  scope?: 'FIELD' | 'DATASET';
 }
 
 export interface GroovyScriptGenerationResponse {
@@ -402,9 +404,14 @@ export interface SourceTransformationPreviewUploadRequest {
   hasHeader: boolean;
   delimiter?: string | null;
   sheetName?: string | null;
+  sheetNames?: string[] | null;
+  includeAllSheets?: boolean | null;
+  includeSheetNameColumn?: boolean | null;
+  sheetNameColumn?: string | null;
   recordPath?: string | null;
   encoding?: string | null;
   limit?: number | null;
+  skipRows?: number | null;
   transformationPlan?: SourceTransformationPlan | null;
 }
 

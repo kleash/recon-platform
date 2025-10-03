@@ -247,6 +247,11 @@
   background: #f1f5f9;
 }
 
+.pipeline-editor {
+  display: grid;
+  gap: 0.75rem;
+}
+
 .pipeline-args {
   display: flex;
   flex-wrap: wrap;
@@ -557,6 +562,13 @@
   gap: 0.75rem;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   align-items: end;
+}
+
+.inline-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .preview-actions {

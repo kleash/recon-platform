@@ -38,9 +38,14 @@ class SourceTransformationPlanIntegrationTest {
                 true,
                 ",",
                 null,
+                List.of(),
+                false,
+                false,
+                null,
                 null,
                 null,
                 10,
+                null,
                 null);
 
         List<Map<String, Object>> rawRows = sampleFileService.parseSamples(request, file);

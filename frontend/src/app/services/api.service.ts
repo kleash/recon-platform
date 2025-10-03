@@ -295,6 +295,12 @@ export class ApiService {
     );
   }
 
+  listPreviewSheetNames(file: File): Observable<string[]> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<string[]>(`${BASE_URL}/admin/transformations/plan/preview/sheets`, formData);
+  }
+
   applySourceTransformation(
     payload: SourceTransformationApplyRequest
   ): Observable<SourceTransformationApplyResponse> {

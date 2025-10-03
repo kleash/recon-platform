@@ -11,10 +11,12 @@ import com.universal.reconciliation.config.OpenAiProperties;
 import com.universal.reconciliation.domain.dto.admin.GroovyScriptGenerationRequest;
 import com.universal.reconciliation.domain.dto.admin.GroovyScriptGenerationResponse;
 import com.universal.reconciliation.domain.enums.FieldDataType;
+import com.universal.reconciliation.domain.enums.GroovyScriptGenerationScope;
 import com.universal.reconciliation.service.ai.OpenAiClient;
 import com.universal.reconciliation.service.ai.OpenAiClientException;
 import com.universal.reconciliation.service.ai.OpenAiPromptRequest;
 import com.universal.reconciliation.service.transform.TransformationEvaluationException;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,7 +52,9 @@ class GroovyScriptAuthoringServiceTest {
                 "CUSTODY",
                 "net_amount",
                 123.4567,
-                Map.of("net_amount", "123.4567", "currency", "USD"));
+                Map.of("net_amount", "123.4567", "currency", "USD"),
+                List.of("net_amount", "currency"),
+                GroovyScriptGenerationScope.FIELD);
 
         when(openAiClient.completeJson(any()))
                 .thenReturn("{\"script\":\"return value\",\"summary\":\"Rounds to two decimals\"}");
@@ -84,7 +88,9 @@ class GroovyScriptAuthoringServiceTest {
                 null,
                 null,
                 "  TR-123  ",
-                Map.of());
+                Map.of(),
+                List.of("trade_ref"),
+                GroovyScriptGenerationScope.FIELD);
 
         when(openAiClient.completeJson(any()))
                 .thenReturn("{\"script\":\"```groovy\\nreturn value?.toString()?.trim()\\n```\"}");
@@ -104,7 +110,9 @@ class GroovyScriptAuthoringServiceTest {
                 null,
                 null,
                 null,
-                Map.of());
+                Map.of(),
+                List.of(),
+                GroovyScriptGenerationScope.FIELD);
 
         when(openAiClient.completeJson(any())).thenReturn("{\"summary\":\"Nothing\"}");
 
@@ -122,12 +130,42 @@ class GroovyScriptAuthoringServiceTest {
                 null,
                 null,
                 null,
-                Map.of());
+                Map.of(),
+                List.of(),
+                GroovyScriptGenerationScope.FIELD);
 
         when(openAiClient.completeJson(any())).thenThrow(new OpenAiClientException("API key missing"));
 
         assertThatThrownBy(() -> service.generate(request))
                 .isInstanceOf(TransformationEvaluationException.class)
                 .hasMessageContaining("API key missing");
+    }
+
+    @Test
+    void datasetScopeIncludesAvailableColumnsInPrompt() {
+        GroovyScriptGenerationRequest request = new GroovyScriptGenerationRequest(
+                "Remove rows where status is IGNORED",
+                null,
+                null,
+                "PAYMENTS",
+                null,
+                null,
+                Map.of("status", "IGNORED", "amount", "10"),
+                List.of("status", "amount", "reference"),
+                GroovyScriptGenerationScope.DATASET);
+
+        when(openAiClient.completeJson(any()))
+                .thenReturn("{\"script\":\"rows.removeIf { it.status == 'IGNORED' }\"}");
+
+        service.generate(request);
+
+        ArgumentCaptor<OpenAiPromptRequest> promptCaptor = ArgumentCaptor.forClass(OpenAiPromptRequest.class);
+        verify(openAiClient).completeJson(promptCaptor.capture());
+        String prompt = promptCaptor.getValue().prompt();
+        assertThat(prompt)
+                .contains("Dataset context")
+                .contains("status, amount, reference")
+                .contains("Example row")
+                .contains("Administrator request");
     }
 }

@@ -311,6 +311,16 @@ export class AdminReconciliationStateService {
     );
   }
 
+  listPreviewSheetNames(file: File): Observable<string[]> {
+    return this.api.listPreviewSheetNames(file).pipe(
+      catchError((error) => {
+        console.error('Failed to load workbook sheets', error);
+        this.notifications.push('Unable to read sheet names from the uploaded workbook.', 'error');
+        return throwError(() => error);
+      })
+    );
+  }
+
   private refreshSummaries(): void {
     this.fetchSummaries(this.filtersSubject.value);
   }

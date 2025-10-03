@@ -81,10 +81,18 @@ type SourceTransformationPreviewUiState = {
   hasHeader: boolean;
   delimiter?: string;
   sheetName?: string;
+  sheetNames: string[];
+  availableSheetNames: string[];
+  includeAllSheets: boolean;
+  includeSheetNameColumn: boolean;
+  sheetNameColumn?: string;
   recordPath?: string;
   encoding?: string;
   limit: number;
   uploading: boolean;
+  skipRows: number;
+  sheetNamesLoading: boolean;
+  sheetNamesError?: string;
   error?: string;
   rawRows: Record<string, unknown>[];
   transformedRows: Record<string, unknown>[];
@@ -830,6 +838,7 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     const sourceColumn = this.normalize(mappingGroup.get('sourceColumn')?.value);
     const preview = this.lookupSourcePreview(sourceCode);
     const sampleRawRecord = preview?.rawRows?.[0];
+    const availableColumns = this.collectColumnsFromState(preview);
     const dataType = (fieldGroup.get('dataType')?.value as FieldDataType | null) ?? null;
     const rawValue = sampleRawRecord && sourceColumn ? this.extractColumnValue(sampleRawRecord, sourceColumn) : undefined;
     const sampleValue = this.coerceSampleValue(rawValue, dataType);
@@ -845,7 +854,9 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       sourceCode: sourceCode ?? null,
       sourceColumn: sourceColumn ?? null,
       sampleValue,
-      rawRecord: sampleRawRecord ?? undefined
+      rawRecord: sampleRawRecord ?? undefined,
+      availableColumns,
+      scope: 'FIELD'
     };
 
     this.setGroovyAssistantState(key, { generating: true, summary: undefined, error: undefined });
@@ -1384,11 +1395,20 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
   }
 
   private createColumnPipelineGroup(pipeline?: SourceColumnPipelineOperation): FormGroup {
-    return this.fb.group({
+    const group = this.fb.group({
       targetColumn: [pipeline?.targetColumn ?? ''],
       sourceColumn: [pipeline?.sourceColumn ?? ''],
-      configuration: [pipeline?.configuration ?? '']
+      configuration: [pipeline?.configuration ?? ''],
+      pipelineSteps: this.fb.array<FormGroup>([])
     });
+    const steps = this.deserializePipelineConfiguration(pipeline?.configuration);
+    const array = this.pipelineStepsFromGroup(group);
+    if (steps.length === 0) {
+      array.push(this.createPipelineStepGroup());
+    } else {
+      steps.forEach((step) => array.push(this.createPipelineStepGroup(step.function, step.args)));
+    }
+    return group;
   }
 
   private createColumnRoundGroup(round?: SourceColumnRoundOperation): FormGroup {
@@ -1425,6 +1445,55 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
 
   columnOperations(sourceIndex: number): FormArray<FormGroup> {
     return this.transformationPlanGroup(sourceIndex).get('columnOperations') as FormArray<FormGroup>;
+  }
+
+  columnPipelineSteps(sourceIndex: number, operationIndex: number): FormArray<FormGroup> {
+    const operation = this.columnOperations(sourceIndex).at(operationIndex) as FormGroup;
+    const pipelineGroup = operation.get('pipeline') as FormGroup;
+    return this.pipelineStepsFromGroup(pipelineGroup);
+  }
+
+  columnPipelineStepArgs(
+    sourceIndex: number,
+    operationIndex: number,
+    stepIndex: number
+  ): FormArray<FormControl<string | null>> {
+    return this.pipelineArgsFromGroup(
+      this.columnPipelineSteps(sourceIndex, operationIndex).at(stepIndex) as FormGroup
+    );
+  }
+
+  addColumnPipelineStep(sourceIndex: number, operationIndex: number): void {
+    this.columnPipelineSteps(sourceIndex, operationIndex).push(this.createPipelineStepGroup());
+  }
+
+  removeColumnPipelineStep(sourceIndex: number, operationIndex: number, stepIndex: number): void {
+    this.columnPipelineSteps(sourceIndex, operationIndex).removeAt(stepIndex);
+    const steps = this.columnPipelineSteps(sourceIndex, operationIndex);
+    if (steps.length === 0) {
+      steps.push(this.createPipelineStepGroup());
+    }
+  }
+
+  addColumnPipelineArg(
+    sourceIndex: number,
+    operationIndex: number,
+    stepIndex: number
+  ): void {
+    this.columnPipelineStepArgs(sourceIndex, operationIndex, stepIndex).push(this.fb.control(''));
+  }
+
+  removeColumnPipelineArg(
+    sourceIndex: number,
+    operationIndex: number,
+    stepIndex: number,
+    argIndex: number
+  ): void {
+    const args = this.columnPipelineStepArgs(sourceIndex, operationIndex, stepIndex);
+    args.removeAt(argIndex);
+    if (args.length === 0) {
+      args.push(this.fb.control(''));
+    }
   }
 
   aggregationsFor(sourceIndex: number, operationIndex: number): FormArray<FormGroup> {
@@ -1482,12 +1551,13 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
   onColumnOperationTypeChange(sourceIndex: number, operationIndex: number): void {
     const group = this.columnOperations(sourceIndex).at(operationIndex);
     const type = group.get('type')?.value as SourceColumnOperationType;
+    const pipelineGroup = group.get('pipeline') as FormGroup;
     if (type === 'PIPELINE') {
-      group.get('pipeline')?.get('configuration')?.setValidators([Validators.required]);
-    } else {
-      group.get('pipeline')?.get('configuration')?.clearValidators();
+      const steps = this.pipelineStepsFromGroup(pipelineGroup);
+      if (steps.length === 0) {
+        steps.push(this.createPipelineStepGroup());
+      }
     }
-    group.get('pipeline')?.get('configuration')?.updateValueAndValidity({ emitEvent: false });
   }
 
   private ensureSourcePreviewState(index: number): SourceTransformationPreviewUiState {
@@ -1497,10 +1567,18 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
         hasHeader: true,
         delimiter: ',',
         sheetName: '',
+        sheetNames: [],
+        availableSheetNames: [],
+        includeAllSheets: false,
+        includeSheetNameColumn: false,
+        sheetNameColumn: '',
         recordPath: '',
         encoding: '',
         limit: 10,
+        skipRows: 0,
         uploading: false,
+        sheetNamesLoading: false,
+        sheetNamesError: undefined,
         rawRows: [],
         transformedRows: []
       };
@@ -1515,6 +1593,38 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
   ): void {
     const state = this.ensureSourcePreviewState(index);
     state[key] = value;
+    if (key === 'fileType') {
+      const nextType = value as TransformationSampleFileType;
+      if (nextType !== 'EXCEL') {
+        state.sheetName = '';
+        state.sheetNames = [];
+        state.availableSheetNames = [];
+        state.includeAllSheets = false;
+        state.includeSheetNameColumn = false;
+        state.sheetNameColumn = '';
+        state.sheetNamesError = undefined;
+        state.sheetNamesLoading = false;
+      } else if (state.file) {
+        this.fetchSheetNames(index);
+      }
+    }
+    if (key === 'includeAllSheets') {
+      const includeAll = !!value;
+      state.includeAllSheets = includeAll;
+      if (includeAll) {
+        state.sheetNames = [...(state.availableSheetNames ?? [])];
+      }
+    }
+    if (key === 'sheetNames' && Array.isArray(value)) {
+      state.sheetNames = value.map((entry) => String(entry));
+    }
+    if (key === 'includeSheetNameColumn' && !value) {
+      state.sheetNameColumn = '';
+    }
+    if (key === 'skipRows') {
+      const numeric = Number(value);
+      state.skipRows = Number.isFinite(numeric) ? Math.max(0, Math.floor(numeric)) : 0;
+    }
   }
 
   onSourceSampleFileSelected(index: number, event: Event): void {
@@ -1526,6 +1636,13 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     const state = this.ensureSourcePreviewState(index);
     state.file = file;
     state.fileName = file.name;
+    state.availableSheetNames = [];
+    state.sheetNames = [];
+    state.includeAllSheets = false;
+    state.sheetNamesError = undefined;
+    if (state.fileType === 'EXCEL') {
+      this.fetchSheetNames(index);
+    }
   }
 
   previewSourceFromFile(index: number): void {
@@ -1536,14 +1653,26 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
     }
     const planGroup = this.transformationPlanGroup(index);
     const planPayload = this.buildTransformationPlanPayload(planGroup);
+    const skipRows = Number.isFinite(state.skipRows) ? Math.max(0, Math.floor(state.skipRows)) : 0;
+    const selectedSheetNames = state.sheetNames?.filter((name) => !!name && name.trim().length > 0) ?? [];
+    const sheetNameColumn = state.includeSheetNameColumn
+      ? (state.sheetNameColumn && state.sheetNameColumn.trim().length > 0
+          ? state.sheetNameColumn.trim()
+          : '_sheet')
+      : undefined;
     const request: SourceTransformationPreviewUploadRequest = {
       fileType: state.fileType,
       hasHeader: state.hasHeader,
       delimiter: state.delimiter ?? undefined,
       sheetName: state.sheetName ?? undefined,
+      sheetNames: state.includeAllSheets ? state.availableSheetNames ?? [] : selectedSheetNames,
+      includeAllSheets: state.includeAllSheets,
+      includeSheetNameColumn: state.includeSheetNameColumn,
+      sheetNameColumn,
       recordPath: state.recordPath ?? undefined,
       encoding: state.encoding ?? undefined,
       limit: state.limit,
+      skipRows,
       transformationPlan: planPayload ?? null
     };
     state.uploading = true;
@@ -1556,6 +1685,7 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
           state.rawRows = response.rawRows ?? [];
           state.transformedRows = response.transformedRows ?? [];
           state.lastRows = state.rawRows;
+          this.synchronizeAvailableColumns(index);
         },
         error: () => {
           state.error = 'Unable to preview transformations for the uploaded file.';
@@ -1619,11 +1749,47 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (response) => {
           state.transformedRows = response.transformedRows ?? [];
+          this.synchronizeAvailableColumns(index);
         },
         error: () => {
           state.error = 'Unable to apply the configured transformations.';
         }
       });
+  }
+
+  fetchSheetNames(index: number): void {
+    const state = this.ensureSourcePreviewState(index);
+    if (!state.file || state.fileType !== 'EXCEL') {
+      state.availableSheetNames = [];
+      state.sheetNames = [];
+      return;
+    }
+    state.sheetNamesLoading = true;
+    state.sheetNamesError = undefined;
+    this.state
+      .listPreviewSheetNames(state.file)
+      .pipe(finalize(() => (state.sheetNamesLoading = false)))
+      .subscribe({
+        next: (names) => {
+          state.availableSheetNames = Array.isArray(names) ? names : [];
+          if (state.includeAllSheets) {
+            state.sheetNames = [...state.availableSheetNames];
+          } else {
+            state.sheetNames = (state.sheetNames ?? []).filter((name) =>
+              state.availableSheetNames.includes(name)
+            );
+          }
+        },
+        error: () => {
+          state.sheetNamesError = 'Unable to read sheet names from the uploaded workbook.';
+        }
+      });
+  }
+
+  onSheetSelectionChange(index: number, event: Event): void {
+    const select = event.target as HTMLSelectElement;
+    const selections = Array.from(select.selectedOptions).map((option) => option.value);
+    this.setSourcePreviewOption(index, 'sheetNames', selections);
   }
 
   private lookupSourcePreview(sourceCode: string | null | undefined): SourceTransformationPreviewUiState | undefined {
@@ -1638,6 +1804,183 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       }
     }
     return undefined;
+  }
+
+  private collectColumnsFromState(state?: SourceTransformationPreviewUiState): string[] {
+    const columns = new Set<string>();
+    if (!state) {
+      return [];
+    }
+    const rows = state.transformedRows?.length ? state.transformedRows : state.rawRows;
+    rows?.forEach((row) => {
+      Object.keys(row || {}).forEach((key) => {
+        if (key) {
+          columns.add(String(key));
+        }
+      });
+    });
+    return Array.from(columns).sort((a, b) => a.localeCompare(b));
+  }
+
+  private collectColumnsForSourceIndex(sourceIndex: number): string[] {
+    const state = this.ensureSourcePreviewState(sourceIndex);
+    const columns = new Set(this.collectColumnsFromState(state));
+    this.columnOperations(sourceIndex).controls.forEach((operationGroup) => {
+      const type = operationGroup.get('type')?.value as SourceColumnOperationType;
+      if (type === 'COMBINE') {
+        const combineGroup = operationGroup.get('combine') as FormGroup;
+        const target = this.normalize(combineGroup.get('targetColumn')?.value);
+        if (target) {
+          columns.add(target);
+        }
+        const sources = this.parseCsvList(this.normalize(combineGroup.get('sourcesText')?.value));
+        sources.forEach((source) => columns.add(source));
+      } else if (type === 'PIPELINE') {
+        const pipelineGroup = operationGroup.get('pipeline') as FormGroup;
+        const target = this.normalize(pipelineGroup.get('targetColumn')?.value);
+        if (target) {
+          columns.add(target);
+        }
+        const source = this.normalize(pipelineGroup.get('sourceColumn')?.value);
+        if (source) {
+          columns.add(source);
+        }
+      } else if (type === 'ROUND') {
+        const roundGroup = operationGroup.get('round') as FormGroup;
+        const target = this.normalize(roundGroup.get('targetColumn')?.value);
+        if (target) {
+          columns.add(target);
+        }
+        const source = this.normalize(roundGroup.get('sourceColumn')?.value);
+        if (source) {
+          columns.add(source);
+        }
+      }
+    });
+    this.rowOperations(sourceIndex).controls.forEach((operationGroup) => {
+      const type = operationGroup.get('type')?.value as SourceRowOperationType;
+      if (type === 'AGGREGATE') {
+        const aggregateGroup = operationGroup.get('aggregate') as FormGroup;
+        const aggregations = aggregateGroup.get('aggregations') as FormArray<FormGroup>;
+        aggregations.controls.forEach((aggGroup) => {
+          const source = this.normalize(aggGroup.get('sourceColumn')?.value);
+          const result = this.normalize(aggGroup.get('resultColumn')?.value);
+          if (source) {
+            columns.add(source);
+          }
+          if (result) {
+            columns.add(result);
+          }
+        });
+        const retainText = this.normalize(aggregateGroup.get('retainColumnsText')?.value);
+        this.parseCsvList(retainText).forEach((retain) => columns.add(retain));
+      } else if (type === 'FILTER') {
+        const filterGroup = operationGroup.get('filter') as FormGroup;
+        const column = this.normalize(filterGroup.get('column')?.value);
+        if (column) {
+          columns.add(column);
+        }
+      } else if (type === 'SPLIT') {
+        const splitGroup = operationGroup.get('split') as FormGroup;
+        const source = this.normalize(splitGroup.get('sourceColumn')?.value);
+        const target = this.normalize(splitGroup.get('targetColumn')?.value);
+        if (source) {
+          columns.add(source);
+        }
+        if (target) {
+          columns.add(target);
+        }
+      }
+    });
+    return Array.from(columns).filter((column) => column.length > 0).sort((a, b) => a.localeCompare(b));
+  }
+
+  private synchronizeAvailableColumns(sourceIndex: number): void {
+    const columns = this.collectColumnsForSourceIndex(sourceIndex);
+    const sourceGroup = this.sources.at(sourceIndex) as FormGroup | undefined;
+    if (!sourceGroup) {
+      return;
+    }
+    const control = sourceGroup.get('availableColumns');
+    if (control) {
+      control.setValue(columns, { emitEvent: false });
+    }
+  }
+
+  private datasetAssistantKey(sourceIndex: number): string {
+    return `dataset:${sourceIndex}`;
+  }
+
+  getDatasetAssistantState(sourceIndex: number): GroovyAssistantState {
+    return this.getOrCreateGroovyAssistantState(this.datasetAssistantKey(sourceIndex));
+  }
+
+  onDatasetGroovyPromptChange(sourceIndex: number, event: Event): void {
+    const prompt = (event.target as HTMLTextAreaElement | null)?.value ?? '';
+    this.setGroovyAssistantState(this.datasetAssistantKey(sourceIndex), {
+      prompt,
+      summary: undefined,
+      error: undefined
+    });
+  }
+
+  generateDatasetGroovyScript(sourceIndex: number): void {
+    const key = this.datasetAssistantKey(sourceIndex);
+    const assistantState = this.getOrCreateGroovyAssistantState(key);
+    const prompt = assistantState.prompt?.trim();
+    if (!prompt) {
+      this.setGroovyAssistantState(key, {
+        generating: false,
+        summary: undefined,
+        error: 'Describe the dataset transformation before generating a script.'
+      });
+      return;
+    }
+
+    const planGroup = this.transformationPlanGroup(sourceIndex);
+    const previewState = this.ensureSourcePreviewState(sourceIndex);
+    const availableColumns = this.collectColumnsForSourceIndex(sourceIndex);
+    const sourceCode = this.normalize(this.sources.at(sourceIndex).get('code')?.value);
+    const rawRecord = previewState.rawRows?.[0];
+
+    const payload: GroovyScriptGenerationRequest = {
+      prompt,
+      fieldName: 'Dataset',
+      sourceCode: sourceCode ?? undefined,
+      rawRecord: rawRecord ?? undefined,
+      availableColumns,
+      scope: 'DATASET'
+    };
+
+    this.setGroovyAssistantState(key, {
+      generating: true,
+      summary: undefined,
+      error: undefined
+    });
+
+    this.state
+      .generateGroovyScript(payload)
+      .pipe(take(1))
+      .subscribe({
+        next: (response) => {
+          planGroup.get('datasetGroovyScript')?.setValue(response.script ?? '', { emitEvent: true });
+          planGroup.get('datasetGroovyScript')?.markAsDirty();
+          this.setGroovyAssistantState(key, {
+            generating: false,
+            summary: response.summary ?? undefined,
+            error: undefined
+          });
+        },
+        error: (error) => {
+          const message =
+            typeof error?.error === 'string' ? error.error : 'Unable to generate Groovy script.';
+          this.setGroovyAssistantState(key, {
+            generating: false,
+            summary: undefined,
+            error: message
+          });
+        }
+      });
   }
 
   private buildTransformationPlanPayload(planGroup: FormGroup): SourceTransformationPlan | null {
@@ -1785,8 +2128,11 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
       case 'PIPELINE': {
         const pipelineGroup = group.get('pipeline') as FormGroup;
         const targetColumn = this.normalize(pipelineGroup.get('targetColumn')?.value);
-        const configuration = pipelineGroup.get('configuration')?.value;
-        if (!targetColumn || !this.hasText(configuration)) {
+        if (!targetColumn) {
+          return null;
+        }
+        const configuration = this.serializePipeline(pipelineGroup);
+        if (!this.hasText(configuration)) {
           return null;
         }
         const pipeline: SourceColumnPipelineOperation = {

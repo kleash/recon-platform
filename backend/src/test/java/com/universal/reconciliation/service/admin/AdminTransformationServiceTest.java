@@ -33,6 +33,7 @@ import com.universal.reconciliation.service.transform.TransformationEvaluationEx
 import com.universal.reconciliation.service.transform.TransformationSampleFileService;
 import com.universal.reconciliation.service.transform.SourceTransformationPlanProcessor;
 import com.universal.reconciliation.domain.transform.SourceTransformationPlan;
+import com.universal.reconciliation.domain.enums.GroovyScriptGenerationScope;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -91,7 +92,15 @@ class AdminTransformationServiceTest {
     @Test
     void generateGroovyScriptDelegatesToAuthoringService() {
         GroovyScriptGenerationRequest request = new GroovyScriptGenerationRequest(
-                "Trim value", "Trade Reference", null, "SOURCE_A", "trade_ref", " value ", Map.of());
+                "Trim value",
+                "Trade Reference",
+                null,
+                "SOURCE_A",
+                "trade_ref",
+                " value ",
+                Map.of(),
+                List.of("trade_ref", "trade_date"),
+                GroovyScriptGenerationScope.FIELD);
         GroovyScriptGenerationResponse generated = new GroovyScriptGenerationResponse(
                 "return value?.toString()?.trim()", "Trim whitespace from trade reference");
         when(groovyScriptAuthoringService.generate(request)).thenReturn(generated);
@@ -157,6 +166,11 @@ class AdminTransformationServiceTest {
                 true,
                 ",",
                 null,
+                List.of(),
+                false,
+                false,
+                null,
+                null,
                 null,
                 null,
                 null,
@@ -174,6 +188,17 @@ class AdminTransformationServiceTest {
         assertThat(response.rawRows()).isEqualTo(rawRows);
         assertThat(response.transformedRows()).isEqualTo(transformedRows);
         verify(transformationPlanProcessor).validate(plan);
+    }
+
+    @Test
+    void listSampleSheetNamesDelegatesToFileService() {
+        MultipartFile file = Mockito.mock(MultipartFile.class);
+        when(sampleFileService.listSheetNames(file)).thenReturn(List.of("Sheet1", "Sheet2"));
+
+        List<String> names = service.listSampleSheetNames(file);
+
+        assertThat(names).containsExactly("Sheet1", "Sheet2");
+        verify(sampleFileService).listSheetNames(file);
     }
 
     @Test

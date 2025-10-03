@@ -59,9 +59,11 @@ public class SourceTransformationPlanProcessor {
         if (plan == null) {
             return working;
         }
-        working = normaliseRows(groovyEvaluator.evaluateDataset(plan.getDatasetGroovyScript(), working));
-        working = applyRowOperations(plan.getRowOperations(), working);
+        Set<String> derivedColumns = collectColumnTargets(plan.getColumnOperations());
         applyColumnOperations(plan.getColumnOperations(), working);
+        working = applyRowOperations(plan.getRowOperations(), working, derivedColumns);
+        applyColumnOperations(plan.getColumnOperations(), working);
+        working = normaliseRows(groovyEvaluator.evaluateDataset(plan.getDatasetGroovyScript(), working));
         return working;
     }
 
@@ -180,7 +182,7 @@ public class SourceTransformationPlanProcessor {
     }
 
     private List<Map<String, Object>> applyRowOperations(
-            List<RowOperationConfig> operations, List<Map<String, Object>> rows) {
+            List<RowOperationConfig> operations, List<Map<String, Object>> rows, Set<String> derivedColumns) {
         List<Map<String, Object>> working = rows;
         if (operations == null) {
             return working;
@@ -191,7 +193,7 @@ public class SourceTransformationPlanProcessor {
             }
             working = switch (operation.getType()) {
                 case FILTER -> applyFilter(operation.getFilter(), working);
-                case AGGREGATE -> applyAggregate(operation.getAggregate(), working);
+                case AGGREGATE -> applyAggregate(operation.getAggregate(), working, derivedColumns);
                 case SPLIT -> applySplit(operation.getSplit(), working);
             };
         }
@@ -212,6 +214,39 @@ public class SourceTransformationPlanProcessor {
                 case ROUND -> applyRound(operation.getRound(), rows);
             }
         }
+    }
+
+    private Set<String> collectColumnTargets(List<ColumnOperationConfig> operations) {
+        Set<String> targets = new LinkedHashSet<>();
+        if (operations == null) {
+            return targets;
+        }
+        for (ColumnOperationConfig operation : operations) {
+            if (operation == null || operation.getType() == null) {
+                continue;
+            }
+            switch (operation.getType()) {
+                case COMBINE -> {
+                    ColumnOperationConfig.CombineOperation combine = operation.getCombine();
+                    if (combine != null && StringUtils.hasText(combine.getTargetColumn())) {
+                        targets.add(combine.getTargetColumn());
+                    }
+                }
+                case PIPELINE -> {
+                    ColumnOperationConfig.PipelineOperation pipeline = operation.getPipeline();
+                    if (pipeline != null && StringUtils.hasText(pipeline.getTargetColumn())) {
+                        targets.add(pipeline.getTargetColumn());
+                    }
+                }
+                case ROUND -> {
+                    ColumnOperationConfig.RoundOperation round = operation.getRound();
+                    if (round != null && StringUtils.hasText(round.getTargetColumn())) {
+                        targets.add(round.getTargetColumn());
+                    }
+                }
+            }
+        }
+        return targets;
     }
 
     private List<Map<String, Object>> applyFilter(
@@ -284,7 +319,9 @@ public class SourceTransformationPlanProcessor {
     }
 
     private List<Map<String, Object>> applyAggregate(
-            RowOperationConfig.AggregateOperation aggregate, List<Map<String, Object>> rows) {
+            RowOperationConfig.AggregateOperation aggregate,
+            List<Map<String, Object>> rows,
+            Set<String> derivedColumns) {
         if (aggregate == null
                 || CollectionUtils.isEmpty(aggregate.getGroupBy())
                 || CollectionUtils.isEmpty(aggregate.getAggregations())) {
@@ -305,6 +342,9 @@ public class SourceTransformationPlanProcessor {
             Set<String> retainColumns = new LinkedHashSet<>();
             if (!CollectionUtils.isEmpty(aggregate.getRetainColumns())) {
                 retainColumns.addAll(aggregate.getRetainColumns());
+            }
+            if (derivedColumns != null) {
+                retainColumns.addAll(derivedColumns);
             }
             retainColumns.addAll(aggregate.getGroupBy());
             Map<String, Object> row = retainColumns.isEmpty() ? prototype : projectColumns(prototype, retainColumns);

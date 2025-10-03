@@ -139,7 +139,7 @@
               >Dataset Groovy Script
               <span
                 class="info-icon"
-                title="Optional Groovy executed once per preview to prepare rows before any row or column operations."
+                title="Optional Groovy executed after column and row operations; mutate the rows list for advanced reshaping. Example: rows.removeIf { it.status == 'IGNORED' }."
                 >i</span
               ></span
             >
@@ -149,6 +149,33 @@
               placeholder="rows.each { /* mutate records here */ }"
             ></textarea>
           </label>
+          <div class="groovy-assistant" *ngIf="getDatasetAssistantState(i) as datasetAssistant">
+            <label>
+              AI prompt
+              <textarea
+                rows="2"
+                placeholder="Describe the dataset-level transformation to generate"
+                [value]="datasetAssistant.prompt"
+                (input)="onDatasetGroovyPromptChange(i, $event)"
+                [disabled]="datasetAssistant.generating"
+              ></textarea>
+            </label>
+            <div class="groovy-assistant-actions">
+              <button
+                type="button"
+                class="secondary"
+                (click)="generateDatasetGroovyScript(i)"
+                [disabled]="datasetAssistant.generating"
+              >
+                {{ datasetAssistant.generating ? 'Generating…' : 'Generate with AI' }}
+              </button>
+              <span class="hint" *ngIf="datasetAssistant.generating">Gathering column context…</span>
+            </div>
+            <p class="hint" *ngIf="datasetAssistant.summary && !datasetAssistant.generating">
+              {{ datasetAssistant.summary }}
+            </p>
+            <p class="error" *ngIf="datasetAssistant.error">{{ datasetAssistant.error }}</p>
+          </div>
 
           <section class="operation-group" formArrayName="rowOperations">
             <header>
@@ -378,11 +405,61 @@
                     <span class="info-icon" title="Optional source column when different from target.">i</span>
                     <input type="text" formControlName="sourceColumn" />
                   </label>
-                  <label>
-                    Configuration JSON
-                    <span class="info-icon" title="Serialized function pipeline definition created by the UI helper.">i</span>
-                    <textarea formControlName="configuration" rows="3"></textarea>
-                  </label>
+                  <div formArrayName="pipelineSteps" class="pipeline-editor">
+                    <div
+                      *ngFor="let stepGroup of columnPipelineSteps(i, c).controls; let s = index"
+                      [formGroupName]="s"
+                      class="pipeline-step"
+                    >
+                      <label>
+                        Function
+                        <span class="info-icon" title="Pipeline function applied to the working column.">i</span>
+                        <select formControlName="function">
+                          <option *ngFor="let fn of pipelineFunctionOptions" [value]="fn.value">{{ fn.label }}</option>
+                        </select>
+                      </label>
+                      <div formArrayName="args" class="pipeline-args">
+                        <div
+                          *ngFor="let argCtrl of columnPipelineStepArgs(i, c, s).controls; let a = index"
+                          class="arg-row"
+                        >
+                          <label>
+                            Arg {{ a + 1 }}
+                            <input [formControlName]="a" placeholder="Value or {{column}}" />
+                          </label>
+                          <button
+                            type="button"
+                            class="link"
+                            (click)="removeColumnPipelineArg(i, c, s, a)"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          class="secondary"
+                          (click)="addColumnPipelineArg(i, c, s)"
+                        >
+                          Add argument
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        class="link"
+                        (click)="removeColumnPipelineStep(i, c, s)"
+                        *ngIf="columnPipelineSteps(i, c).length > 1"
+                      >
+                        Remove step
+                      </button>
+                    </div>
+                    <button type="button" class="secondary" (click)="addColumnPipelineStep(i, c)">
+                      Add step
+                    </button>
+                  </div>
+                  <p class="hint">
+                    Build the function pipeline step by step. Example: apply <code>TRIM</code> then <code>REPLACE</code>
+                    with arguments <code>","</code> and <code>"."</code> to swap decimal separators.
+                  </p>
                 </div>
                 <div *ngSwitchCase="'ROUND'" formGroupName="round" class="operation-fields">
                   <label>
@@ -456,12 +533,80 @@
             </label>
             <label *ngIf="sourcePreviewState[i]?.fileType === 'EXCEL'">
               Sheet name
-              <span class="info-icon" title="Name of the worksheet that contains the sample data.">i</span>
+              <span
+                class="info-icon"
+                title="Name of the worksheet to use when a specific sheet is required. Leave blank when selecting from the list below."
+                >i</span
+              >
               <input
                 type="text"
                 [value]="sourcePreviewState[i]?.sheetName || ''"
                 (input)="setSourcePreviewOption(i, 'sheetName', $any($event.target).value)"
               />
+            </label>
+            <label *ngIf="sourcePreviewState[i]?.fileType === 'EXCEL'">
+              Sheet selection
+              <span
+                class="info-icon"
+                title="Choose one or more worksheets to preview together. Use the refresh action after uploading a workbook to populate the list."
+                >i</span
+              >
+              <select multiple (change)="onSheetSelectionChange(i, $event)">
+                <option
+                  *ngFor="let name of sourcePreviewState[i]?.availableSheetNames ?? []"
+                  [selected]="sourcePreviewState[i]?.sheetNames?.includes(name)"
+                  [value]="name"
+                >
+                  {{ name }}
+                </option>
+              </select>
+              <div class="inline-actions">
+                <label class="checkbox">
+                  <input
+                    type="checkbox"
+                    [checked]="sourcePreviewState[i]?.includeAllSheets"
+                    (change)="setSourcePreviewOption(i, 'includeAllSheets', $any($event.target).checked)"
+                  />
+                  Include all sheets
+                </label>
+                <button
+                  type="button"
+                  class="link"
+                  (click)="fetchSheetNames(i)"
+                  [disabled]="sourcePreviewState[i]?.sheetNamesLoading"
+                >
+                  {{ sourcePreviewState[i]?.sheetNamesLoading ? 'Refreshing…' : 'Refresh sheet list' }}
+                </button>
+              </div>
+              <p class="hint" *ngIf="sourcePreviewState[i]?.sheetNamesLoading">Loading workbook sheets…</p>
+              <p class="error" *ngIf="sourcePreviewState[i]?.sheetNamesError">
+                {{ sourcePreviewState[i]?.sheetNamesError }}
+              </p>
+            </label>
+            <label *ngIf="sourcePreviewState[i]?.fileType === 'EXCEL'">
+              Sheet name column
+              <span
+                class="info-icon"
+                title="Append the sheet name to every preview row to help distinguish rows originating from different worksheets."
+                >i</span
+              >
+              <div class="inline-actions">
+                <label class="checkbox">
+                  <input
+                    type="checkbox"
+                    [checked]="sourcePreviewState[i]?.includeSheetNameColumn"
+                    (change)="setSourcePreviewOption(i, 'includeSheetNameColumn', $any($event.target).checked)"
+                  />
+                  Append sheet name
+                </label>
+                <input
+                  *ngIf="sourcePreviewState[i]?.includeSheetNameColumn"
+                  type="text"
+                  placeholder="_sheet"
+                  [value]="sourcePreviewState[i]?.sheetNameColumn || ''"
+                  (input)="setSourcePreviewOption(i, 'sheetNameColumn', $any($event.target).value)"
+                />
+              </div>
             </label>
             <label *ngIf="['JSON','XML'].includes(sourcePreviewState[i]?.fileType ?? '')">
               Record path
@@ -492,6 +637,21 @@
                 max="50"
                 [value]="sourcePreviewState[i]?.limit"
                 (input)="setSourcePreviewOption(i, 'limit', Number($any($event.target).value))"
+              />
+            </label>
+            <label *ngIf="['CSV','DELIMITED','EXCEL'].includes(sourcePreviewState[i]?.fileType ?? '')">
+              Skip rows
+              <span
+                class="info-icon"
+                title="Number of initial data rows to ignore before previewing transformations. Example: set 2 to skip two introductory lines in the file."
+                >i</span
+              >
+              <input
+                type="number"
+                min="0"
+                max="500"
+                [value]="sourcePreviewState[i]?.skipRows || 0"
+                (input)="setSourcePreviewOption(i, 'skipRows', Number($any($event.target).value))"
               />
             </label>
             <label>

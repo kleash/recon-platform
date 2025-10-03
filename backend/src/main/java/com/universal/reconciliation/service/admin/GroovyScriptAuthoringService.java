@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.universal.reconciliation.config.OpenAiProperties;
 import com.universal.reconciliation.domain.dto.admin.GroovyScriptGenerationRequest;
 import com.universal.reconciliation.domain.dto.admin.GroovyScriptGenerationResponse;
+import com.universal.reconciliation.domain.enums.GroovyScriptGenerationScope;
 import com.universal.reconciliation.service.ai.OpenAiClient;
 import com.universal.reconciliation.service.ai.OpenAiClientException;
 import com.universal.reconciliation.service.ai.OpenAiPromptRequest;
@@ -107,6 +108,16 @@ public class GroovyScriptAuthoringService {
     }
 
     private String buildPrompt(GroovyScriptGenerationRequest request) {
+        GroovyScriptGenerationScope scope = request.scope() != null
+                ? request.scope()
+                : GroovyScriptGenerationScope.FIELD;
+        return switch (scope) {
+            case DATASET -> buildDatasetPrompt(request);
+            case FIELD -> buildFieldPrompt(request);
+        };
+    }
+
+    private String buildFieldPrompt(GroovyScriptGenerationRequest request) {
         StringBuilder builder = new StringBuilder();
         builder.append("You are an assistant that writes Groovy snippets for the Universal Reconciliation Platform.\n");
         builder.append("Scripts run inside a sandbox with these bindings: value (current field value) and row/raw (Map of source data).\n");
@@ -115,7 +126,8 @@ public class GroovyScriptAuthoringService {
         builder.append("Always handle nulls defensively and prefer returning the new value.\n\n");
 
         builder.append("Field context:\n");
-        builder.append("- Canonical field: ").append(request.fieldName()).append('\n');
+        String fieldName = StringUtils.hasText(request.fieldName()) ? request.fieldName() : "Target field";
+        builder.append("- Canonical field: ").append(fieldName).append('\n');
         if (request.fieldDataType() != null) {
             builder.append("- Field data type: ").append(request.fieldDataType().name()).append('\n');
         }
@@ -125,6 +137,11 @@ public class GroovyScriptAuthoringService {
         if (StringUtils.hasText(request.sourceColumn())) {
             builder.append("- Source column: ").append(request.sourceColumn()).append('\n');
         }
+        if (request.availableColumns() != null && !request.availableColumns().isEmpty()) {
+            builder.append("- Available columns: ")
+                    .append(String.join(", ", request.availableColumns()))
+                    .append('\n');
+        }
         if (request.sampleValue() != null) {
             builder.append("- Example current value: ")
                     .append(renderSampleValue(request.sampleValue()))
@@ -132,6 +149,36 @@ public class GroovyScriptAuthoringService {
         }
         if (request.rawRecord() != null && !request.rawRecord().isEmpty()) {
             builder.append("- Example raw source row (JSON):\n");
+            builder.append(renderRawRecord(request.rawRecord())).append('\n');
+        }
+
+        builder.append("\nAdministrator request:\n");
+        builder.append(request.prompt().trim()).append('\n');
+
+        builder.append("\nRespond with JSON containing the Groovy script and a concise summary.\n");
+        builder.append("Ensure the script can be saved directly without additional editing.\n");
+
+        return builder.toString();
+    }
+
+    private String buildDatasetPrompt(GroovyScriptGenerationRequest request) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("You are an assistant that writes Groovy scripts for dataset-level transformations in the Universal Reconciliation Platform.\n");
+        builder.append("Scripts run with the binding rows (List<Map<String, Object>>) and may mutate the list or the maps in place.\n");
+        builder.append("Restrictions: no imports, no class definitions, no printing/logging, and only use standard Groovy/Java APIs available on List, Map, String, and Number.\n");
+        builder.append("Always handle nulls defensively and avoid assumptions about record ordering.\n\n");
+
+        builder.append("Dataset context:\n");
+        if (StringUtils.hasText(request.sourceCode())) {
+            builder.append("- Source code: ").append(request.sourceCode()).append('\n');
+        }
+        if (request.availableColumns() != null && !request.availableColumns().isEmpty()) {
+            builder.append("- Available columns: ")
+                    .append(String.join(", ", request.availableColumns()))
+                    .append('\n');
+        }
+        if (request.rawRecord() != null && !request.rawRecord().isEmpty()) {
+            builder.append("- Example row (JSON):\n");
             builder.append(renderRawRecord(request.rawRecord())).append('\n');
         }
 

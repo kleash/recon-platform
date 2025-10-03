@@ -184,7 +184,7 @@ gantt
 ### 10.1 Onboarding & Tooling
 - **Prerequisites:** JDK 17 (LTS), Maven 3.9+, Node.js 18+, optional Docker for MariaDB/LDAP containers.
 - **Bootstrap steps:** `./mvnw dependency:go-offline` for backend, `npm install` for frontend, optional profile overrides via `application-local.yml` and Angular environment files.
-- **Sample data:** `SampleEtlRunner` seeds demo datasets and reconciliation definitions for immediate testing.
+- **Sample data:** `EtlBootstrapper` discovers and executes any bundled `EtlPipeline` implementations (from examples or the integration harness) so demo reconciliations and canonical payloads are available immediately.
 
 ### 10.2 Local Development Flow
 1. Start backend: `cd backend && ./mvnw spring-boot:run` (use `dev` profile for H2 + demo data).

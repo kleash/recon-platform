@@ -36,14 +36,15 @@ for the target environment as needed.
 | `definition_id` | BIGINT (FK) | No | References `reconciliation_definitions.id`. |
 | `code` | VARCHAR(64) | No | Short identifier (e.g., `CASH`, `GL`). |
 | `display_name` | VARCHAR(128) | No | Friendly label shown in the admin UI. |
-| `adapter_type` | ENUM(`CSV`,`JDBC`,`API`) | No | Ingestion adapter implementation. |
+| `adapter_type` | ENUM(`CSV_FILE`,`FIXED_WIDTH_FILE`,`XML_FILE`,`JSON_FILE`,`DATABASE`,`REST_API`,`MESSAGE_QUEUE`,`LLM_DOCUMENT`) | No | Ingestion adapter implementation. |
 | `anchor` | BOOLEAN | No | Identifies the primary matching source. |
 | `description` | VARCHAR(512) | Yes | Business description for operators. |
 | `connection_config` | TEXT | Yes | Connection metadata for JDBC/API adapters. |
 | `arrival_expectation` | VARCHAR(256) | Yes | Human-readable SLA descriptor. |
 | `arrival_timezone` | VARCHAR(64) | Yes | Timezone for the arrival SLA. |
 | `arrival_sla_minutes` | INT | Yes | SLA window in minutes. |
-| `adapter_options` | TEXT | Yes | Adapter-specific options (CSV delimiter, authentication tokens, etc.). |
+| `adapter_options` | TEXT | Yes | Adapter-specific options (CSV delimiter, authentication tokens, LLM prompt templates, etc.). |
+| `transformation_plan` | TEXT | Yes | Serialized function/Groovy/Excel pipeline applied before canonical mapping. |
 | `created_at` | TIMESTAMP | No | Creation timestamp. |
 | `updated_at` | TIMESTAMP | No | Last modification timestamp. |
 
@@ -54,9 +55,9 @@ for the target environment as needed.
 | `definition_id` | BIGINT (FK) | No | References `reconciliation_definitions.id`. |
 | `canonical_name` | VARCHAR(128) | No | Internal attribute key used across sources. |
 | `display_name` | VARCHAR(128) | No | Label surfaced in UI grids and reports. |
-| `role` | ENUM(`KEY`,`COMPARE`,`DISPLAY`,`PRODUCT`,`SUB_PRODUCT`,`ENTITY`) | No | Drives matching, filtering, and entitlements. |
-| `data_type` | ENUM(`STRING`,`DECIMAL`,`INTEGER`,`DATE`,`BOOLEAN`) | No | Influences parsing and formatting. |
-| `comparison_logic` | ENUM(`EXACT_MATCH`,`CASE_INSENSITIVE`,`NUMERIC_THRESHOLD`,`DATE_ONLY`,`CUSTOM`) | No | Comparator applied during matching. |
+| `role` | ENUM(`KEY`,`COMPARE`,`DISPLAY`,`PRODUCT`,`SUB_PRODUCT`,`ENTITY`,`CLASSIFIER`,`ATTRIBUTE`) | No | Drives matching, filtering, and entitlements. |
+| `data_type` | ENUM(`STRING`,`DECIMAL`,`INTEGER`,`DATE`,`DATETIME`,`BOOLEAN`) | No | Influences parsing and formatting. |
+| `comparison_logic` | ENUM(`EXACT_MATCH`,`CASE_INSENSITIVE`,`NUMERIC_THRESHOLD`,`DATE_ONLY`) | No | Comparator applied during matching. |
 | `threshold_percentage` | DECIMAL(7,3) | Yes | Tolerance for numeric comparisons. |
 | `classifier_tag` | VARCHAR(64) | Yes | Optional tag used for downstream grouping. |
 | `formatting_hint` | VARCHAR(128) | Yes | Presentation hint for UI/export rendering. |
@@ -64,6 +65,17 @@ for the target environment as needed.
 | `required` | BOOLEAN | No | Indicates whether the field must be populated for matching. |
 | `created_at` | TIMESTAMP | No | Creation timestamp. |
 | `updated_at` | TIMESTAMP | No | Last modification timestamp. |
+
+#### Table: `reconciliation_source_schema_fields`
+| Column | Type | Nullable | Notes |
+| --- | --- | --- | --- |
+| `source_id` | BIGINT (FK) | No | References `reconciliation_sources.id`. |
+| `position` | INT | No | Order of the field in the source schema definition. |
+| `field_name` | VARCHAR(128) | No | Raw column name as published by the upstream source. |
+| `display_name` | VARCHAR(256) | Yes | Friendly label surfaced in the configurator. |
+| `data_type` | ENUM(`STRING`,`DECIMAL`,`INTEGER`,`DATE`,`DATETIME`,`BOOLEAN`) | Yes | Declared raw data type. |
+| `required` | BOOLEAN | No | Whether the upstream feed guarantees the column. |
+| `description` | VARCHAR(512) | Yes | Business context or parsing hints for the column. |
 
 #### Table: `canonical_field_mappings`
 | Column | Type | Nullable | Notes |
@@ -74,6 +86,8 @@ for the target environment as needed.
 | `source_column` | VARCHAR(128) | No | Raw column or attribute from the source payload. |
 | `transformation_expression` | TEXT | Yes | Script or DSL fragment to normalise data. |
 | `default_value` | VARCHAR(256) | Yes | Applied when the source column is missing. |
+| `source_date_format` | VARCHAR(64) | Yes | Optional format string used to parse incoming date/datetime values. |
+| `target_date_format` | VARCHAR(64) | Yes | Optional format string applied after parsing when emitting canonical values. |
 | `ordinal_position` | INT | Yes | Ordering when multiple mappings exist for the same field. |
 | `required` | BOOLEAN | No | Enforced during ingestion. |
 | `created_at` | TIMESTAMP | No | Creation timestamp. |
@@ -84,7 +98,7 @@ for the target environment as needed.
 | --- | --- | --- | --- |
 | `id` | BIGINT (PK) | No | Auto-increment primary key. |
 | `mapping_id` | BIGINT (FK) | No | References `canonical_field_mappings.id`. |
-| `type` | ENUM(`UPPERCASE`,`TRIM`,`GROOVY_SCRIPT`,...) | No | Transformation type (see `TransformationType`). |
+| `type` | ENUM(`GROOVY_SCRIPT`,`EXCEL_FORMULA`,`FUNCTION_PIPELINE`) | No | Transformation type (see `TransformationType`). |
 | `expression` | TEXT | Yes | Expression content (Groovy script, regex, etc.). |
 | `configuration` | TEXT | Yes | Serialized configuration map. |
 | `display_order` | INT | No | Execution order within the transformation chain. |
@@ -135,7 +149,7 @@ for the target environment as needed.
 | `id` | BIGINT (PK) | No | Auto-increment primary key. |
 | `definition_id` | BIGINT (FK) | No | References `reconciliation_definitions.id`. |
 | `run_date_time` | TIMESTAMP | No | Execution start time (UTC). |
-| `trigger_type` | ENUM(`MANUAL_UI`,`MANUAL_API`,`SCHEDULED_CRON`,`EXTERNAL_API`,`KAFKA_EVENT`) | No | Trigger origin. |
+| `trigger_type` | ENUM(`MANUAL_API`,`SCHEDULED_CRON`,`EXTERNAL_API`,`KAFKA_EVENT`) | No | Trigger origin. |
 | `status` | ENUM(`SUCCESS`,`FAILED`) | No | Run outcome. |
 | `triggered_by` | VARCHAR(128) | Yes | User DN or service principal. |
 | `trigger_comments` | VARCHAR(512) | Yes | Operator-supplied comments. |
@@ -149,7 +163,7 @@ for the target environment as needed.
 | --- | --- | --- | --- |
 | `id` | BIGINT (PK) | No | Auto-increment primary key. |
 | `run_id` | BIGINT (FK) | No | References `reconciliation_runs.id`. |
-| `break_type` | ENUM(`MISMATCH`,`MISSING_IN_SOURCE_A`,`MISSING_IN_SOURCE_B`) | No | Type of exception. |
+| `break_type` | ENUM(`MISMATCH`,`ANCHOR_MISSING`,`SOURCE_MISSING`,`MISSING_IN_SOURCE_A`,`MISSING_IN_SOURCE_B`) | No | Type of exception (`MISSING_IN_SOURCE_*` are legacy values retained for backward compatibility). |
 | `status` | ENUM(`OPEN`,`PENDING_APPROVAL`,`REJECTED`,`CLOSED`) | No | Workflow state. |
 | `detected_at` | TIMESTAMP | No | Detection timestamp. |
 | `submitted_by_dn` | VARCHAR(256) | Yes | Maker identity for approvals. |
@@ -216,7 +230,7 @@ for the target environment as needed.
 | `id` | BIGINT (PK) | No | Auto-increment primary key. |
 | `definition_id` | BIGINT (FK) | No | References `reconciliation_definitions.id`. |
 | `owner` | VARCHAR(128) | No | Username that queued the export. |
-| `job_type` | ENUM(`RESULT_DATASET`) | No | Export job type. |
+| `job_type` | ENUM(`RESULT_DATASET`,`RUN_REPORT`) | No | Export job type. |
 | `format` | ENUM(`CSV`,`JSONL`,`XLSX`,`PDF`) | No | Output format. |
 | `status` | ENUM(`QUEUED`,`PROCESSING`,`COMPLETED`,`FAILED`) | No | Job lifecycle status. |
 | `filters_json` | LONGTEXT | Yes | Snapshot of applied filters. |
@@ -236,7 +250,7 @@ for the target environment as needed.
 | Column | Type | Nullable | Notes |
 | --- | --- | --- | --- |
 | `id` | BIGINT (PK) | No | Auto-increment primary key. |
-| `event_type` | ENUM(`RECONCILIATION_RUN`,`BREAK_STATUS_CHANGE`,`BREAK_COMMENT`,`BREAK_BULK_ACTION`,`REPORT_EXPORT`,`INGESTION_BATCH`,`CONFIGURATION_PUBLISH`) | No | Event classification. |
+| `event_type` | ENUM(`RECONCILIATION_RUN`,`BREAK_STATUS_CHANGE`,`BREAK_COMMENT`,`BREAK_BULK_ACTION`,`REPORT_EXPORT`,`RECONCILIATION_CONFIG_CHANGE`,`INGESTION_BATCH_ACCEPTED`) | No | Event classification. |
 | `details` | VARCHAR(2000) | No | Summary or JSON payload used in dashboards. |
 | `recorded_at` | TIMESTAMP | No | Event timestamp (UTC). |
 
@@ -246,7 +260,7 @@ for the target environment as needed.
 | `id` | BIGINT (PK) | No | Auto-increment primary key. |
 | `source_id` | BIGINT (FK) | No | References `reconciliation_sources.id`. |
 | `label` | VARCHAR(128) | No | Human-readable batch name (often the business date). |
-| `status` | ENUM(`PENDING`,`PROCESSING`,`PROCESSED`,`FAILED`) | No | Batch lifecycle status. |
+| `status` | ENUM(`PENDING`,`LOADING`,`COMPLETE`,`FAILED`,`ARCHIVED`) | No | Batch lifecycle status. |
 | `ingested_at` | TIMESTAMP | No | Ingestion timestamp. |
 | `record_count` | BIGINT | Yes | Row count populated on completion. |
 | `checksum` | VARCHAR(128) | Yes | Hash for idempotency. |
@@ -263,8 +277,7 @@ for the target environment as needed.
 | `ingested_at` | TIMESTAMP | No | Record ingestion timestamp. |
 
 #### Legacy Sample Tables
-The sample ETL pipelines that seed demonstration data still populate `source_a_records` and `source_b_records`. These tables mirror
-the canonical model but are considered transitional and will be removed once all reconciliations rely on canonical fields.
+Legacy entities (`source_a_records`, `source_b_records`) remain in the codebase for backwards compatibility with historical demos. Modern pipelines seeded by `EtlPipeline` implementations now persist through the canonical staging tables above and only touch the legacy tables when explicitly requested.
 
 > ℹ️ **Indexing guidance:** Create composite indexes on `(definition_id, product, sub_product)` for `break_items` and
 > `access_control_entries` to accelerate entitlement filtering. For high-volume exports add `(definition_id, owner, status)` indexes

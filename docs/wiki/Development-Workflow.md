@@ -44,12 +44,13 @@ graph TD
 2. Download the workbook with `GET /api/exports/runs/{runId}` (supply the JWT in the `Authorization` header).
 3. Store the binary response as `reconciliation-run-<runId>.xlsx` and distribute to stakeholders via secure channels.
 4. Confirm the download was captured in the activity feed (`SystemEventType.REPORT_EXPORT`).
+5. For large, filter-aware extracts use the asynchronous pipeline: `POST /api/reconciliations/{id}/export-jobs` queues a dataset job and `GET /api/export-jobs/{jobId}/download` retrieves the CSV/JSONL/XLSX/PDF artifact once complete.
 
 ### 8.3 Debugging ETL Issues
-1. Start the backend with the default profile; `SampleEtlRunner` logs each pipeline execution at INFO level.
-2. Inspect the application console output (or configured log appender) for pipeline-specific errors (e.g., malformed CSV rows).
-3. Query `source_a_records` and `source_b_records` to verify record counts and key fields; use the H2 console (`/h2-console`) in dev.
-4. To rerun a single pipeline, autowire the component in a Spring test or temporary REST endpoint and call its `run()` method manually.
+1. Start the backend with the default profile; `EtlBootstrapper` logs each discovered `EtlPipeline` execution at INFO level.
+2. Inspect the application console output (or configured log appender) for pipeline-specific errors (e.g., malformed CSV rows or transformation failures).
+3. Query the canonical staging tables (`source_data_batches`, `source_data_records`) to verify record counts and key fields; use the H2 console (`/h2-console`) in dev.
+4. To rerun a single pipeline, autowire the component in a Spring test or temporary REST endpoint and call its `run()` method manually, or trigger ingestion via `/api/admin/reconciliations/{id}/sources/{code}/batches` to exercise the same `SourceIngestionService` path used in production.
 
 ### 8.4 Troubleshooting Authentication
 - Confirm LDAP settings in `application.yml`/`application-local.yml` (`app.security.ldap.*`, `spring.ldap.*`) align with your directory.

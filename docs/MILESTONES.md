@@ -1,0 +1,4 @@
+- **Source schema refactor (2025-10-03)**
+  - Reordered the admin configurator wizard so raw source schema capture precedes transformations and matching.
+  - Persisted per-source schema metadata and introduced automated inference from sample files.
+  - Simplified canonical schema maintenance by removing redundant transformation controls from the legacy schema step.

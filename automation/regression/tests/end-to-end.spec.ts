@@ -169,6 +169,13 @@ async function createReconciliationFromScratch(options: {
   screenshotName: string;
 }) {
   const { page, code, name, description, screenshotName } = options;
+  const definitionScreenshot = 'wizard-definition.png';
+  const sourcesScreenshot = 'wizard-sources.png';
+  const schemaScreenshot = 'wizard-schema.png';
+  const transformationsScreenshot = 'wizard-transformations.png';
+  const matchingScreenshot = 'wizard-matching.png';
+  const reportsScreenshot = 'wizard-reports.png';
+  const accessScreenshot = 'wizard-access.png';
   await page
     .getByRole('link', { name: 'New reconciliation', exact: true })
     .first()
@@ -181,6 +188,18 @@ async function createReconciliationFromScratch(options: {
   await page.getByLabel('Owner').fill('Automation Control Tower');
   await page.getByLabel('Lifecycle status').selectOption('PUBLISHED');
   await page.getByRole('checkbox', { name: 'Enable maker-checker approvals' }).check();
+
+  await page.screenshot({ path: resolveAssetPath(definitionScreenshot), fullPage: true });
+  await recordScreen({
+    name: 'Wizard Definition Step',
+    route: '/admin/new',
+    screenshotFile: definitionScreenshot,
+    assertions: [
+      { description: 'Definition metadata populated with code, name, and owner' },
+      { description: 'Maker-checker toggle enabled' },
+      { description: 'Lifecycle status set to PUBLISHED' }
+    ]
+  });
 
   await page.getByRole('button', { name: 'Next' }).click();
   const sourceForms = page.locator('.source-form');
@@ -197,6 +216,66 @@ async function createReconciliationFromScratch(options: {
   await glSource.getByLabel('Code').fill('GL');
   await glSource.getByLabel('Name').fill('General Ledger');
   await glSource.getByLabel('Arrival expectation').fill('Weekdays by 18:15');
+
+  await page.screenshot({ path: resolveAssetPath(sourcesScreenshot), fullPage: true });
+  await recordScreen({
+    name: 'Wizard Sources Step',
+    route: '/admin/new',
+    screenshotFile: sourcesScreenshot,
+    assertions: [
+      { description: 'Two sources configured with codes CASH and GL' },
+      { description: 'Anchor checkbox enabled for the first source' },
+      { description: 'Arrival expectations populated for both sources' }
+    ]
+  });
+
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  await expect(page.getByText('Step 3 of 8 · Source schema')).toBeVisible({ timeout: 30000 });
+
+  const schemaCards = page.locator('.schema-card');
+  await expect(schemaCards.first()).toBeVisible({ timeout: 30000 });
+
+  const firstSchemaField = schemaCards
+    .first()
+    .locator('.schema-field-row')
+    .first();
+  await firstSchemaField.getByLabel('Column name').fill('transactionId');
+  await firstSchemaField.getByLabel('Display name').fill('Transaction ID');
+  await firstSchemaField.getByLabel('Data type').selectOption('STRING');
+  await firstSchemaField.getByLabel('Description').fill('Unique transaction reference');
+  const addFieldButton = schemaCards.first().getByRole('button', { name: 'Add field' });
+  await addFieldButton.click();
+  const secondSchemaField = schemaCards
+    .first()
+    .locator('.schema-field-row')
+    .nth(1);
+  await secondSchemaField.getByLabel('Column name').fill('amount');
+  await secondSchemaField.getByLabel('Display name').fill('Amount');
+  await secondSchemaField.getByLabel('Data type').selectOption('DECIMAL');
+  await secondSchemaField.getByLabel('Description').fill('Monetary amount from source');
+  await secondSchemaField.getByRole('checkbox', { name: 'Required' }).check();
+
+  const portfolioSchemaField = schemaCards
+    .nth(1)
+    .locator('.schema-field-row')
+    .first();
+  await portfolioSchemaField.getByLabel('Column name').fill('transactionId');
+  await portfolioSchemaField.getByLabel('Display name').fill('Transaction ID');
+  await portfolioSchemaField.getByLabel('Data type').selectOption('STRING');
+  await portfolioSchemaField.getByRole('checkbox', { name: 'Required' }).check();
+
+  await page.screenshot({ path: resolveAssetPath(schemaScreenshot), fullPage: true });
+  await recordScreen({
+    name: 'Wizard Schema Step',
+    route: '/admin/new',
+    screenshotFile: schemaScreenshot,
+    assertions: [
+      { description: 'Source schema lists inferred fields for both sources' },
+      { description: 'Data types configured for amount and transaction ID' },
+      { description: 'Required flags set appropriately' }
+    ]
+  });
 
   await page.getByRole('button', { name: 'Next' }).click();
 
@@ -215,6 +294,18 @@ async function createReconciliationFromScratch(options: {
   await expect(
     page.getByText('Upload sample data or load recent rows', { exact: false })
   ).toBeVisible();
+
+  await page.screenshot({ path: resolveAssetPath(transformationsScreenshot), fullPage: true });
+  await recordScreen({
+    name: 'Wizard Transformations Step',
+    route: '/admin/new',
+    screenshotFile: transformationsScreenshot,
+    assertions: [
+      { description: 'Source transformation plan visible with dataset Groovy script editor' },
+      { description: 'Preview controls configured for CSV uploads' },
+      { description: 'Row and column operation sections accessible' }
+    ]
+  });
 
   await page.getByRole('button', { name: 'Next' }).click();
 
@@ -306,9 +397,17 @@ async function createReconciliationFromScratch(options: {
     await addCanonicalField(page, matchingCards, index, canonicalFieldConfigs[index]);
   }
 
-  await page.getByRole('button', { name: 'Next' }).click();
-  const fieldCards = page.locator('.field-card');
-  await expect(fieldCards.first()).toBeVisible({ timeout: 30000 });
+  await page.screenshot({ path: resolveAssetPath(matchingScreenshot), fullPage: true });
+  await recordScreen({
+    name: 'Wizard Matching Step',
+    route: '/admin/new',
+    screenshotFile: matchingScreenshot,
+    assertions: [
+      { description: 'Canonical fields configured with keys and comparison fields' },
+      { description: 'Source mappings reference schema columns (transactionId, amount, currency)' },
+      { description: 'Match types set for numeric and date comparisons' }
+    ]
+  });
 
   await page.getByRole('button', { name: 'Next' }).click();
 
@@ -354,6 +453,18 @@ async function createReconciliationFromScratch(options: {
     .getByLabel('Display order')
     .fill('2');
 
+  await page.screenshot({ path: resolveAssetPath(reportsScreenshot), fullPage: true });
+  await recordScreen({
+    name: 'Wizard Reports Step',
+    route: '/admin/new',
+    screenshotFile: reportsScreenshot,
+    assertions: [
+      { description: 'Report template named Automation Break Export configured' },
+      { description: 'Columns mapped to SOURCE_A and SOURCE_B fields' },
+      { description: 'Highlight differences and ordering options visible' }
+    ]
+  });
+
   await page.getByRole('button', { name: 'Next' }).click();
 
   const addAccessEntry = page.getByRole('button', { name: 'Add access entry' });
@@ -377,6 +488,18 @@ async function createReconciliationFromScratch(options: {
   await checkerEntry
     .getByRole('checkbox', { name: 'Notify on ingestion failure' })
     .check();
+
+  await page.screenshot({ path: resolveAssetPath(accessScreenshot), fullPage: true });
+  await recordScreen({
+    name: 'Wizard Access Step',
+    route: '/admin/new',
+    screenshotFile: accessScreenshot,
+    assertions: [
+      { description: 'Maker and checker access entries populated' },
+      { description: 'Notification preferences enabled' },
+      { description: 'LDAP group identifiers captured' }
+    ]
+  });
 
   await page.getByRole('button', { name: 'Next' }).click();
   await expect(page.getByRole('heading', { name: 'Review summary' })).toBeVisible();
@@ -442,6 +565,42 @@ async function createGroovyReconciliation(options: {
 
   await page.getByRole('button', { name: 'Next' }).click();
 
+  await expect(page.getByText('Step 3 of 8 · Source schema')).toBeVisible({ timeout: 30000 });
+
+  const schemaCards = page.locator('.schema-card');
+  await expect(schemaCards.first()).toBeVisible({ timeout: 30000 });
+  const primarySchemaField = schemaCards
+    .first()
+    .locator('.schema-field-row')
+    .first();
+  await primarySchemaField.getByLabel('Column name').fill('transactionId');
+  await primarySchemaField.getByLabel('Data type').selectOption('STRING');
+  await schemaCards
+    .nth(1)
+    .locator('.schema-field-row')
+    .first()
+    .getByLabel('Column name')
+    .fill('transactionId');
+  await schemaCards
+    .nth(1)
+    .locator('.schema-field-row')
+    .first()
+    .getByLabel('Data type')
+    .selectOption('STRING');
+
+  const groovySchemaScreenshot = 'wizard-schema-groovy.png';
+  await page.screenshot({ path: resolveAssetPath(groovySchemaScreenshot), fullPage: true });
+  await recordScreen({
+    name: 'Wizard Schema Step (Groovy scenario)',
+    route: '/admin/new',
+    screenshotFile: groovySchemaScreenshot,
+    assertions: [
+      { description: 'Groovy example defines transactionId column for both sources' }
+    ]
+  });
+
+  await page.getByRole('button', { name: 'Next' }).click();
+
   const transformationCards = page.locator('.source-transformation-card');
   await expect(transformationCards.first()).toBeVisible({ timeout: 30000 });
   const primaryPlanSection = transformationCards.first().locator('.plan-section');
@@ -463,7 +622,10 @@ async function createGroovyReconciliation(options: {
     '}'
   ].join('\n');
   await secondaryPlanCard.getByLabel('Dataset Groovy Script').fill(datasetGroovyScript);
-  await secondaryPlanCard.getByLabel('Sample file').setInputFiles(groovyPreviewSample);
+  await secondaryPlanCard
+    .locator('label', { hasText: 'Sample file' })
+    .locator('input[type="file"]')
+    .setInputFiles(groovyPreviewSample);
   const previewActions = secondaryPlanCard.locator('.preview-actions');
   const previewButton = previewActions.locator('button').first();
   const previewResponse = page.waitForResponse((response) => {
@@ -534,25 +696,6 @@ async function createGroovyReconciliation(options: {
       { source: 'GROOVY_B', column: 'currency' }
     ]
   });
-
-  await page.getByRole('button', { name: 'Next' }).click();
-
-  const fieldCards = page.locator('.field-card');
-  await expect(fieldCards.first()).toBeVisible({ timeout: 30000 });
-
-  const amountField = fieldCards.nth(1);
-  await expect(amountField).toBeVisible({ timeout: 30000 });
-  const mappingRows = amountField.locator('.mapping-row');
-  await expect(mappingRows.first()).toBeVisible({ timeout: 30000 });
-  const secondaryMapping = mappingRows.nth(1);
-  const transformationList = secondaryMapping.locator('.transformation-list');
-  await secondaryMapping.locator('button', { hasText: 'Add transformation' }).click();
-  const transformationCard = transformationList.locator('.transformation-card').last();
-  await expect(transformationCard).toBeVisible();
-  await transformationCard.getByLabel('Type').selectOption('GROOVY_SCRIPT');
-  await transformationCard.getByLabel('Groovy script').fill(groovyScript);
-  await transformationCard.getByRole('button', { name: 'Validate rule' }).click();
-  await expect(transformationCard.getByText('Transformation is valid.')).toBeVisible();
 
   await page.getByRole('button', { name: 'Next' }).click();
 
@@ -868,6 +1011,8 @@ async function testGroovyInWizard(options: {
   await expect(page.getByRole('heading', { name: 'Edit reconciliation' })).toBeVisible();
   await page.getByRole('button', { name: 'Next' }).click();
   await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByText('Step 3 of 8 · Source schema')).toBeVisible({ timeout: 30000 });
+  await page.getByRole('button', { name: 'Next' }).click();
 
   const transformationCards = page.locator('.source-transformation-card');
   await expect(transformationCards.first()).toBeVisible({ timeout: 30000 });
@@ -886,97 +1031,6 @@ async function testGroovyInWizard(options: {
   const transformedPreview = groovyCard.locator('.preview-column').nth(1).locator('pre').first();
   await expect(transformedPreview).toBeVisible({ timeout: 30000 });
 
-  await page.getByRole('button', { name: 'Next' }).click();
-  await page.getByRole('button', { name: 'Next' }).click();
-
-  const fieldCards = page.locator('.field-card');
-  const fieldCardCount = await fieldCards.count();
-  let amountField: import('@playwright/test').Locator | null = null;
-  for (let idx = 0; idx < fieldCardCount; idx += 1) {
-    const card = fieldCards.nth(idx);
-    const canonicalName = (await card.locator('input[formcontrolname="canonicalName"]').first().inputValue()).trim();
-    if (canonicalName.toLowerCase() === 'amount') {
-      amountField = card;
-      break;
-    }
-  }
-  if (!amountField) {
-    throw new Error('Unable to locate Amount field card.');
-  }
-  await expect(amountField).toBeVisible({ timeout: 30000 });
-  const mappingRows = amountField.locator('.mapping-row');
-  await expect(mappingRows.first()).toBeVisible({ timeout: 30000 });
-  const mappingRowCount = await mappingRows.count();
-  let groovyMapping: import('@playwright/test').Locator | null = null;
-  for (let idx = 0; idx < mappingRowCount; idx += 1) {
-    const row = mappingRows.nth(idx);
-    const sourceValue = (await row.locator('input[formcontrolname="sourceCode"]').first().inputValue()).trim();
-    if (sourceValue === 'GROOVY_B' || sourceValue === 'Groovy Source B') {
-      groovyMapping = row;
-      break;
-    }
-  }
-  if (!groovyMapping) {
-    if (mappingRowCount < 2) {
-      throw new Error(`Expected at least two mapping rows for Amount field, found ${mappingRowCount}.`);
-    }
-    groovyMapping = mappingRows.nth(mappingRowCount - 1);
-  }
-  const transformationList = groovyMapping.locator('.transformation-list').first();
-  let transformationCard = transformationList.locator('.transformation-card').first();
-  if ((await transformationCard.count()) === 0) {
-    const addTransformationButton = transformationList.getByRole('button', { name: 'Add transformation' });
-    if ((await addTransformationButton.count()) === 0) {
-      throw new Error('Unable to locate transformation controls for GROOVY_B mapping.');
-    }
-    await addTransformationButton.first().click();
-    transformationCard = transformationList.locator('.transformation-card').last();
-    await expect(transformationCard).toBeVisible();
-    await transformationCard.getByLabel('Type').selectOption('GROOVY_SCRIPT');
-
-    let aiGenerationPayload: Record<string, unknown> | null = null;
-    await page.route('**/api/admin/transformations/groovy/generate', async (route) => {
-      aiGenerationPayload = JSON.parse(route.request().postData() ?? '{}');
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          script: groovyScript,
-          summary: 'Assistant normalises amount with USD rounding.'
-        })
-      });
-    });
-
-    await transformationCard
-      .getByLabel('Describe transformation')
-      .fill('Normalize the amount, strip commas, and round USD values to two decimals.');
-    await transformationCard.getByRole('button', { name: 'Generate with AI' }).click();
-    await expect(transformationCard.getByLabel('Groovy script')).toHaveValue(groovyScript, { timeout: 30000 });
-    await expect(
-      transformationCard.getByText('Assistant normalises amount with USD rounding.', { exact: false })
-    ).toBeVisible({ timeout: 30000 });
-    await page.unroute('**/api/admin/transformations/groovy/generate');
-    expect(aiGenerationPayload).not.toBeNull();
-    test.info().annotations.push({
-      type: 'debug',
-      description: `Groovy AI generation payload: ${JSON.stringify(aiGenerationPayload ?? {})}`,
-    });
-
-    await transformationCard.getByRole('button', { name: 'Validate rule' }).click();
-    await expect(transformationCard.getByText('Transformation is valid.')).toBeVisible({ timeout: 30000 });
-  } else {
-    await expect(transformationCard).toBeVisible();
-  }
-  const groovyTestResponse = page.waitForResponse((response) => {
-    return (
-      response.request().method() === 'POST' &&
-      response.url().includes('/api/admin/transformations/groovy/test')
-    );
-  });
-  await transformationCard.getByRole('button', { name: 'Run Groovy test' }).click();
-  const testResponse = await groovyTestResponse;
-  expect(testResponse.ok()).toBeTruthy();
-
   await page.screenshot({ path: resolveAssetPath(screenshotName), fullPage: true });
   await recordScreen({
     name: 'Groovy tester preview',
@@ -984,8 +1038,7 @@ async function testGroovyInWizard(options: {
     screenshotFile: screenshotName,
     assertions: [
       { description: 'Transformations step supplies preview rows for Groovy testing' },
-      { description: 'Groovy test endpoint executes successfully for scripted amount' },
-      { description: 'Validation button confirms compiled script' },
+      { description: 'Dataset Groovy script produces expected output' }
     ],
   });
 

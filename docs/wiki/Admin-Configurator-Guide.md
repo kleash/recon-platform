@@ -61,7 +61,7 @@ Use this checklist whenever you set up a new reconciliation:
 2. ✅ Gather business requirements: sources, key fields, tolerances, break classifications.
 3. ✅ Verify sample data availability for each source (CSV, database extracts, APIs).
 4. ✅ Log into the Administration workspace and launch **New reconciliation**.
-5. ✅ Complete the eight-step wizard (definition → sources → transformations → matching → schema → reports → access → review).
+5. ✅ Complete the eight-step wizard (definition → sources → source schema → transformations → matching → reports → access → review).
 6. ✅ Validate transformations (Groovy/Excel/pipeline) and preview results using sample data.
 7. ✅ Publish the reconciliation and notify maker/checker teams.
 8. ✅ Trigger an ingestion test using the CLI or API and confirm analytics in the results workspace.
@@ -105,9 +105,22 @@ you can pause and resume.
 - Responses may return arrays or objects; set **Record path** (dot-separated) to isolate the desired
   structure when the LLM wraps the payload.
 
-### 4.3 Transformations
+### 4.3 Source Schema
 
-- The **Transformations** step sits between Sources and Schema and captures source-level
+- Define the raw columns that arrive from each source. Every source starts with a placeholder row—
+  rename it immediately and select the appropriate data type (`STRING`, `DECIMAL`, `INTEGER`,
+  `DATE`).
+- **Infer schema from file** accepts the same formats as the transformation preview (CSV, delimited,
+  Excel, JSON, XML). The backend analyses the sample, suggests column names, guesses data types, and
+  shows the first few rows so you can validate before saving.
+- Manual edits are fully supported: add/remove rows, toggle required flags, and capture descriptions
+  documenting business meaning or upstream quirks.
+- Saving the step persists `schemaFields` back onto each source. These persisted columns feed the
+  transformation preview, matching dropdowns, and downstream docs—no more duplicate column lists.
+
+### 4.4 Transformations
+
+- The **Transformations** step sits between Source Schema and Matching and captures source-level
   preprocessing. Each source owns its own transformation plan so you can normalise data before it is
   mapped to canonical fields.
 - A transformation plan is executed in three phases:
@@ -132,43 +145,31 @@ you can pause and resume.
     editing the payload.
   - All formats let you persist encoding and row limits so previews mirror production ingestion.
 - The wizard caches discovered columns back onto the source definition as soon as you preview data.
-  Those columns populate the mapping dropdowns in the Matching and Schema steps, keeping the flow
-  inline.
+  Those columns populate the dropdowns in both the Source Schema and Matching steps, keeping the
+  flow inline.
 - **Preview workflow:** upload a sample file (CSV, delimited text, Excel, JSON, XML) or load the
   latest ingested rows. Apply the plan at any time to compare the raw dataset and the transformed
   output side-by-side. The Groovy transformation tester picks up these preview rows so you can run
   expressions against real data before publishing.
 
-### 4.4 Matching Rules
+### 4.5 Matching Rules
 
 - Review the columns surfaced for each source after transformations. The configurator auto-populates
   available fields so you can map anchor and secondary sources quickly.
+- Define canonical fields in this view—set role (`KEY`, `COMPARE`, `CLASSIFIER`, etc.), data type,
+  thresholds, and match type. Display names and formatting hints appear in analytics and reports.
 - Pick a match type for every canonical field: full match, case-insensitive, numeric threshold, date
   match, or display-only context. Thresholds are captured as percentages; display-only fields are
   excluded from the matching engine but remain visible to analysts.
 - For date comparisons, capture the incoming format per source and the normalized format that should
   be written into the canonical payload. These settings are applied automatically during ingestion so
   the matching engine always evaluates ISO-aligned dates.
-- Add or remove source-specific mappings in the same view—no need to jump back to the schema step for
-  basic adjustments.
-
-### 4.5 Schema
-
-- Define canonical fields with roles (`KEY`, `COMPARE`, `CLASSIFIER`, etc.), tolerances, and display
-  hints.
 - Map each canonical field to source columns. For multi-source reconciliations, the same canonical
-  field can have different transformation chains per source.
-- **Transformation authoring** (details in section 5):
-  - Groovy scripts (multi-statement supported)
-  - Excel-style formulas
-  - UI-based function pipelines
-- Use **Validate** to compile transformations immediately. Errors display inline with actionable
-  messages. Groovy scripts can be generated with the inline assistant and executed against the rows
-  prepared in the Transformations step.
-- **Legacy expression** retains the historical mapping expression that existed before the new
-  transformation engine. It is executed first when present so migrations remain backward compatible.
-- **Ordinal** controls the relative ordering of source mappings when multiple columns feed into a
-  single canonical field. Lower numbers run first.
+  field can have different transformation chains per source. Field-level transformations are now
+  authored exclusively in the Transformations step and previewed there.
+- Use **Validate** to compile transformations immediately via the backend validation API. Errors
+  display inline with actionable messages, and the Groovy assistant pulls from the previewed sample
+  rows populated in the transformations step.
 
 ### 4.6 Reports (Optional)
 
@@ -327,8 +328,10 @@ value = amount
    - Frontend tests: `npm test -- --watch=false --browsers=ChromeHeadless`
    - Playwright suite: `npm test` (in `automation/regression`)
    - Integration harness: `examples/integration-harness/scripts/run_multi_example_e2e.sh`
-   - Seed scripts: `./scripts/local-dev.sh bootstrap|seed`, `./scripts/seed-historical.sh`, and
-     `./scripts/verify-historical-seed.sh --days 3 --runs-per-day 1 --skip-export-check`
+  - Seed scripts:
+    - `./scripts/local-dev.sh bootstrap|seed`
+    - `./scripts/seed-historical.sh --days 3 --runs-per-day 1 --report-format NONE --ci-mode`
+    - `./scripts/verify-historical-seed.sh --days 3 --runs-per-day 1 --skip-export-check`
 
 Keep automation outputs for audit evidence when rolling out new configurations.
 

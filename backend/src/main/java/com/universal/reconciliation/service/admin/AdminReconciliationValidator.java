@@ -61,12 +61,31 @@ public class AdminReconciliationValidator {
                         "Arrival SLA minutes cannot be negative for source " + source.code());
             }
             transformationPlanProcessor.validate(source.transformationPlan());
+            validateSchemaFields(source);
         }
         if (anchorCount == 0) {
             throw new IllegalArgumentException("At least one source must be flagged as the anchor source.");
         }
         if (anchorCount > 1) {
             throw new IllegalArgumentException("Only a single anchor source can be configured per reconciliation.");
+        }
+    }
+
+    private void validateSchemaFields(AdminSourceRequest source) {
+        if (source.schemaFields() == null) {
+            return;
+        }
+        Set<String> fieldNames = new HashSet<>();
+        for (var field : source.schemaFields()) {
+            if (field == null || !StringUtils.hasText(field.name())) {
+                throw new IllegalArgumentException(
+                        "Schema field name is required for source " + source.code());
+            }
+            String key = normaliseKey(field.name());
+            if (!fieldNames.add(key)) {
+                throw new IllegalArgumentException(
+                        "Duplicate schema field name \"" + field.name() + "\" for source " + source.code());
+            }
         }
     }
 

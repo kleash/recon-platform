@@ -26,7 +26,15 @@ public record AdminReconciliationSchemaDto(
             String arrivalTimezone,
             Integer arrivalSlaMinutes,
             String adapterOptions,
+            List<SchemaSourceFieldDto> schemaFields,
             String ingestionEndpoint) {}
+
+    public record SchemaSourceFieldDto(
+            String name,
+            String displayName,
+            FieldDataType dataType,
+            boolean required,
+            String description) {}
 
     public record SchemaFieldDto(
             String displayName,

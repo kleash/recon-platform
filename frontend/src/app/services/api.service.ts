@@ -39,7 +39,9 @@ import {
   TransformationSampleResponse,
   TransformationValidationRequest,
   TransformationValidationResponse,
-  ReconciliationLifecycleStatus
+  ReconciliationLifecycleStatus,
+  SourceSchemaInferenceRequest,
+  SourceSchemaInferenceResponse
 } from '../models/admin-api-models';
 
 const BASE_URL = environment.apiUrl;
@@ -291,6 +293,19 @@ export class ApiService {
     formData.append('file', file);
     return this.http.post<SourceTransformationPreviewResponse>(
       `${BASE_URL}/admin/transformations/plan/preview/upload`,
+      formData
+    );
+  }
+
+  inferSourceSchema(
+    payload: SourceSchemaInferenceRequest,
+    file: File
+  ): Observable<SourceSchemaInferenceResponse> {
+    const formData = new FormData();
+    formData.append('request', new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+    formData.append('file', file);
+    return this.http.post<SourceSchemaInferenceResponse>(
+      `${BASE_URL}/admin/source-schemas/infer`,
       formData
     );
   }

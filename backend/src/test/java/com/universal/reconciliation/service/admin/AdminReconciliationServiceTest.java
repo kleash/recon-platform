@@ -20,11 +20,13 @@ import com.universal.reconciliation.domain.dto.admin.AdminReconciliationPatchReq
 import com.universal.reconciliation.domain.dto.admin.AdminReconciliationRequest;
 import com.universal.reconciliation.domain.dto.admin.AdminReconciliationSchemaDto;
 import com.universal.reconciliation.domain.dto.admin.AdminSourceRequest;
+import com.universal.reconciliation.domain.dto.admin.AdminSourceSchemaFieldRequest;
 import com.universal.reconciliation.domain.entity.CanonicalField;
 import com.universal.reconciliation.domain.entity.CanonicalFieldMapping;
 import com.universal.reconciliation.domain.entity.CanonicalFieldTransformation;
 import com.universal.reconciliation.domain.entity.ReconciliationDefinition;
 import com.universal.reconciliation.domain.entity.ReconciliationSource;
+import com.universal.reconciliation.domain.entity.SourceSchemaField;
 import com.universal.reconciliation.domain.entity.SourceDataBatch;
 import com.universal.reconciliation.domain.enums.AccessRole;
 import com.universal.reconciliation.domain.enums.ComparisonLogic;
@@ -198,7 +200,12 @@ class AdminReconciliationServiceTest {
                                 null,
                                 null,
                                 null,
-                                null),
+                                null,
+                                List.of(
+                                        new AdminSourceSchemaFieldRequest(
+                                                "trade_id", "Trade ID", FieldDataType.STRING, true, null),
+                                        new AdminSourceSchemaFieldRequest(
+                                                "amount", "Amount", FieldDataType.DECIMAL, true, null))),
                         new AdminSourceRequest(
                                 null,
                                 "GL",
@@ -211,7 +218,8 @@ class AdminReconciliationServiceTest {
                                 null,
                                 null,
                                 null,
-                                null)),
+                                null,
+                                List.of())),
                 List.of(new AdminCanonicalFieldRequest(
                         null,
                         "tradeId",
@@ -354,6 +362,25 @@ class AdminReconciliationServiceTest {
         definition.setVersion(2L);
         when(definitionRepository.findById(77L)).thenReturn(Optional.of(definition));
 
+        AdminSourceRequest custodySource = new AdminSourceRequest(
+                null,
+                "CUSTODY",
+                "Custody Feed",
+                IngestionAdapterType.CSV_FILE,
+                true,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                List.of(
+                        new AdminSourceSchemaFieldRequest(
+                                "trade_id", "Trade ID", FieldDataType.STRING, true, null),
+                        new AdminSourceSchemaFieldRequest(
+                                "amount", "Amount", FieldDataType.DECIMAL, true, null)));
+
         AdminReconciliationRequest request = new AdminReconciliationRequest(
                 "CUSTODY_GL",
                 "Custody vs GL",
@@ -367,19 +394,7 @@ class AdminReconciliationServiceTest {
                 null,
                 null,
                 1L,
-                List.of(new AdminSourceRequest(
-                        null,
-                        "CUSTODY",
-                        "Custody Feed",
-                        IngestionAdapterType.CSV_FILE,
-                        true,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null,
-                        null)),
+                List.of(custodySource),
                 List.of(new AdminCanonicalFieldRequest(
                         null,
                         "tradeId",
@@ -422,6 +437,12 @@ class AdminReconciliationServiceTest {
         source.setArrivalTimezone("America/New_York");
         source.setArrivalSlaMinutes(90);
         source.setAdapterOptions("{\"delimiter\":\"comma\"}");
+        SourceSchemaField sourceSchemaField = new SourceSchemaField();
+        sourceSchemaField.setName("trade_id");
+        sourceSchemaField.setDisplayName("Trade ID");
+        sourceSchemaField.setDataType(FieldDataType.STRING);
+        sourceSchemaField.setRequired(true);
+        source.getSchemaFields().add(sourceSchemaField);
         definition.getSources().add(source);
 
         CanonicalField field = new CanonicalField();
@@ -468,6 +489,9 @@ class AdminReconciliationServiceTest {
             assertThat(sourceDto.arrivalTimezone()).isEqualTo("America/New_York");
             assertThat(sourceDto.arrivalSlaMinutes()).isEqualTo(90);
             assertThat(sourceDto.adapterOptions()).isEqualTo("{\"delimiter\":\"comma\"}");
+            assertThat(sourceDto.schemaFields())
+                    .extracting(AdminReconciliationSchemaDto.SchemaSourceFieldDto::name)
+                    .containsExactly("trade_id");
             assertThat(sourceDto.ingestionEndpoint()).isEqualTo("/api/admin/reconciliations/501/sources/CUSTODY/batches");
         });
         assertThat(schema.fields()).hasSize(1);

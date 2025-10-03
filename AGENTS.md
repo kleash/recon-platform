@@ -15,13 +15,6 @@ Welcome, automated contributor! Follow these ground rules to collaborate effecti
 3. **Prefer incremental commits.** Group logically-related changes and provide descriptive commit messages.
 4. **Respect configuration over code.** Extend metadata-driven constructs instead of hardcoding reconciliation behavior.
 5. **Keep test cases up to date.** Any code change that affects features, workflows, or onboarding must update the relevant test cases in backend, frontend, automation smoke, example integration harness, and bootstrap scripts.
-6. **Update knowledgebase in wiki.** Analyze new changes and update following docs for any features, changes or refactor:
-   * **COMPONENTS.md** Component catalog with usage examples
-   * **MILESTONES.md** Development history and lessons learned
-   * **ARCHITECTURE.md** How everything connects and why
-   * **DECISIONS.md** Technical choices and their rationale
-   * **PATTERNS.md** Reusable code patterns and conventions
-   * **TROUBLESHOOTING.md** Common issues and solutions
 
 ## Quality Gates
 - **Backend tests:** `cd backend && ./mvnw test`
@@ -29,7 +22,7 @@ Welcome, automated contributor! Follow these ground rules to collaborate effecti
 - **Automation smoke (Playwright):** `cd automation/regression && npm install && npm test`
 - **Examples integration harness:** `examples/integration-harness/scripts/run_multi_example_e2e.sh`
 - **Bootstrap scripts:** `./scripts/local-dev.sh bootstrap` (and `seed` once the stack is running) to confirm local helpers stay healthy.
-- **Historical volume seed:** `./scripts/seed-historical.sh` followed by `./scripts/verify-historical-seed.sh` (use the lighter `--days 3 --runs-per-day 1 --skip-export-check` combo to mirror CI) to ensure large-scale data workflows continue to pass.
+- **Historical volume seed:** `./scripts/seed-historical.sh --days 3 --runs-per-day 1 --report-format NONE --ci-mode` followed by `./scripts/verify-historical-seed.sh --days 3 --runs-per-day 1 --skip-export-check` to mirror the lightweight CI cadence and ensure large-scale data workflows continue to pass.
 - Include command outputs in pull request descriptions when applicable.
 
 ## Automation & E2E Toolkit

@@ -11,7 +11,13 @@ Welcome, automated contributor! Follow these ground rules to collaborate effecti
 
 ## Contribution Checklist
 1. **Plan before you code.** Review related wiki pages to ensure solutions align with platform patterns.
-2. **Keep documentation in sync.** Any code change that affects features, workflows, or onboarding must update the relevant page in `docs/wiki`.
+2. **Keep documentation in sync.** Any code change that affects features, workflows, or onboarding must update the relevant pages in `docs/wiki` and new changes for any features or refactor should keep documenting in following markdown documentation:
+   * **COMPONENTS.md** Component catalog with usage examples
+   * **MILESTONES.md** Development history and lessons learned
+   * **DECISIONS.md** Technical choices and their rationale
+   * **PATTERNS.md** Reusable code patterns and conventions
+   * **TROUBLESHOOTING.md** Common issues and solutions
+
 3. **Prefer incremental commits.** Group logically-related changes and provide descriptive commit messages.
 4. **Respect configuration over code.** Extend metadata-driven constructs instead of hardcoding reconciliation behavior.
 5. **Keep test cases up to date.** Any code change that affects features, workflows, or onboarding must update the relevant test cases in backend, frontend, automation smoke, example integration harness, and bootstrap scripts.

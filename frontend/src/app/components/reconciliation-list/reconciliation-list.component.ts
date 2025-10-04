@@ -4,11 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { ReconciliationListItem, TriggerRunPayload } from '../../models/api-models';
 
 @Component({
-  selector: 'urp-reconciliation-list',
-  standalone: true,
-  imports: [CommonModule, FormsModule],
-  templateUrl: './reconciliation-list.component.html',
-  styleUrls: ['./reconciliation-list.component.css']
+    selector: 'urp-reconciliation-list',
+    imports: [CommonModule, FormsModule],
+    templateUrl: './reconciliation-list.component.html',
+    styleUrls: ['./reconciliation-list.component.css']
 })
 export class ReconciliationListComponent {
   @Input() reconciliations: ReconciliationListItem[] = [];

@@ -5,11 +5,10 @@ import { AdminReconciliationStateService } from '../../services/admin-reconcilia
 import { ReconciliationLifecycleStatus } from '../../models/admin-api-models';
 
 @Component({
-  selector: 'urp-admin-workspace-shell',
-  standalone: true,
-  imports: [CommonModule, NgIf, NgFor, AsyncPipe, RouterOutlet, RouterLink, RouterLinkActive],
-  templateUrl: './admin-workspace-shell.component.html',
-  styleUrls: ['./admin-workspace-shell.component.css']
+    selector: 'urp-admin-workspace-shell',
+    imports: [CommonModule, NgIf, NgFor, AsyncPipe, RouterOutlet, RouterLink, RouterLinkActive],
+    templateUrl: './admin-workspace-shell.component.html',
+    styleUrls: ['./admin-workspace-shell.component.css']
 })
 export class AdminWorkspaceShellComponent implements OnInit {
   readonly loading$ = this.state.loading$;

@@ -6,3 +6,7 @@
   - Added the Excel ingestion adapter and corresponding automation fixtures to reconcile six heterogeneous sources.
   - Authored the Global Multi-Asset playbook with diagrams covering business flow, technical hotspots, and usage.
   - Updated the integration harness and ingestion SDK so Excel, CSV, and pipe-delimited feeds can be rehearsed in CI.
+- **Angular 20 platform upgrade (2025-10-04)**
+  - Stepped the frontend through Angular 18 → 19 → 20 with TypeScript 5.8.2 and Node 20.19.5.
+  - Accepted CLI migrations for bundler module resolution and standalone-by-default components, trimming unused pipes to quell new compiler warnings.
+  - Executed the full quality gate suite (backend unit tests, Karma, Playwright, integration harness, bootstrap, historical seed) to confirm parity post-upgrade.

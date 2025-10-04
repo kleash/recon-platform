@@ -23,3 +23,19 @@
     sheet selection matches the admin configuration.
   - Confirm the workbook size is within the ingestion upload limit and that protected sheets have been unencrypted.
 - **Diagnostics**: Enable `DEBUG` logging for `ExcelIngestionAdapter` to trace sheet discovery and row extraction.
+
+## Angular CLI reports unsupported Node or TypeScript warnings
+- **Symptom**: `ng version` / `ng update` warn about unsupported Node 24.x or emit `TypeScript compiler options 'module'` warnings.
+- **Checklist**:
+  - Install Node 20 via Homebrew (`brew install node@20`) and run Angular commands with `PATH="/opt/homebrew/opt/node@20/bin:$PATH"` to meet the Angular 20 support matrix.
+  - When the CLI forces `module`/`target` to `ES2022`, review project `browserslist`. No action is needed unless custom
+    tsconfig overrides reintroduce incompatible values.
+- **Diagnostics**: `npx ng version` confirms the effective Node + Angular versions after the PATH override.
+
+## `seed-historical.sh` exits with `fail: command not found`
+- **Symptom**: Running the historical seed script immediately aborts with `fail: command not found` on macOS.
+- **Checklist**:
+  - The default `/bin/bash` (v3.2) cannot pass the script's version check. Prefix the command with
+    `PATH="/opt/homebrew/opt/bash/bin:$PATH"` so Bash ≥ 4 is used.
+  - Ensure `python3`, `curl`, and `jq` are installed—the script validates their presence with `require_command`.
+- **Diagnostics**: Re-run with `bash -x` for detailed tracing once the newer interpreter is on PATH.

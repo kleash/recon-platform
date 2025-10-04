@@ -21,32 +21,28 @@ interface DetailRow {
 type TableRow = BreakResultRow | DetailRow;
 
 @Component({
-  selector: 'urp-result-grid',
-  standalone: true,
-  imports: [
-    CommonModule,
-    FormsModule,
-    MatButtonModule,
-    MatCheckboxModule,
-    MatIconModule,
-    MatPaginatorModule,
-    MatProgressSpinnerModule,
-    MatSortModule,
-    MatTableModule,
-    BreakDetailComponent
-  ],
-  templateUrl: './result-grid.component.html',
-  styleUrls: ['./result-grid.component.css'],
-  animations: [
-    trigger('detailExpand', [
-      state(
-        'collapsed',
-        style({ height: '0px', minHeight: '0', visibility: 'hidden', opacity: 0 })
-      ),
-      state('expanded', style({ height: '*', visibility: 'visible', opacity: 1 })),
-      transition('expanded <=> collapsed', animate('225ms cubic-bezier(0.4, 0.0, 0.2, 1)'))
-    ])
-  ]
+    selector: 'urp-result-grid',
+    imports: [
+        CommonModule,
+        FormsModule,
+        MatButtonModule,
+        MatCheckboxModule,
+        MatIconModule,
+        MatPaginatorModule,
+        MatProgressSpinnerModule,
+        MatSortModule,
+        MatTableModule,
+        BreakDetailComponent
+    ],
+    templateUrl: './result-grid.component.html',
+    styleUrls: ['./result-grid.component.css'],
+    animations: [
+        trigger('detailExpand', [
+            state('collapsed', style({ height: '0px', minHeight: '0', visibility: 'hidden', opacity: 0 })),
+            state('expanded', style({ height: '*', visibility: 'visible', opacity: 1 })),
+            transition('expanded <=> collapsed', animate('225ms cubic-bezier(0.4, 0.0, 0.2, 1)'))
+        ])
+    ]
 })
 export class ResultGridComponent implements OnChanges {
   @Input() rows: BreakResultRow[] = [];

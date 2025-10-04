@@ -2,6 +2,8 @@
 
 This document is intended to be the single source of truth for upgrading the Universal Reconciliation Platform frontend from Angular 17 to Angular 20. Follow the stages sequentially, committing after every major milestone so you can roll back if required.
 
+**Latest run snapshot (2025-10-04):** Completed an end-to-end upgrade on macOS using Node 20.19.5 (Homebrew) and TypeScript 5.8.2. Key blockers were the unsupported Node 24 default runtime, Angular compiler warnings for unused pipes, and Bash 3 limitations in the historical seed scripts. All quality gates—including backend tests, Playwright automation, integration harness, bootstrap, and historical seed verification—passed after the upgrades.
+
 ## References
 - [Angular Update Guide (17.0 → 20.0)](https://update.angular.io/?l=en&v=17.0-20.0)
 - [Angular v20 Release Notes](https://github.com/angular/angular/blob/main/CHANGELOG.md#2000-2025-05-28) · [Blog](https://blog.angular.dev/announcing-angular-v20-b5c9c06cf301)
@@ -18,6 +20,7 @@ This document is intended to be the single source of truth for upgrading the Uni
 
 ## Environment & tooling prerequisites
 - [ ] Verify local Node.js: `node -v` should be ≥ 18.19.0 before attempting the v18 upgrade. If not, install a compatible version with nvm or the team-approved toolchain.
+  - Tip from 2025-10-04 upgrade: macOS hosts shipping Node 24 are flagged as unsupported. `brew install node@20` and run Angular CLI commands with `PATH="/opt/homebrew/opt/node@20/bin:$PATH"` to stay inside the supported window (20.11.1+).
 - [ ] Align package manager versions (npm 10.x or supported pnpm/yarn). Record versions in the upgrade notes.
 - [ ] Validate CI runners can switch to the required Node versions (18.19.0+ for v18, ≥ 20.11.1 for v20; avoid Node 22.0–22.10). Coordinate with DevOps before merging.
 - [ ] Review tooling that embeds Node/TypeScript (Nx, Bazel, webpack builders, Storybook, Cypress) and note required upgrades.
@@ -45,6 +48,7 @@ This document is intended to be the single source of truth for upgrading the Uni
 - [ ] Run `npx ng update @angular/material@19`.
 - [ ] Upgrade TypeScript to ≥ 5.5 (`package.json`, `npm install`) and update dependent tooling (ts-node, ts-loader, ESLint, Jest transformer, etc.).
 - [ ] Accept migrations that add `standalone: false` for declarations inside NgModules. Review your own standalone strategy and adjust shared modules accordingly.
+  - Note: In the 2025-10-04 run, standalone components outside NgModules had `standalone: true` removed automatically. This is expected—Angular 19 defaults to standalone. Keep `imports` arrays intact and only reintroduce `standalone: true` if a component is declared in a module.
 - [ ] Replace `BrowserModule.withServerTransition()` with injecting the `APP_ID` token when SSR or pre-rendering is used.
 - [ ] Replace `Router.errorHandler` usage with `withNavigationErrorHandler` (`provideRouter`) or `errorHandler` in `RouterModule.forRoot` options.
 - [ ] Update tests now that `ComponentFixture.autoDetect` and `ApplicationRef.tick` rethrow errors through `ErrorHandler`.
@@ -57,6 +61,7 @@ This document is intended to be the single source of truth for upgrading the Uni
 ## Stage 3 – Upgrade to Angular 20
 - [ ] Upgrade Node.js everywhere (local + CI) to ≥ 20.11.1 and ensure no environment uses Node 18 or Node 22.0–22.10.
 - [ ] Upgrade TypeScript to ≥ 5.8 **before** running schematics (`package.json`, lock file, config updates).
+  - CLI will switch the workspace to `moduleResolution: "bundler"`. Audit custom tooling (ts-node, Jest, ESLint) for compatibility; the 2025-10-04 run required no manual tweaks.
 - [ ] Run `npx ng update @angular/core@20 @angular/cli@20` (include `@angular/ssr` if relevant).
 - [ ] Run `npx ng update @angular/material@20` (plus other Angular ecosystem packages).
 - [ ] Remove deprecated injector APIs: delete all `InjectFlags` usages, replace `TestBed.get` with `TestBed.inject`, and drop `TestBed.flushEffects` calls (use `TestBed.tick` instead).
@@ -68,6 +73,8 @@ This document is intended to be the single source of truth for upgrading the Uni
 - [ ] Review router redirects that return promises/observables to ensure they satisfy the new `RedirectFn` contract.
 - [ ] Validate SSR/hydration flows after stabilized incremental hydration and `withI18nSupport()` APIs.
 - [ ] Run all quality gates (lint, unit, Playwright, integration harness, bootstrap scripts, historical seed) and capture evidence of success.
+  - Watch for Angular compiler warnings (`NG8113`) about unused pipes after migrations. Removing unused `JsonPipe` / `AsyncPipe` imports from component `imports` arrays kept builds clean in the latest upgrade.
+  - Historical seed scripts expect Bash ≥ 4. If `/bin/bash` is v3, prefix commands with `PATH="/opt/homebrew/opt/bash/bin:$PATH"` so `seed-historical.sh` and `verify-historical-seed.sh` avoid `fail: command not found` exits.
 - [ ] Commit the Angular 20 upgrade and summarize key migrations.
 
 ## Post-upgrade hardening
@@ -77,6 +84,7 @@ This document is intended to be the single source of truth for upgrading the Uni
 - [ ] Refresh CI/CD caches (npm, Bazel, Docker layers) to avoid stale builds with outdated dependencies.
 - [ ] Monitor production telemetry after deployment for new errors (change detection loops, hydration mismatches, router navigation issues) surfaced by the stricter runtime.
 - [ ] Schedule a retrospective to capture lessons learned and potential automation opportunities for future Angular upgrades.
+  - Heads-up: Angular 20 emits informational warnings that it will force `module` to `ES2022` and `target`/`useDefineForClassFields` to CLI defaults. Documented browserslist targets already satisfy the requirement—no action needed unless custom tsconfig overrides resurface.
 
 ## Modernization opportunities (optional follow-up)
 - [ ] Evaluate migrating legacy inputs/outputs to signal-based APIs and signal queries introduced in v19.

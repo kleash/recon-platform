@@ -64,6 +64,7 @@ This document is intended to be the single source of truth for upgrading the Uni
   - CLI will switch the workspace to `moduleResolution: "bundler"`. Audit custom tooling (ts-node, Jest, ESLint) for compatibility; the 2025-10-04 run required no manual tweaks.
 - [ ] Run `npx ng update @angular/core@20 @angular/cli@20` (include `@angular/ssr` if relevant).
 - [ ] Run `npx ng update @angular/material@20` (plus other Angular ecosystem packages).
+- [ ] Immediately regenerate the lock file (`npm install --package-lock-only`) so new transitive dependencies (for example `chokidar@4.0.3` / `readdirp@4.1.2`) land in `package-lock.json`; otherwise CI `npm ci` runs will fail with "package.json and package-lock.json are out of sync" errors.
 - [ ] Remove deprecated injector APIs: delete all `InjectFlags` usages, replace `TestBed.get` with `TestBed.inject`, and drop `TestBed.flushEffects` calls (use `TestBed.tick` instead).
 - [ ] Rename lifecycle hooks `afterRender` → `afterEveryRender`; adopt stabilized `provideZonelessChangeDetection` if zoneless mode is desired.
 - [ ] For resource APIs, rename the `request` property to `params` and replace `ResourceStatus` enum references with the new string literal constants.

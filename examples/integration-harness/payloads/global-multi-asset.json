@@ -25,9 +25,65 @@
       "arrivalSlaMinutes": 30,
       "adapterOptions": "{\"hasHeader\":true,\"includeAllSheets\":true,\"includeSheetNameColumn\":true,\"sheetNameColumn\":\"global_sheet_tag\"}",
       "transformationPlan": {
-        "datasetGroovyScript": "",
-        "rowOperations": [],
-        "columnOperations": []
+        "datasetGroovyScript": "def monthMap = [\n  'JAN': 'Jan',\n  'FEB': 'Feb',\n  'MAR': 'Mar',\n  'APR': 'Apr',\n  'MAY': 'May',\n  'JUN': 'Jun',\n  'JUL': 'Jul',\n  'AUG': 'Aug',\n  'SEP': 'Sep',\n  'OCT': 'Oct',\n  'NOV': 'Nov',\n  'DEC': 'Dec'\n]\n\ndef normalizeDate = { raw ->\n  if (!raw) {\n    return raw\n  }\n  def token = raw.toString().trim().replaceAll('/', '-').replaceAll('\\u2013', '-').replaceAll('\\u2014', '-')\n  def parts = token.split('-')\n  if (parts.size() != 3) {\n    return token\n  }\n  def day = parts[0].padLeft(2, '0')\n  def monthToken = parts[1].toUpperCase()\n  def month = monthMap[monthToken] ?: monthToken.capitalize()\n  def year = parts[2]\n  return \"${day}-${month}-${year}\"\n}\n\nrows.each { current ->\n  current.gm_trade_date_text = normalizeDate(current.gm_trade_date_text)\n  current.gm_settle_date_text = normalizeDate(current.gm_settle_date_text)\n  if (!current.global_sheet_tag && current.gm_sheet_hint) {\n    current.global_sheet_tag = current.gm_sheet_hint\n  }\n}",
+        "rowOperations": [
+          {
+            "type": "FILTER",
+            "filter": {
+              "column": "gm_status_flag",
+              "mode": "EXCLUDE_MATCHING",
+              "operator": "EQUALS",
+              "value": "CANCELLED",
+              "caseInsensitive": true
+            }
+          },
+          {
+            "type": "FILTER",
+            "filter": {
+              "column": "gm_confidence_seed",
+              "mode": "RETAIN_MATCHING",
+              "operator": "GREATER_OR_EQUAL",
+              "value": "0.5",
+              "caseInsensitive": false
+            }
+          }
+        ],
+        "columnOperations": [
+          {
+            "type": "PIPELINE",
+            "pipeline": {
+              "targetColumn": "gm_region_flag",
+              "sourceColumn": "gm_region_flag",
+              "configuration": "{\"steps\": [{\"function\": \"TRIM\"}, {\"function\": \"TO_UPPERCASE\"}]}"
+            }
+          },
+          {
+            "type": "PIPELINE",
+            "pipeline": {
+              "targetColumn": "gm_batch_marker",
+              "sourceColumn": "gm_batch_marker",
+              "configuration": "{\"steps\": [{\"function\": \"TRIM\"}, {\"function\": \"TO_UPPERCASE\"}]}"
+            }
+          },
+          {
+            "type": "ROUND",
+            "round": {
+              "targetColumn": "gm_gross_local",
+              "sourceColumn": "gm_gross_local",
+              "scale": 2,
+              "roundingMode": "HALF_EVEN"
+            }
+          },
+          {
+            "type": "ROUND",
+            "round": {
+              "targetColumn": "gm_fee_local",
+              "sourceColumn": "gm_fee_local",
+              "scale": 2,
+              "roundingMode": "HALF_EVEN"
+            }
+          }
+        ]
       },
       "schemaFields": [
         {
@@ -234,9 +290,64 @@
       "arrivalSlaMinutes": 60,
       "adapterOptions": "{\"hasHeader\":true,\"includeAllSheets\":true,\"includeSheetNameColumn\":true,\"sheetNameColumn\":\"apac_sheet_tag\"}",
       "transformationPlan": {
-        "datasetGroovyScript": "",
-        "rowOperations": [],
-        "columnOperations": []
+        "datasetGroovyScript": "rows.each { current ->\n  def allocList = current.apac_alloc_list\n  if (allocList) {\n    def first = allocList.toString().split(/[;|,]/)[0]\n    if (first) {\n      current.apac_alloc_code = first.trim()\n    }\n  }\n  if (!current.apac_sheet_tag && current.apac_sheet_marker) {\n    current.apac_sheet_tag = current.apac_sheet_marker\n  }\n  if (current.apac_descriptive_note) {\n    current.apac_descriptive_note = current.apac_descriptive_note.toString().trim()\n  }\n}",
+        "rowOperations": [
+          {
+            "type": "FILTER",
+            "filter": {
+              "column": "apac_status",
+              "mode": "EXCLUDE_MATCHING",
+              "operator": "EQUALS",
+              "value": "CANCELLED",
+              "caseInsensitive": true
+            }
+          },
+          {
+            "type": "FILTER",
+            "filter": {
+              "column": "apac_confidence_hint",
+              "mode": "RETAIN_MATCHING",
+              "operator": "GREATER_OR_EQUAL",
+              "value": "0.5",
+              "caseInsensitive": false
+            }
+          }
+        ],
+        "columnOperations": [
+          {
+            "type": "PIPELINE",
+            "pipeline": {
+              "targetColumn": "apac_trade_day",
+              "sourceColumn": "apac_trade_day",
+              "configuration": "{\"steps\": [{\"function\": \"TRIM\"}]}"
+            }
+          },
+          {
+            "type": "PIPELINE",
+            "pipeline": {
+              "targetColumn": "apac_settle_day",
+              "sourceColumn": "apac_settle_day",
+              "configuration": "{\"steps\": [{\"function\": \"TRIM\"}]}"
+            }
+          },
+          {
+            "type": "PIPELINE",
+            "pipeline": {
+              "targetColumn": "apac_local_ccy",
+              "sourceColumn": "apac_local_ccy",
+              "configuration": "{\"steps\": [{\"function\": \"TRIM\"}, {\"function\": \"TO_UPPERCASE\"}]}"
+            }
+          },
+          {
+            "type": "ROUND",
+            "round": {
+              "targetColumn": "apac_fee_amount",
+              "sourceColumn": "apac_fee_amount",
+              "scale": 2,
+              "roundingMode": "HALF_EVEN"
+            }
+          }
+        ]
       },
       "schemaFields": [
         {
@@ -443,9 +554,67 @@
       "arrivalSlaMinutes": 45,
       "adapterOptions": "{\"hasHeader\":true,\"includeAllSheets\":true,\"includeSheetNameColumn\":true,\"sheetNameColumn\":\"emea_sheet_tag\"}",
       "transformationPlan": {
-        "datasetGroovyScript": "",
-        "rowOperations": [],
-        "columnOperations": []
+        "datasetGroovyScript": "rows.each { current ->\n  if (!current.emea_sheet_tag && current.emea_sheet_label) {\n    current.emea_sheet_tag = current.emea_sheet_label\n  }\n  if (current.emea_commentary) {\n    current.emea_commentary = current.emea_commentary.toString().trim()\n  }\n}",
+        "rowOperations": [
+          {
+            "type": "FILTER",
+            "filter": {
+              "column": "emea_workflow_stage",
+              "mode": "EXCLUDE_MATCHING",
+              "operator": "EQUALS",
+              "value": "VOID",
+              "caseInsensitive": true
+            }
+          },
+          {
+            "type": "FILTER",
+            "filter": {
+              "column": "emea_confidence_ratio",
+              "mode": "RETAIN_MATCHING",
+              "operator": "GREATER_OR_EQUAL",
+              "value": "0.4",
+              "caseInsensitive": false
+            }
+          }
+        ],
+        "columnOperations": [
+          {
+            "type": "PIPELINE",
+            "pipeline": {
+              "targetColumn": "emea_trade_date",
+              "sourceColumn": "emea_trade_date",
+              "configuration": "{\"steps\": [{\"function\": \"TRIM\"}]}"
+            }
+          },
+          {
+            "type": "PIPELINE",
+            "pipeline": {
+              "targetColumn": "emea_settle_date",
+              "sourceColumn": "emea_settle_date",
+              "configuration": "{\"steps\": [{\"function\": \"TRIM\"}]}"
+            }
+          },
+          {
+            "type": "PIPELINE",
+            "pipeline": {
+              "targetColumn": "emea_region",
+              "sourceColumn": "emea_region",
+              "configuration": "{\"steps\": [{\"function\": \"TRIM\"}, {\"function\": \"TO_UPPERCASE\"}]}"
+            }
+          },
+          {
+            "type": "COMBINE",
+            "combine": {
+              "targetColumn": "emea_batch",
+              "sources": [
+                "emea_sheet_tag",
+                "emea_batch"
+              ],
+              "delimiter": "-",
+              "skipBlanks": true
+            }
+          }
+        ]
       },
       "schemaFields": [
         {
@@ -645,9 +814,71 @@
       "arrivalSlaMinutes": 15,
       "adapterOptions": "{\"delimiter\":\",\"}",
       "transformationPlan": {
-        "datasetGroovyScript": "",
-        "rowOperations": [],
-        "columnOperations": []
+        "datasetGroovyScript": "rows.each { current ->\n  def portfolio = current.amer_portfolio_code\n  if (portfolio) {\n    current.amer_portfolio_clean = portfolio.toString().replaceAll('-', '').toUpperCase()\n  }\n  if (current.amer_source_file) {\n    current.amer_source_file = current.amer_source_file.toString().toLowerCase()\n  }\n}",
+        "rowOperations": [
+          {
+            "type": "FILTER",
+            "filter": {
+              "column": "amer_confidence_tag",
+              "mode": "RETAIN_MATCHING",
+              "operator": "GREATER_OR_EQUAL",
+              "value": "0.8",
+              "caseInsensitive": false
+            }
+          },
+          {
+            "type": "FILTER",
+            "filter": {
+              "column": "amer_region",
+              "mode": "RETAIN_MATCHING",
+              "operator": "IN",
+              "values": [
+                "AMER",
+                "GLOBAL"
+              ],
+              "caseInsensitive": true
+            }
+          }
+        ],
+        "columnOperations": [
+          {
+            "type": "PIPELINE",
+            "pipeline": {
+              "targetColumn": "amer_currency",
+              "sourceColumn": "amer_currency",
+              "configuration": "{\"steps\": [{\"function\": \"TRIM\"}, {\"function\": \"TO_UPPERCASE\"}]}"
+            }
+          },
+          {
+            "type": "PIPELINE",
+            "pipeline": {
+              "targetColumn": "amer_portfolio_code",
+              "sourceColumn": "amer_portfolio_code",
+              "configuration": "{\"steps\": [{\"function\": \"TRIM\"}]}"
+            }
+          },
+          {
+            "type": "ROUND",
+            "round": {
+              "targetColumn": "amer_fee_amount",
+              "sourceColumn": "amer_fee_amount",
+              "scale": 2,
+              "roundingMode": "HALF_EVEN"
+            }
+          },
+          {
+            "type": "COMBINE",
+            "combine": {
+              "targetColumn": "amer_batch",
+              "sources": [
+                "amer_region",
+                "amer_batch"
+              ],
+              "delimiter": "-",
+              "skipBlanks": true
+            }
+          }
+        ]
       },
       "schemaFields": [
         {
@@ -875,9 +1106,73 @@
       "arrivalSlaMinutes": 10,
       "adapterOptions": "{\"delimiter\":\",\"}",
       "transformationPlan": {
-        "datasetGroovyScript": "",
-        "rowOperations": [],
-        "columnOperations": []
+        "datasetGroovyScript": "rows.each { current ->\n  def alloc = current.deriv_allocation_list\n  if (alloc) {\n    current.deriv_alloc_code = alloc.toString().split(/[;|,]/)[0].trim()\n  }\n  if (current.deriv_trade_code && current.deriv_leg_ref) {\n    current.deriv_trade_key_parts = \"${current.deriv_trade_code}|${current.deriv_leg_ref}\"\n  }\n}",
+        "rowOperations": [
+          {
+            "type": "FILTER",
+            "filter": {
+              "column": "deriv_confidence_seed",
+              "mode": "RETAIN_MATCHING",
+              "operator": "GREATER_OR_EQUAL",
+              "value": "0.85",
+              "caseInsensitive": false
+            }
+          },
+          {
+            "type": "FILTER",
+            "filter": {
+              "column": "deriv_region",
+              "mode": "RETAIN_MATCHING",
+              "operator": "IN",
+              "values": [
+                "AMER",
+                "GLOBAL",
+                "APAC"
+              ],
+              "caseInsensitive": true
+            }
+          }
+        ],
+        "columnOperations": [
+          {
+            "type": "PIPELINE",
+            "pipeline": {
+              "targetColumn": "deriv_currency",
+              "sourceColumn": "deriv_currency",
+              "configuration": "{\"steps\": [{\"function\": \"TRIM\"}, {\"function\": \"TO_UPPERCASE\"}]}"
+            }
+          },
+          {
+            "type": "ROUND",
+            "round": {
+              "targetColumn": "deriv_fee_local",
+              "sourceColumn": "deriv_fee_local",
+              "scale": 2,
+              "roundingMode": "HALF_EVEN"
+            }
+          },
+          {
+            "type": "ROUND",
+            "round": {
+              "targetColumn": "deriv_fx_rate",
+              "sourceColumn": "deriv_fx_rate",
+              "scale": 6,
+              "roundingMode": "HALF_UP"
+            }
+          },
+          {
+            "type": "COMBINE",
+            "combine": {
+              "targetColumn": "deriv_source_label",
+              "sources": [
+                "deriv_batch_code",
+                "deriv_source_label"
+              ],
+              "delimiter": "-",
+              "skipBlanks": true
+            }
+          }
+        ]
       },
       "schemaFields": [
         {
@@ -1091,9 +1386,60 @@
       "arrivalSlaMinutes": 45,
       "adapterOptions": "{\"delimiter\":\"|\"}",
       "transformationPlan": {
-        "datasetGroovyScript": "",
-        "rowOperations": [],
-        "columnOperations": []
+        "datasetGroovyScript": "rows.each { current ->\n  if (current.cust_trade_code && current.cust_leg_side) {\n    current.cust_trade_key_parts = \"${current.cust_trade_code}|${current.cust_leg_side}\"\n  }\n  if (current.cust_region) {\n    current.cust_region_clean = current.cust_region.toString().trim().toUpperCase()\n  }\n  if (current.cust_notes == null) {\n    current.cust_notes = ''\n  }\n}",
+        "rowOperations": [
+          {
+            "type": "FILTER",
+            "filter": {
+              "column": "cust_confidence",
+              "mode": "RETAIN_MATCHING",
+              "operator": "GREATER_OR_EQUAL",
+              "value": "0.75",
+              "caseInsensitive": false
+            }
+          },
+          {
+            "type": "FILTER",
+            "filter": {
+              "column": "cust_status_code",
+              "mode": "EXCLUDE_MATCHING",
+              "operator": "EQUALS",
+              "value": "REJECTED",
+              "caseInsensitive": true
+            }
+          }
+        ],
+        "columnOperations": [
+          {
+            "type": "PIPELINE",
+            "pipeline": {
+              "targetColumn": "cust_currency",
+              "sourceColumn": "cust_currency",
+              "configuration": "{\"steps\": [{\"function\": \"TRIM\"}, {\"function\": \"TO_UPPERCASE\"}]}"
+            }
+          },
+          {
+            "type": "ROUND",
+            "round": {
+              "targetColumn": "cust_fee_amount",
+              "sourceColumn": "cust_fee_amount",
+              "scale": 2,
+              "roundingMode": "HALF_EVEN"
+            }
+          },
+          {
+            "type": "COMBINE",
+            "combine": {
+              "targetColumn": "cust_batch",
+              "sources": [
+                "cust_region",
+                "cust_batch"
+              ],
+              "delimiter": "-",
+              "skipBlanks": true
+            }
+          }
+        ]
       },
       "schemaFields": [
         {

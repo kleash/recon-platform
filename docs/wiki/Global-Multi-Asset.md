@@ -65,12 +65,12 @@ graph TD
 ### Transformation coverage
 | Source | Dataset script | Row ops | Column ops | Canonical transformations |
 | --- | --- | --- | --- | --- |
-| GLOBAL_MASTER | FX conversion, confidence scoring | Filter cancelations | Combine trade parts, pipeline portfolio, round quantity | `matchConfidenceScore` Groovy |
-| APAC_MULTI | Region aware USD normalisation | Filter + split allocation list | Combine trade parts, pipeline portfolio | Pipeline trimming |
-| EMEA_MULTI | EUR/USD harmonisation | — | Combine trade parts, pipeline portfolio | Excel formula normalisation |
-| AMERICAS_CASH | Aggregate partial cash movements | Aggregate (sum) | Combine trade parts, pipeline portfolio | — |
-| DERIVATIVES_FEED | FX conversion per leg | Split allocation list | Combine trade parts | — |
-| GLOBAL_CUSTODY | Custody FX uplift | — | Combine trade parts, pipeline region | Pipeline + display mapping |
+| GLOBAL_MASTER | Normalises trade/settle dates and backfills sheet tags | Filters cancelled trades and low confidence rows | Uppercases region/batch markers, rounds gross and fee totals | `matchConfidenceScore` Groovy |
+| APAC_MULTI | Extracts allocation code and trims notes | Drops cancelled tickets and low confidence rows | Formats trade/settle dates, uppercases currency, rounds fee amounts | Pipeline trimming |
+| EMEA_MULTI | Copies sheet label into tag and trims commentary | Excludes VOID stages and low confidence rows | Formats dates, uppercases region, combines sheet/batch marker | Excel formula normalisation |
+| AMERICAS_CASH | Derives `amer_portfolio_clean` and normalises source name | Retains confident AMER-origin rows | Uppercases currency, trims portfolio code, rounds fee, prefixes batch with region | — |
+| DERIVATIVES_FEED | Derives allocation code plus trade key parts | Retains confident records across approved regions | Uppercases currency, rounds fee and FX rate, combines batch/source label | — |
+| GLOBAL_CUSTODY | Builds trade key parts, normalises region, defaults notes | Retains confident custody rows and drops rejected statuses | Uppercases currency, rounds fee, prefixes batch with region | Pipeline + display mapping |
 
 ### Matching profile
 - Keys: `tradeCompositeKey`, `portfolioCode`, `assetClass`.

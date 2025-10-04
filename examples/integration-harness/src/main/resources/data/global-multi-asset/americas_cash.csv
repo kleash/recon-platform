@@ -1,0 +1,6 @@
+amer_payment_id,amer_trade_code,amer_leg_marker,amer_allocation_ref,amer_portfolio_code,amer_security_id,amer_currency,amer_trade_date,amer_settle_date,amer_gross_amount,amer_net_amount,amer_fee_bps,amer_fee_amount,amer_units,amer_price,amer_status,amer_stage,amer_counterparty,amer_broker,amer_collateral_flag,amer_region,amer_batch,amer_source_file,amer_confidence_tag,amer_partial_flag
+PAY-100-A,TRD-100,LEG-01,ALLOC-001,PORT-APAC,ISIN100,JPY,2024-08-15,2024-08-19,85000,84600,12,102,700,121.5,BOOKED,AFFIRMED,PrimeAPAC,BrokerAPAC,Y,AMER,AMER-C1,americas_cash.csv,0.9,Y
+PAY-100-B,TRD-100,LEG-01,ALLOC-001,PORT-APAC,ISIN100,JPY,2024-08-15,2024-08-19,65000,64550,12,78,500,128.4,BOOKED,AFFIRMED,PrimeAPAC,BrokerAPAC,Y,AMER,AMER-C1,americas_cash.csv,0.9,Y
+PAY-200-A,TRD-200,LEG-01,ALLOC-002,PORT-AMER,CUSIP200,USD,2024-08-16,2024-08-20,500000,498000,15,110,250,1985,MATCHED,CONFIRMED,PrimeUS,BrokerUS,N,AMER,AMER-C2,americas_cash.csv,0.86,Y
+PAY-200-B,TRD-200,LEG-01,ALLOC-002,PORT-AMER,CUSIP200,USD,2024-08-16,2024-08-20,480000,477400,15,120,250,1935,MATCHED,CONFIRMED,PrimeUS,BrokerUS,N,AMER,AMER-C2,americas_cash.csv,0.86,Y
+PAY-500,TRD-500,LEG-05,ALLOC-050,PORT-AMER,ISIN500,USD,2024-08-17,2024-08-21,125000,124500,9,60,300,416.7,STAGED,NEW,PrimeLatAm,BrokerLatAm,N,AMER,AMER-C3,americas_cash.csv,0.75,N

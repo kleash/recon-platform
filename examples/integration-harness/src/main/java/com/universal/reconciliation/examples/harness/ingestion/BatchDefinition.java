@@ -5,7 +5,7 @@ import com.universal.reconciliation.ingestion.sdk.batch.ClasspathCsvBatchLoader;
 import java.io.IOException;
 import java.util.Map;
 
-record BatchDefinition(String sourceCode, String resourcePath, String label, Map<String, Object> options) {
+record BatchDefinition(String sourceCode, String resourcePath, String label, Map<String, Object> options, String mediaType) {
 
     BatchDefinition {
         if (sourceCode == null || sourceCode.isBlank()) {
@@ -17,6 +17,11 @@ record BatchDefinition(String sourceCode, String resourcePath, String label, Map
     }
 
     IngestionBatch toBatch() throws IOException {
-        return ClasspathCsvBatchLoader.load(sourceCode, label, resourcePath, options == null ? Map.of() : options);
+        return ClasspathCsvBatchLoader.load(
+                sourceCode,
+                label,
+                resourcePath,
+                options == null ? Map.of() : options,
+                mediaType);
     }
 }

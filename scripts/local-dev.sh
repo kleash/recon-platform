@@ -366,8 +366,13 @@ build_ingestion_cli() {
     return 0
   fi
 
-  printf 'Building integration ingestion CLI...\n'
-  (cd "$ROOT_DIR" && "$ROOT_DIR/backend/mvnw" -q -pl examples/integration-harness -am package -DskipTests)
+  printf 'Building integration ingestion CLI...\n' >&2
+  (cd "$ROOT_DIR" && "$ROOT_DIR/backend/mvnw" -q -f examples/integration-harness/pom.xml package -DskipTests)
+
+  local assembly_jar="$cli_dir/target/multi-example-harness-0.1.0-jar-with-dependencies.jar"
+  if [[ -f "$assembly_jar" ]]; then
+    cp "$assembly_jar" "$cli_jar"
+  fi
 
   if [[ ! -f "$cli_jar" ]]; then
     printf 'Failed to build integration ingestion CLI at %s.\n' "$cli_jar" >&2

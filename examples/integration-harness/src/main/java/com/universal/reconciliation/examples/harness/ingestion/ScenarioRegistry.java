@@ -20,12 +20,14 @@ final class ScenarioRegistry {
                                         "CASH",
                                         "/data/cash-vs-gl/cash_source.csv",
                                         "Cash Anchor Batch",
-                                        Map.of("delimiter", ",")),
+                                        Map.of("delimiter", ","),
+                                        null),
                                 new BatchDefinition(
                                         "GL",
                                         "/data/cash-vs-gl/gl_source.csv",
                                         "General Ledger Batch",
-                                        Map.of("delimiter", ","))
+                                        Map.of("delimiter", ","),
+                                        null)
                         )));
 
         Map<String, Object> custodianOptions = Map.of("delimiter", ",", "header", true);
@@ -39,42 +41,50 @@ final class ScenarioRegistry {
                                         "CUSTODIAN",
                                         "/data/custodian-trade/custodian_alpha_morning.csv",
                                         "Alpha Morning",
-                                        custodianOptions),
+                                        custodianOptions,
+                                        null),
                                 new BatchDefinition(
                                         "CUSTODIAN",
                                         "/data/custodian-trade/custodian_beta_morning.csv",
                                         "Beta Morning",
-                                        custodianOptions),
+                                        custodianOptions,
+                                        null),
                                 new BatchDefinition(
                                         "CUSTODIAN",
                                         "/data/custodian-trade/custodian_omega_morning.csv",
                                         "Omega Morning",
-                                        custodianOptions),
+                                        custodianOptions,
+                                        null),
                                 new BatchDefinition(
                                         "PLATFORM",
                                         "/data/custodian-trade/platform_morning.csv",
                                         "Platform Morning",
-                                        custodianOptions),
+                                        custodianOptions,
+                                        null),
                                 new BatchDefinition(
                                         "CUSTODIAN",
                                         "/data/custodian-trade/custodian_alpha_evening.csv",
                                         "Alpha Evening",
-                                        custodianOptions),
+                                        custodianOptions,
+                                        null),
                                 new BatchDefinition(
                                         "CUSTODIAN",
                                         "/data/custodian-trade/custodian_beta_evening.csv",
                                         "Beta Evening",
-                                        custodianOptions),
+                                        custodianOptions,
+                                        null),
                                 new BatchDefinition(
                                         "PLATFORM",
                                         "/data/custodian-trade/platform_evening.csv",
                                         "Platform Evening",
-                                        custodianOptions),
+                                        custodianOptions,
+                                        null),
                                 new BatchDefinition(
                                         "CUSTODIAN",
                                         "/data/custodian-trade/custodian_omega_evening.csv",
                                         "Omega Evening",
-                                        custodianOptions))));
+                                        custodianOptions,
+                                        null))));
 
         SCENARIOS.put(
                 "securities-position",
@@ -86,12 +96,80 @@ final class ScenarioRegistry {
                                         "CUSTODIAN",
                                         "/data/securities-position/custodian.csv",
                                         "Custodian Positions",
-                                        Map.of("delimiter", ",")),
+                                        Map.of("delimiter", ","),
+                                        null),
                                 new BatchDefinition(
                                         "PORTFOLIO",
                                         "/data/securities-position/portfolio.csv",
                                         "Portfolio Positions",
-                                        Map.of("delimiter", ","))
+                                        Map.of("delimiter", ","),
+                                        null)
+                        )));
+
+        Map<String, Object> globalMasterOptions = Map.of(
+                "hasHeader", true,
+                "includeAllSheets", true,
+                "includeSheetNameColumn", true,
+                "sheetNameColumn", "global_sheet_tag");
+
+        Map<String, Object> apacOptions = Map.of(
+                "hasHeader", true,
+                "includeAllSheets", true,
+                "includeSheetNameColumn", true,
+                "sheetNameColumn", "apac_sheet_tag");
+
+        Map<String, Object> emeaOptions = Map.of(
+                "hasHeader", true,
+                "includeAllSheets", true,
+                "includeSheetNameColumn", true,
+                "sheetNameColumn", "emea_sheet_tag");
+
+        Map<String, Object> americasOptions = Map.of("delimiter", ",");
+        Map<String, Object> derivativesOptions = Map.of("delimiter", ",");
+        Map<String, Object> custodyOptions = Map.of("delimiter", "|");
+
+        SCENARIOS.put(
+                "global-multi-asset",
+                new ScenarioDefinition(
+                        "global-multi-asset",
+                        "GLOBAL_MULTI_ASSET_COMPLEX",
+                        List.of(
+                                new BatchDefinition(
+                                        "GLOBAL_MASTER",
+                                        "/data/global-multi-asset/global_master.xlsx",
+                                        "Global Master",
+                                        globalMasterOptions,
+                                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+                                new BatchDefinition(
+                                        "APAC_MULTI",
+                                        "/data/global-multi-asset/apac_positions.xlsx",
+                                        "APAC Books",
+                                        apacOptions,
+                                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+                                new BatchDefinition(
+                                        "EMEA_MULTI",
+                                        "/data/global-multi-asset/emea_positions.xlsx",
+                                        "EMEA Books",
+                                        emeaOptions,
+                                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+                                new BatchDefinition(
+                                        "AMERICAS_CASH",
+                                        "/data/global-multi-asset/americas_cash.csv",
+                                        "Americas Cash",
+                                        americasOptions,
+                                        "text/csv"),
+                                new BatchDefinition(
+                                        "DERIVATIVES_FEED",
+                                        "/data/global-multi-asset/derivatives_positions.csv",
+                                        "Derivatives Valuations",
+                                        derivativesOptions,
+                                        "text/csv"),
+                                new BatchDefinition(
+                                        "GLOBAL_CUSTODY",
+                                        "/data/global-multi-asset/global_custody.txt",
+                                        "Global Custody",
+                                        custodyOptions,
+                                        "text/plain")
                         )));
     }
 

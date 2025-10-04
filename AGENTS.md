@@ -37,7 +37,7 @@ Before you start any task, internalize these directives—they govern all work i
 - **Automation smoke (Playwright):** `cd automation/regression && npm install && npm test`
 - **Examples integration harness:** `examples/integration-harness/scripts/run_multi_example_e2e.sh`
 - **Bootstrap scripts:** `./scripts/local-dev.sh bootstrap` (and `seed` once the stack is running) to confirm local helpers stay healthy.
-- **Historical volume seed:** `./scripts/seed-historical.sh --days 3 --runs-per-day 1 --report-format NONE --ci-mode` followed by `./scripts/verify-historical-seed.sh --days 3 --runs-per-day 1 --skip-export-check` to mirror the lightweight CI cadence and ensure large-scale data workflows continue to pass.
+- **Historical volume seed:** `./scripts/seed-historical.sh --days 3 --runs-per-day 1 --report-format NONE --ci-mode` followed by `./scripts/verify-historical-seed.sh --days 3 --runs-per-day 1 --skip-export-check` to mirror the lightweight CI cadence and ensure large-scale data workflows continue to pass. (The verify script does not support `--ci-mode`.)
 - Include command outputs in pull request descriptions when applicable.
 
 ## Automation & E2E Toolkit
@@ -61,9 +61,6 @@ Before you start any task, internalize these directives—they govern all work i
 - Link to related wiki sections using relative paths (`[Developer Guide](docs/wiki/developer-guide.md)`).
 - Keep README concise and defer deep dives to the wiki.
 
-## Decision Records
-If you introduce significant architectural or process changes, capture the rationale in a new page under `docs/wiki/adr-<topic>.md` and link it from the wiki home.
-
 ## Working With Gemini Code Assist Reviews
 
 When you open a pull request that introduces a new feature, follow this loop to collaborate smoothly with Gemini Code Assist:
@@ -78,4 +75,7 @@ When you open a pull request that introduces a new feature, follow this loop to 
 
 Once all feedback is addressed and quality gates are green, the PR is ready for human review.
 
-Thank you for helping us build a resilient reconciliation platform!
+### Closing Notes
+
+- Regularly update the AGENTS.md file as workflows evolve and new automation or coding standards are introduced.
+- Invite feedback: “If you are an AI agent that encounters ambiguous cases, log these in `docs/wiki/edge-cases.md` for review.”

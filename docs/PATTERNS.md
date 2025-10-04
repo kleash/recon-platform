@@ -14,3 +14,13 @@
   `availableColumns` derived from schema fields and transformation outputs rather than maintaining duplicate lists.
 - **Dirty state propagation**: Updating schema fields must mark the underlying `FormArray` as dirty/touched so the
   review step surfaces unsaved changes and guards navigation.
+
+## Cross-format Ingestion
+- **Prefix raw columns per source**: The multi-source example uses `gm_*`, `apac_*`, `emea_*`, `amer_*`, `deriv_*`, and
+  `cust_*` naming to guarantee uniqueness. Canonical mappings then target shared `derived_*` columns to keep matching
+  logic consistent.
+- **Carry sheet metadata forward**: When ingesting Excel workbooks, always enable `includeSheetNameColumn` and store the
+  sheet marker in a dedicated derived field. This keeps provenance visible in analyst views and simplifies
+  troubleshooting.
+- **Mirror preview options**: Adapter metadata submitted during ingestion should reuse the same keys (`hasHeader`,
+  `sheetNames`, `includeAllSheets`, `skipRows`) as the admin preview API so configuration and automation remain aligned.

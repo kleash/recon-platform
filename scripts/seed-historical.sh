@@ -2,10 +2,13 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PAYLOAD_DIR="${SCRIPT_DIR}/seed-historical/payloads"
 GENERATOR="${SCRIPT_DIR}/seed-historical/generate_csv.py"
 TMP_ROOT="$(mktemp -d 2>/dev/null || mktemp -d -t 'seed-historical')"
+FIXTURE_DIR="$ROOT_DIR/examples/integration-harness/src/main/resources/data/global-multi-asset"
 trap 'rm -rf "$TMP_ROOT"' EXIT
+trap 'fail "Command failed: ${BASH_COMMAND}"' ERR
 
 # Defaults – configurable via flags or environment overrides.
 BASE_URL=${BASE_URL:-http://localhost:8080}
@@ -21,6 +24,10 @@ REPORT_FORMAT=CSV
 POLL_ATTEMPTS=12
 POLL_DELAY=2
 CI_MODE=${CI_MODE:-false}
+
+if [[ -z "${BASH_VERSINFO:-}" || ${BASH_VERSINFO[0]:-0} -lt 4 ]]; then
+  fail "seed-historical.sh requires Bash 4 or newer. Install an updated bash (e.g. via Homebrew) and re-run."
+fi
 
 log() {
   printf '[seed-historical] %s\n' "$*"
@@ -111,6 +118,38 @@ fi
 if [[ ! -x "$GENERATOR" ]]; then
   fail "Generator script missing or not executable at $GENERATOR"
 fi
+
+declare -A SOURCE_CONFIG=(
+  ["GLOBAL_MASTER,media_type"]='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  ["GLOBAL_MASTER,adapter_type"]='EXCEL_FILE'
+  ["GLOBAL_MASTER,options_json"]='{"hasHeader":true,"includeAllSheets":true,"includeSheetNameColumn":true,"sheetNameColumn":"global_sheet_tag"}'
+  ["GLOBAL_MASTER,fixture_path"]="$FIXTURE_DIR/global_master.xlsx"
+
+  ["APAC_MULTI,media_type"]='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  ["APAC_MULTI,adapter_type"]='EXCEL_FILE'
+  ["APAC_MULTI,options_json"]='{"hasHeader":true,"includeAllSheets":true,"includeSheetNameColumn":true,"sheetNameColumn":"apac_sheet_tag"}'
+  ["APAC_MULTI,fixture_path"]="$FIXTURE_DIR/apac_positions.xlsx"
+
+  ["EMEA_MULTI,media_type"]='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  ["EMEA_MULTI,adapter_type"]='EXCEL_FILE'
+  ["EMEA_MULTI,options_json"]='{"hasHeader":true,"includeAllSheets":true,"includeSheetNameColumn":true,"sheetNameColumn":"emea_sheet_tag"}'
+  ["EMEA_MULTI,fixture_path"]="$FIXTURE_DIR/emea_positions.xlsx"
+
+  ["AMERICAS_CASH,media_type"]='text/csv'
+  ["AMERICAS_CASH,adapter_type"]='CSV_FILE'
+  ["AMERICAS_CASH,options_json"]='{"delimiter":","}'
+  ["AMERICAS_CASH,fixture_path"]="$FIXTURE_DIR/americas_cash.csv"
+
+  ["DERIVATIVES_FEED,media_type"]='text/csv'
+  ["DERIVATIVES_FEED,adapter_type"]='CSV_FILE'
+  ["DERIVATIVES_FEED,options_json"]='{"delimiter":","}'
+  ["DERIVATIVES_FEED,fixture_path"]="$FIXTURE_DIR/derivatives_positions.csv"
+
+  ["GLOBAL_CUSTODY,media_type"]='text/plain'
+  ["GLOBAL_CUSTODY,adapter_type"]='CSV_FILE'
+  ["GLOBAL_CUSTODY,options_json"]='{"delimiter":"|","hasHeader":true}'
+  ["GLOBAL_CUSTODY,fixture_path"]="$FIXTURE_DIR/global_custody.txt"
+)
 
 PAYLOAD_FILES=()
 while IFS= read -r payload_file; do
@@ -237,6 +276,34 @@ upload_batch() {
   fi
 }
 
+upload_batch_with_metadata() {
+  local recon_id="$1" source_code="$2" file_path="$3" label="$4" adapter_type="$5" options_json="$6" media_type="$7"
+
+  local metadata
+  if [[ -n "$options_json" ]]; then
+    metadata=$(jq -n --arg label "$label" --arg type "$adapter_type" --argjson opts "$options_json" '{adapterType:$type,label:$label,options:$opts}')
+  else
+    metadata=$(jq -n --arg label "$label" --arg type "$adapter_type" '{adapterType:$type,label:$label}')
+  fi
+
+  local filename
+  filename=$(basename "$file_path")
+
+  local response
+  response=$(curl -sS -w '\n%{http_code}' -X POST \
+    "$BASE_URL/api/admin/reconciliations/$recon_id/sources/$source_code/batches" \
+    -H "Authorization: Bearer $ADMIN_TOKEN" \
+    -F "metadata=$metadata;type=application/json;filename=metadata.json" \
+    -F "file=@$file_path;type=$media_type;filename=$filename")
+
+  local body status
+  body="${response%$'\n'*}"
+  status="${response##*$'\n'}"
+  if [[ "$status" != "201" && "$status" != "200" ]]; then
+    fail "Failed to upload batch '$label' for $source_code (HTTP $status): $body"
+  fi
+}
+
 trigger_run() {
   local recon_id="$1" comment="$2" initiated_by="$3"
   local response
@@ -331,6 +398,103 @@ queue_export() {
   fail "Export job $job_id did not complete within expected time."
 }
 
+source_config_value() {
+  local code="$1" key="$2"
+  local map_key="${code},${key}"
+  echo "${SOURCE_CONFIG[$map_key]:-}"
+}
+
+source_media_type() {
+  local value
+  value=$(source_config_value "$1" "media_type")
+  if [[ -n "$value" ]]; then
+    echo "$value"
+  else
+    echo 'text/csv'
+  fi
+}
+
+source_adapter_type() {
+  local value
+  value=$(source_config_value "$1" "adapter_type")
+  if [[ -n "$value" ]]; then
+    echo "$value"
+  else
+    echo 'CSV_FILE'
+  fi
+}
+
+source_options_json() {
+  source_config_value "$1" "options_json"
+}
+
+source_fixture_path() {
+  source_config_value "$1" "fixture_path"
+}
+
+seed_global_multi_asset_history() {
+  local payload="$1" recon_id="$2" code="$3"
+  local source_codes=(GLOBAL_MASTER APAC_MULTI EMEA_MULTI AMERICAS_CASH DERIVATIVES_FEED GLOBAL_CUSTODY)
+
+  for source_code in "${source_codes[@]}"; do
+    local file_path
+    file_path=$(source_fixture_path "$source_code")
+    if [[ -z "$file_path" || ! -f "$file_path" ]]; then
+      fail "Fixture for $source_code not found at $file_path"
+    fi
+  done
+
+  for (( day_offset=0; day_offset < DAYS; day_offset++ )); do
+    run_date=$(iso_date_utc "$day_offset")
+    for (( run_index=1; run_index <= RUNS_PER_DAY; run_index++ )); do
+      run_key="${code}-${run_date}-r${run_index}"
+      local label="${run_key//_/ -}"
+
+      for source_code in "${source_codes[@]}"; do
+        local file_path
+        file_path=$(source_fixture_path "$source_code")
+        local adapter_type
+        adapter_type=$(source_adapter_type "$source_code")
+        local media_type
+        media_type=$(source_media_type "$source_code")
+        local options_json
+        options_json=$(source_options_json "$source_code")
+        upload_batch_with_metadata \
+          "$recon_id" \
+          "$source_code" \
+          "$file_path" \
+          "$label-$source_code" \
+          "$adapter_type" \
+          "$options_json" \
+          "$media_type"
+      done
+
+      run_comment="Historic run $run_key"
+      run_detail=$(trigger_run "$recon_id" "$run_comment" "$MAKER_USERNAME")
+      run_id=$(echo "$run_detail" | jq -r '.summary.runId')
+      if [[ "$run_id" == "null" ]]; then
+        fail "Unable to determine run id for $run_key"
+      fi
+
+      if (( day_offset >= 1 )); then
+        if ! apply_post_run_actions "$recon_id" "$run_id" "$run_key" "400"; then
+          fail "Maker/checker automation failed for $run_key"
+        fi
+      else
+        if ! queue_export "$recon_id" "fresh-$run_key"; then
+          fail "Failed to queue export for $run_key"
+        fi
+      fi
+
+      if [[ "$CI_MODE" != "true" ]]; then
+        sleep 1
+      fi
+    done
+  done
+
+  log "Completed seeding for $code."
+}
+
 apply_post_run_actions() {
   local recon_id="$1" run_id="$2" run_key="$3" record_limit="$4"
   local attempt=0
@@ -381,6 +545,11 @@ for payload in "${PAYLOAD_FILES[@]}"; do
   recon_id=$(ensure_reconciliation "$payload")
   log "Recon $code ready (id=$recon_id)."
 
+  if [[ "$code" == "GLOBAL_MULTI_ASSET_HISTORY" ]]; then
+    seed_global_multi_asset_history "$payload" "$recon_id" "$code"
+    continue
+  fi
+
   for (( day_offset=0; day_offset < DAYS; day_offset++ )); do
     run_date=$(iso_date_utc "$day_offset")
     for (( run_index=1; run_index <= RUNS_PER_DAY; run_index++ )); do
@@ -406,9 +575,13 @@ for payload in "${PAYLOAD_FILES[@]}"; do
 
       if (( day_offset >= 1 )); then
         limit=$(record_limit_for_fetch "$record_count")
-        apply_post_run_actions "$recon_id" "$run_id" "$run_key" "$limit"
+        if ! apply_post_run_actions "$recon_id" "$run_id" "$run_key" "$limit"; then
+          fail "Maker/checker automation failed for $run_key"
+        fi
       else
-        queue_export "$recon_id" "fresh-$run_key"
+        if ! queue_export "$recon_id" "fresh-$run_key"; then
+          fail "Failed to queue export for $run_key"
+        fi
       fi
 
       if [[ "$CI_MODE" != "true" ]]; then

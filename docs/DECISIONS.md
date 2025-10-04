@@ -8,3 +8,11 @@
   - Consequences: Matching and transformation steps consume a single source-of-truth column catalogue, making
     dropdowns deterministic and keeping metadata changes auditable. Field-level transformation editing moved fully
     into the transformations step.
+- **ADR: Excel ingestion adapter and multi-format showcase (2025-10-04)**
+  - Problem: The automation harness relied on CSV-only fixtures, limiting our ability to validate Admin Configurator
+    support for native workbooks and complex, multi-source reconciliations.
+  - Decision: Implement a production-grade `ExcelIngestionAdapter` that mirrors preview semantics and extend the
+    harness with a six-source scenario (`GLOBAL_MULTI_ASSET_COMPLEX`) covering Excel, CSV, and delimited text inputs.
+  - Consequences: Admins author multi-sheet configurations without file conversions, the ingestion SDK derives the
+    correct adapter type based on media type, and regression suites can exercise every transformation and matching
+    feature in a single run.

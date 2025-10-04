@@ -232,8 +232,12 @@ public class ReconciliationIngestionClient implements Closeable {
     }
 
     private static String deriveAdapterType(IngestionBatch batch) {
-        if (batch.getMediaType().toLowerCase(Locale.ROOT).contains("json")) {
+        String mediaType = batch.getMediaType().toLowerCase(Locale.ROOT);
+        if (mediaType.contains("json")) {
             return "JSON_FILE";
+        }
+        if (mediaType.contains("spreadsheetml") || mediaType.contains("excel")) {
+            return "EXCEL_FILE";
         }
         return "CSV_FILE";
     }

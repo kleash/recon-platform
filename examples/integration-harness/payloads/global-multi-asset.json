@@ -1,0 +1,2511 @@
+{
+  "code": "GLOBAL_MULTI_ASSET_COMPLEX",
+  "name": "Global Multi-Asset Golden Copy",
+  "description": "Six-way reconciliation showcasing multi-format ingestion and advanced transformations.",
+  "owner": "Global Markets Operations",
+  "makerCheckerEnabled": true,
+  "notes": "Provisioned via automation harness for complex scenario coverage.",
+  "status": "PUBLISHED",
+  "autoTriggerEnabled": false,
+  "autoTriggerCron": null,
+  "autoTriggerTimezone": null,
+  "autoTriggerGraceMinutes": null,
+  "version": null,
+  "sources": [
+    {
+      "id": null,
+      "code": "GLOBAL_MASTER",
+      "displayName": "Global Master Ledger",
+      "adapterType": "EXCEL_FILE",
+      "anchor": true,
+      "description": "Enterprise golden copy sourced from regional ledgers.",
+      "connectionConfig": "s3://global-master-ledger",
+      "arrivalExpectation": "Daily 07:00 UTC",
+      "arrivalTimezone": "UTC",
+      "arrivalSlaMinutes": 30,
+      "adapterOptions": "{\"hasHeader\":true,\"includeAllSheets\":true,\"includeSheetNameColumn\":true,\"sheetNameColumn\":\"global_sheet_tag\"}",
+      "transformationPlan": {
+        "datasetGroovyScript": "",
+        "rowOperations": [],
+        "columnOperations": []
+      },
+      "schemaFields": [
+        {
+          "name": "gm_trade_id",
+          "displayName": "Trade ID",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Unique trade identifier"
+        },
+        {
+          "name": "gm_leg_code",
+          "displayName": "Leg Code",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Underlying leg reference"
+        },
+        {
+          "name": "gm_allocation_code",
+          "displayName": "Allocation Code",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Allocation identifier"
+        },
+        {
+          "name": "gm_portfolio_ref",
+          "displayName": "Portfolio",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Portfolio reference"
+        },
+        {
+          "name": "gm_instrument_code",
+          "displayName": "Instrument Code",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Instrument or ISIN"
+        },
+        {
+          "name": "gm_region_flag",
+          "displayName": "Region Flag",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Regional indicator"
+        },
+        {
+          "name": "gm_book_code",
+          "displayName": "Book",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Book code"
+        },
+        {
+          "name": "gm_product_bucket",
+          "displayName": "Product Bucket",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Product grouping"
+        },
+        {
+          "name": "gm_currency_local",
+          "displayName": "Local Currency",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Native currency"
+        },
+        {
+          "name": "gm_trade_date_text",
+          "displayName": "Trade Date Raw",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Textual trade date"
+        },
+        {
+          "name": "gm_settle_date_text",
+          "displayName": "Settle Date Raw",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Textual settle date"
+        },
+        {
+          "name": "gm_fx_rate_hint",
+          "displayName": "FX Rate",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "FX conversion rate"
+        },
+        {
+          "name": "gm_gross_local",
+          "displayName": "Gross Local",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Gross amount in local currency"
+        },
+        {
+          "name": "gm_net_local",
+          "displayName": "Net Local",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Net amount in local currency"
+        },
+        {
+          "name": "gm_fee_bps",
+          "displayName": "Fee Bps",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Fee basis points"
+        },
+        {
+          "name": "gm_fee_local",
+          "displayName": "Fee Local",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Fee amount local"
+        },
+        {
+          "name": "gm_quantity_units",
+          "displayName": "Quantity",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Quantity"
+        },
+        {
+          "name": "gm_price_local",
+          "displayName": "Price Local",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Price in local currency"
+        },
+        {
+          "name": "gm_status_flag",
+          "displayName": "Status",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Workflow status"
+        },
+        {
+          "name": "gm_event_stage",
+          "displayName": "Event Stage",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Lifecycle stage"
+        },
+        {
+          "name": "gm_counterparty",
+          "displayName": "Counterparty",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Counterparty"
+        },
+        {
+          "name": "gm_clearing_broker",
+          "displayName": "Clearing Broker",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Clearing broker"
+        },
+        {
+          "name": "gm_collateral_flag",
+          "displayName": "Collateral",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Collateral flag"
+        },
+        {
+          "name": "gm_batch_marker",
+          "displayName": "Batch Marker",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Batch marker"
+        },
+        {
+          "name": "gm_confidence_seed",
+          "displayName": "Confidence Seed",
+          "dataType": "DECIMAL",
+          "required": false,
+          "description": "Confidence seed"
+        },
+        {
+          "name": "gm_sheet_hint",
+          "displayName": "Sheet Hint",
+          "dataType": "STRING",
+          "required": false,
+          "description": "Original worksheet"
+        },
+        {
+          "name": "global_sheet_tag",
+          "displayName": "Sheet Tag",
+          "dataType": "STRING",
+          "required": false,
+          "description": "Configured sheet tag"
+        }
+      ]
+    },
+    {
+      "id": null,
+      "code": "APAC_MULTI",
+      "displayName": "APAC Multi-Book",
+      "adapterType": "EXCEL_FILE",
+      "anchor": false,
+      "description": "APAC trading books sourced from Tokyo and Sydney.",
+      "connectionConfig": "sftp://apac-book-drop",
+      "arrivalExpectation": "Daily 09:00 Tokyo",
+      "arrivalTimezone": "Asia/Tokyo",
+      "arrivalSlaMinutes": 60,
+      "adapterOptions": "{\"hasHeader\":true,\"includeAllSheets\":true,\"includeSheetNameColumn\":true,\"sheetNameColumn\":\"apac_sheet_tag\"}",
+      "transformationPlan": {
+        "datasetGroovyScript": "",
+        "rowOperations": [],
+        "columnOperations": []
+      },
+      "schemaFields": [
+        {
+          "name": "apac_ticket_id",
+          "displayName": "Ticket",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Ticket identifier"
+        },
+        {
+          "name": "apac_leg_side",
+          "displayName": "Leg",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Leg side"
+        },
+        {
+          "name": "apac_alloc_list",
+          "displayName": "Alloc List",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Allocation list"
+        },
+        {
+          "name": "apac_portfolio_name",
+          "displayName": "Portfolio",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Portfolio name"
+        },
+        {
+          "name": "apac_security_key",
+          "displayName": "Security",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Security identifier"
+        },
+        {
+          "name": "apac_local_ccy",
+          "displayName": "Currency",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Local currency"
+        },
+        {
+          "name": "apac_trade_day",
+          "displayName": "Trade Day",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Trade date"
+        },
+        {
+          "name": "apac_settle_day",
+          "displayName": "Settle Day",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Settle date"
+        },
+        {
+          "name": "apac_fx_rate",
+          "displayName": "FX Rate",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "FX rate"
+        },
+        {
+          "name": "apac_trade_gross",
+          "displayName": "Gross",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Gross amount"
+        },
+        {
+          "name": "apac_trade_net",
+          "displayName": "Net",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Net amount"
+        },
+        {
+          "name": "apac_fees_bps",
+          "displayName": "Fees Bps",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Fee basis points"
+        },
+        {
+          "name": "apac_fee_amount",
+          "displayName": "Fee Amount",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Fee amount"
+        },
+        {
+          "name": "apac_units",
+          "displayName": "Units",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Units"
+        },
+        {
+          "name": "apac_price",
+          "displayName": "Price",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Unit price"
+        },
+        {
+          "name": "apac_status",
+          "displayName": "Status",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Status"
+        },
+        {
+          "name": "apac_stage",
+          "displayName": "Stage",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Lifecycle stage"
+        },
+        {
+          "name": "apac_counterparty",
+          "displayName": "Counterparty",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Counterparty"
+        },
+        {
+          "name": "apac_broker_code",
+          "displayName": "Broker",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Broker code"
+        },
+        {
+          "name": "apac_collateral",
+          "displayName": "Collateral",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Collateral flag"
+        },
+        {
+          "name": "apac_region_tag",
+          "displayName": "Region",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Region tag"
+        },
+        {
+          "name": "apac_batch_ref",
+          "displayName": "Batch",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Batch reference"
+        },
+        {
+          "name": "apac_sheet_marker",
+          "displayName": "Sheet Marker",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Sheet marker"
+        },
+        {
+          "name": "apac_descriptive_note",
+          "displayName": "Description",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Descriptive note"
+        },
+        {
+          "name": "apac_confidence_hint",
+          "displayName": "Confidence",
+          "dataType": "DECIMAL",
+          "required": false,
+          "description": "Confidence"
+        },
+        {
+          "name": "apac_sheet_tag",
+          "displayName": "Sheet Tag",
+          "dataType": "STRING",
+          "required": false,
+          "description": "Sheet tag"
+        },
+        {
+          "name": "apac_alloc_code",
+          "displayName": "Split Allocation",
+          "dataType": "STRING",
+          "required": false,
+          "description": "Derived allocation"
+        }
+      ]
+    },
+    {
+      "id": null,
+      "code": "EMEA_MULTI",
+      "displayName": "EMEA Multi-Sheet",
+      "adapterType": "EXCEL_FILE",
+      "anchor": false,
+      "description": "London and Frankfurt trade extracts.",
+      "connectionConfig": "https://emea-ledgers.internal/api",
+      "arrivalExpectation": "Daily 06:30 London",
+      "arrivalTimezone": "Europe/London",
+      "arrivalSlaMinutes": 45,
+      "adapterOptions": "{\"hasHeader\":true,\"includeAllSheets\":true,\"includeSheetNameColumn\":true,\"sheetNameColumn\":\"emea_sheet_tag\"}",
+      "transformationPlan": {
+        "datasetGroovyScript": "",
+        "rowOperations": [],
+        "columnOperations": []
+      },
+      "schemaFields": [
+        {
+          "name": "emea_trade_ref",
+          "displayName": "Trade Ref",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Trade reference"
+        },
+        {
+          "name": "emea_leg_code",
+          "displayName": "Leg Code",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Leg code"
+        },
+        {
+          "name": "emea_alloc_code",
+          "displayName": "Allocation Code",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Allocation"
+        },
+        {
+          "name": "emea_portfolio_id",
+          "displayName": "Portfolio",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Portfolio"
+        },
+        {
+          "name": "emea_isin_code",
+          "displayName": "ISIN",
+          "dataType": "STRING",
+          "required": true,
+          "description": "ISIN"
+        },
+        {
+          "name": "emea_currency",
+          "displayName": "Currency",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Currency"
+        },
+        {
+          "name": "emea_trade_date",
+          "displayName": "Trade Date",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Trade date"
+        },
+        {
+          "name": "emea_settle_date",
+          "displayName": "Settle Date",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Settle date"
+        },
+        {
+          "name": "emea_fx_rate",
+          "displayName": "FX Rate",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "FX rate"
+        },
+        {
+          "name": "emea_gross_local",
+          "displayName": "Gross",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Gross local"
+        },
+        {
+          "name": "emea_net_local",
+          "displayName": "Net",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Net local"
+        },
+        {
+          "name": "emea_fee_percent",
+          "displayName": "Fee Percent",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Fee percent"
+        },
+        {
+          "name": "emea_fee_local",
+          "displayName": "Fee Local",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Fee local"
+        },
+        {
+          "name": "emea_units",
+          "displayName": "Units",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Units"
+        },
+        {
+          "name": "emea_price",
+          "displayName": "Price",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Price"
+        },
+        {
+          "name": "emea_status",
+          "displayName": "Status",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Status"
+        },
+        {
+          "name": "emea_workflow_stage",
+          "displayName": "Stage",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Stage"
+        },
+        {
+          "name": "emea_counterparty",
+          "displayName": "Counterparty",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Counterparty"
+        },
+        {
+          "name": "emea_broker",
+          "displayName": "Broker",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Broker"
+        },
+        {
+          "name": "emea_collateral_code",
+          "displayName": "Collateral",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Collateral code"
+        },
+        {
+          "name": "emea_region",
+          "displayName": "Region",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Region"
+        },
+        {
+          "name": "emea_batch",
+          "displayName": "Batch",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Batch"
+        },
+        {
+          "name": "emea_sheet_label",
+          "displayName": "Sheet Label",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Sheet label"
+        },
+        {
+          "name": "emea_commentary",
+          "displayName": "Commentary",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Commentary"
+        },
+        {
+          "name": "emea_confidence_ratio",
+          "displayName": "Confidence",
+          "dataType": "DECIMAL",
+          "required": false,
+          "description": "Confidence"
+        },
+        {
+          "name": "emea_sheet_tag",
+          "displayName": "Sheet Tag",
+          "dataType": "STRING",
+          "required": false,
+          "description": "Sheet tag"
+        }
+      ]
+    },
+    {
+      "id": null,
+      "code": "AMERICAS_CASH",
+      "displayName": "Americas Cash Movements",
+      "adapterType": "CSV_FILE",
+      "anchor": false,
+      "description": "Cash subledger capturing partial movements.",
+      "connectionConfig": "jdbc:postgresql://amer-cash-db",
+      "arrivalExpectation": "Hourly",
+      "arrivalTimezone": "America/New_York",
+      "arrivalSlaMinutes": 15,
+      "adapterOptions": "{\"delimiter\":\",\"}",
+      "transformationPlan": {
+        "datasetGroovyScript": "",
+        "rowOperations": [],
+        "columnOperations": []
+      },
+      "schemaFields": [
+        {
+          "name": "amer_payment_id",
+          "displayName": "Payment ID",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Payment identifier"
+        },
+        {
+          "name": "amer_trade_code",
+          "displayName": "Trade Code",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Trade code"
+        },
+        {
+          "name": "amer_leg_marker",
+          "displayName": "Leg",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Leg indicator"
+        },
+        {
+          "name": "amer_allocation_ref",
+          "displayName": "Allocation",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Allocation reference"
+        },
+        {
+          "name": "amer_portfolio_code",
+          "displayName": "Portfolio",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Portfolio"
+        },
+        {
+          "name": "amer_security_id",
+          "displayName": "Security",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Security"
+        },
+        {
+          "name": "amer_currency",
+          "displayName": "Currency",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Currency"
+        },
+        {
+          "name": "amer_trade_date",
+          "displayName": "Trade Date",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Trade date"
+        },
+        {
+          "name": "amer_settle_date",
+          "displayName": "Settle Date",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Settle date"
+        },
+        {
+          "name": "amer_gross_amount",
+          "displayName": "Gross",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Gross amount"
+        },
+        {
+          "name": "amer_net_amount",
+          "displayName": "Net",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Net amount"
+        },
+        {
+          "name": "amer_fee_bps",
+          "displayName": "Fee Bps",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Fee basis points"
+        },
+        {
+          "name": "amer_fee_amount",
+          "displayName": "Fee Amount",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Fee amount"
+        },
+        {
+          "name": "amer_units",
+          "displayName": "Units",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Units"
+        },
+        {
+          "name": "amer_price",
+          "displayName": "Price",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Price"
+        },
+        {
+          "name": "amer_status",
+          "displayName": "Status",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Status"
+        },
+        {
+          "name": "amer_stage",
+          "displayName": "Stage",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Stage"
+        },
+        {
+          "name": "amer_counterparty",
+          "displayName": "Counterparty",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Counterparty"
+        },
+        {
+          "name": "amer_broker",
+          "displayName": "Broker",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Broker"
+        },
+        {
+          "name": "amer_collateral_flag",
+          "displayName": "Collateral",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Collateral flag"
+        },
+        {
+          "name": "amer_region",
+          "displayName": "Region",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Region"
+        },
+        {
+          "name": "amer_batch",
+          "displayName": "Batch",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Batch"
+        },
+        {
+          "name": "amer_source_file",
+          "displayName": "Source File",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Source file"
+        },
+        {
+          "name": "amer_confidence_tag",
+          "displayName": "Confidence",
+          "dataType": "DECIMAL",
+          "required": false,
+          "description": "Confidence"
+        },
+        {
+          "name": "amer_partial_flag",
+          "displayName": "Partial",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Partial flag"
+        },
+        {
+          "name": "amer_gross_sum",
+          "displayName": "Gross Sum",
+          "dataType": "DECIMAL",
+          "required": false,
+          "description": "Aggregated gross"
+        },
+        {
+          "name": "amer_net_sum",
+          "displayName": "Net Sum",
+          "dataType": "DECIMAL",
+          "required": false,
+          "description": "Aggregated net"
+        },
+        {
+          "name": "amer_fee_sum",
+          "displayName": "Fee Sum",
+          "dataType": "DECIMAL",
+          "required": false,
+          "description": "Aggregated fee"
+        },
+        {
+          "name": "amer_units_sum",
+          "displayName": "Units Sum",
+          "dataType": "DECIMAL",
+          "required": false,
+          "description": "Aggregated units"
+        },
+        {
+          "name": "amer_portfolio_clean",
+          "displayName": "Portfolio Clean",
+          "dataType": "STRING",
+          "required": false,
+          "description": "Derived portfolio"
+        }
+      ]
+    },
+    {
+      "id": null,
+      "code": "DERIVATIVES_FEED",
+      "displayName": "Derivatives Valuations",
+      "adapterType": "CSV_FILE",
+      "anchor": false,
+      "description": "Derivatives valuations blended from swaps desk.",
+      "connectionConfig": "kafka://derivatives-valuations",
+      "arrivalExpectation": "Every 30 minutes",
+      "arrivalTimezone": "UTC",
+      "arrivalSlaMinutes": 10,
+      "adapterOptions": "{\"delimiter\":\",\"}",
+      "transformationPlan": {
+        "datasetGroovyScript": "",
+        "rowOperations": [],
+        "columnOperations": []
+      },
+      "schemaFields": [
+        {
+          "name": "deriv_record_id",
+          "displayName": "Record",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Record identifier"
+        },
+        {
+          "name": "deriv_trade_code",
+          "displayName": "Trade Code",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Trade code"
+        },
+        {
+          "name": "deriv_leg_ref",
+          "displayName": "Leg Ref",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Leg reference"
+        },
+        {
+          "name": "deriv_allocation_list",
+          "displayName": "Alloc List",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Allocation values"
+        },
+        {
+          "name": "deriv_portfolio_label",
+          "displayName": "Portfolio",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Portfolio label"
+        },
+        {
+          "name": "deriv_product_code",
+          "displayName": "Product",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Product code"
+        },
+        {
+          "name": "deriv_currency",
+          "displayName": "Currency",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Currency"
+        },
+        {
+          "name": "deriv_fx_rate",
+          "displayName": "FX Rate",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "FX rate"
+        },
+        {
+          "name": "deriv_trade_date",
+          "displayName": "Trade Date",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Trade date"
+        },
+        {
+          "name": "deriv_settle_date",
+          "displayName": "Settle Date",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Settle date"
+        },
+        {
+          "name": "deriv_notional_local",
+          "displayName": "Notional",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Notional"
+        },
+        {
+          "name": "deriv_mark_to_market",
+          "displayName": "Mark to Market",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Mark to market"
+        },
+        {
+          "name": "deriv_fee_bps",
+          "displayName": "Fee Bps",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Fee basis points"
+        },
+        {
+          "name": "deriv_fee_local",
+          "displayName": "Fee Local",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Fee local"
+        },
+        {
+          "name": "deriv_units",
+          "displayName": "Units",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Units"
+        },
+        {
+          "name": "deriv_unit_price",
+          "displayName": "Unit Price",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Unit price"
+        },
+        {
+          "name": "deriv_status",
+          "displayName": "Status",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Status"
+        },
+        {
+          "name": "deriv_stage",
+          "displayName": "Stage",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Stage"
+        },
+        {
+          "name": "deriv_counterparty",
+          "displayName": "Counterparty",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Counterparty"
+        },
+        {
+          "name": "deriv_clearing_broker",
+          "displayName": "Clearing Broker",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Clearing broker"
+        },
+        {
+          "name": "deriv_collateral_status",
+          "displayName": "Collateral",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Collateral status"
+        },
+        {
+          "name": "deriv_region",
+          "displayName": "Region",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Region"
+        },
+        {
+          "name": "deriv_batch_code",
+          "displayName": "Batch",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Batch"
+        },
+        {
+          "name": "deriv_source_label",
+          "displayName": "Source Label",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Source label"
+        },
+        {
+          "name": "deriv_confidence_seed",
+          "displayName": "Confidence",
+          "dataType": "DECIMAL",
+          "required": false,
+          "description": "Confidence"
+        },
+        {
+          "name": "deriv_reset_schedule",
+          "displayName": "Reset Schedule",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Reset schedule"
+        },
+        {
+          "name": "deriv_trade_key_parts",
+          "displayName": "Trade Parts",
+          "dataType": "STRING",
+          "required": false,
+          "description": "Derived key"
+        },
+        {
+          "name": "deriv_alloc_code",
+          "displayName": "Alloc Code",
+          "dataType": "STRING",
+          "required": false,
+          "description": "Derived allocation"
+        }
+      ]
+    },
+    {
+      "id": null,
+      "code": "GLOBAL_CUSTODY",
+      "displayName": "Global Custody",
+      "adapterType": "CSV_FILE",
+      "anchor": false,
+      "description": "Global custody positions by safekeeping account.",
+      "connectionConfig": "nfs://global-custody",
+      "arrivalExpectation": "Daily 05:30 UTC",
+      "arrivalTimezone": "UTC",
+      "arrivalSlaMinutes": 45,
+      "adapterOptions": "{\"delimiter\":\"|\"}",
+      "transformationPlan": {
+        "datasetGroovyScript": "",
+        "rowOperations": [],
+        "columnOperations": []
+      },
+      "schemaFields": [
+        {
+          "name": "cust_record_id",
+          "displayName": "Record",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Record id"
+        },
+        {
+          "name": "cust_trade_code",
+          "displayName": "Trade Code",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Trade code"
+        },
+        {
+          "name": "cust_leg_side",
+          "displayName": "Leg Side",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Leg side"
+        },
+        {
+          "name": "cust_allocation_code",
+          "displayName": "Allocation",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Allocation"
+        },
+        {
+          "name": "cust_account_code",
+          "displayName": "Account",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Account"
+        },
+        {
+          "name": "cust_security_identifier",
+          "displayName": "Security",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Security identifier"
+        },
+        {
+          "name": "cust_currency",
+          "displayName": "Currency",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Currency"
+        },
+        {
+          "name": "cust_fx_rate",
+          "displayName": "FX Rate",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "FX rate"
+        },
+        {
+          "name": "cust_trade_date",
+          "displayName": "Trade Date",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Trade date"
+        },
+        {
+          "name": "cust_settle_date",
+          "displayName": "Settle Date",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Settle date"
+        },
+        {
+          "name": "cust_gross_amount",
+          "displayName": "Gross",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Gross amount"
+        },
+        {
+          "name": "cust_net_amount",
+          "displayName": "Net",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Net amount"
+        },
+        {
+          "name": "cust_fee_rate",
+          "displayName": "Fee Rate",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Fee rate"
+        },
+        {
+          "name": "cust_fee_amount",
+          "displayName": "Fee Amount",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Fee amount"
+        },
+        {
+          "name": "cust_quantity",
+          "displayName": "Quantity",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Quantity"
+        },
+        {
+          "name": "cust_price",
+          "displayName": "Price",
+          "dataType": "DECIMAL",
+          "required": true,
+          "description": "Price"
+        },
+        {
+          "name": "cust_status_code",
+          "displayName": "Status",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Status"
+        },
+        {
+          "name": "cust_stage_code",
+          "displayName": "Stage",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Stage"
+        },
+        {
+          "name": "cust_sub_custodian",
+          "displayName": "Sub Custodian",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Sub custodian"
+        },
+        {
+          "name": "cust_broker",
+          "displayName": "Broker",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Broker"
+        },
+        {
+          "name": "cust_collateral_flag",
+          "displayName": "Collateral",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Collateral flag"
+        },
+        {
+          "name": "cust_region",
+          "displayName": "Region",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Region"
+        },
+        {
+          "name": "cust_batch",
+          "displayName": "Batch",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Batch"
+        },
+        {
+          "name": "cust_source",
+          "displayName": "Source",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Source"
+        },
+        {
+          "name": "cust_confidence",
+          "displayName": "Confidence",
+          "dataType": "DECIMAL",
+          "required": false,
+          "description": "Confidence"
+        },
+        {
+          "name": "cust_notes",
+          "displayName": "Notes",
+          "dataType": "STRING",
+          "required": true,
+          "description": "Notes"
+        },
+        {
+          "name": "cust_trade_key_parts",
+          "displayName": "Derived Key",
+          "dataType": "STRING",
+          "required": false,
+          "description": "Derived key"
+        },
+        {
+          "name": "cust_region_clean",
+          "displayName": "Region Clean",
+          "dataType": "STRING",
+          "required": false,
+          "description": "Normalized region"
+        }
+      ]
+    }
+  ],
+  "canonicalFields": [
+    {
+      "id": null,
+      "canonicalName": "tradeCompositeKey",
+      "displayName": "Trade Composite Key",
+      "role": "KEY",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 1,
+      "required": true,
+      "mappings": [
+        {
+          "id": null,
+          "sourceCode": "GLOBAL_MASTER",
+          "sourceColumn": "gm_trade_id",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "APAC_MULTI",
+          "sourceColumn": "apac_ticket_id",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "EMEA_MULTI",
+          "sourceColumn": "emea_trade_ref",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "AMERICAS_CASH",
+          "sourceColumn": "amer_trade_code",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "DERIVATIVES_FEED",
+          "sourceColumn": "deriv_trade_code",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "GLOBAL_CUSTODY",
+          "sourceColumn": "cust_trade_code",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "portfolioCode",
+      "displayName": "Portfolio Code",
+      "role": "KEY",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 2,
+      "required": true,
+      "mappings": [
+        {
+          "id": null,
+          "sourceCode": "GLOBAL_MASTER",
+          "sourceColumn": "gm_portfolio_ref",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "APAC_MULTI",
+          "sourceColumn": "apac_portfolio_name",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "EMEA_MULTI",
+          "sourceColumn": "emea_portfolio_id",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "AMERICAS_CASH",
+          "sourceColumn": "amer_portfolio_code",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "DERIVATIVES_FEED",
+          "sourceColumn": "deriv_portfolio_label",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "GLOBAL_CUSTODY",
+          "sourceColumn": "cust_account_code",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "instrumentId",
+      "displayName": "Instrument ID",
+      "role": "COMPARE",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 3,
+      "required": true,
+      "mappings": [
+        {
+          "id": null,
+          "sourceCode": "GLOBAL_MASTER",
+          "sourceColumn": "gm_instrument_code",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "APAC_MULTI",
+          "sourceColumn": "apac_security_key",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "EMEA_MULTI",
+          "sourceColumn": "emea_isin_code",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "AMERICAS_CASH",
+          "sourceColumn": "amer_security_id",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "DERIVATIVES_FEED",
+          "sourceColumn": "deriv_product_code",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "GLOBAL_CUSTODY",
+          "sourceColumn": "cust_security_identifier",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "settlementCurrency",
+      "displayName": "Settlement Currency",
+      "role": "COMPARE",
+      "dataType": "STRING",
+      "comparisonLogic": "CASE_INSENSITIVE",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 4,
+      "required": true,
+      "mappings": [
+        {
+          "id": null,
+          "sourceCode": "GLOBAL_MASTER",
+          "sourceColumn": "gm_currency_local",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "APAC_MULTI",
+          "sourceColumn": "apac_local_ccy",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "EMEA_MULTI",
+          "sourceColumn": "emea_currency",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "AMERICAS_CASH",
+          "sourceColumn": "amer_currency",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "DERIVATIVES_FEED",
+          "sourceColumn": "deriv_currency",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "GLOBAL_CUSTODY",
+          "sourceColumn": "cust_currency",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "tradeDate",
+      "displayName": "Trade Date",
+      "role": "COMPARE",
+      "dataType": "DATE",
+      "comparisonLogic": "DATE_ONLY",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 5,
+      "required": true,
+      "mappings": [
+        {
+          "id": null,
+          "sourceCode": "GLOBAL_MASTER",
+          "sourceColumn": "gm_trade_date_text",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": "dd-MMM-yyyy",
+          "targetDateFormat": "yyyy-MM-dd",
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "APAC_MULTI",
+          "sourceColumn": "apac_trade_day",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": "yyyy/MM/dd",
+          "targetDateFormat": "yyyy-MM-dd",
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "EMEA_MULTI",
+          "sourceColumn": "emea_trade_date",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": "dd/MM/yyyy",
+          "targetDateFormat": "yyyy-MM-dd",
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "AMERICAS_CASH",
+          "sourceColumn": "amer_trade_date",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": "yyyy-MM-dd",
+          "targetDateFormat": "yyyy-MM-dd",
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "DERIVATIVES_FEED",
+          "sourceColumn": "deriv_trade_date",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": "yyyy-MM-dd",
+          "targetDateFormat": "yyyy-MM-dd",
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "GLOBAL_CUSTODY",
+          "sourceColumn": "cust_trade_date",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": "yyyy-MM-dd",
+          "targetDateFormat": "yyyy-MM-dd",
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "settlementDate",
+      "displayName": "Settlement Date",
+      "role": "COMPARE",
+      "dataType": "DATE",
+      "comparisonLogic": "DATE_ONLY",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 6,
+      "required": true,
+      "mappings": [
+        {
+          "id": null,
+          "sourceCode": "GLOBAL_MASTER",
+          "sourceColumn": "gm_settle_date_text",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": "dd-MMM-yyyy",
+          "targetDateFormat": "yyyy-MM-dd",
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "APAC_MULTI",
+          "sourceColumn": "apac_settle_day",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": "yyyy/MM/dd",
+          "targetDateFormat": "yyyy-MM-dd",
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "EMEA_MULTI",
+          "sourceColumn": "emea_settle_date",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": "dd/MM/yyyy",
+          "targetDateFormat": "yyyy-MM-dd",
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "AMERICAS_CASH",
+          "sourceColumn": "amer_settle_date",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": "yyyy-MM-dd",
+          "targetDateFormat": "yyyy-MM-dd",
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "DERIVATIVES_FEED",
+          "sourceColumn": "deriv_settle_date",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": "yyyy-MM-dd",
+          "targetDateFormat": "yyyy-MM-dd",
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "GLOBAL_CUSTODY",
+          "sourceColumn": "cust_settle_date",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": "yyyy-MM-dd",
+          "targetDateFormat": "yyyy-MM-dd",
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "grossAmount",
+      "displayName": "Gross Amount",
+      "role": "COMPARE",
+      "dataType": "DECIMAL",
+      "comparisonLogic": "NUMERIC_THRESHOLD",
+      "thresholdPercentage": 0.5,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 7,
+      "required": true,
+      "mappings": [
+        {
+          "id": null,
+          "sourceCode": "GLOBAL_MASTER",
+          "sourceColumn": "gm_gross_local",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "APAC_MULTI",
+          "sourceColumn": "apac_trade_gross",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "EMEA_MULTI",
+          "sourceColumn": "emea_gross_local",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "AMERICAS_CASH",
+          "sourceColumn": "amer_gross_amount",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "DERIVATIVES_FEED",
+          "sourceColumn": "deriv_notional_local",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "GLOBAL_CUSTODY",
+          "sourceColumn": "cust_gross_amount",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "netAmount",
+      "displayName": "Net Amount",
+      "role": "COMPARE",
+      "dataType": "DECIMAL",
+      "comparisonLogic": "NUMERIC_THRESHOLD",
+      "thresholdPercentage": 0.5,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 8,
+      "required": true,
+      "mappings": [
+        {
+          "id": null,
+          "sourceCode": "GLOBAL_MASTER",
+          "sourceColumn": "gm_net_local",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "APAC_MULTI",
+          "sourceColumn": "apac_trade_net",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "EMEA_MULTI",
+          "sourceColumn": "emea_net_local",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "AMERICAS_CASH",
+          "sourceColumn": "amer_net_amount",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "DERIVATIVES_FEED",
+          "sourceColumn": "deriv_mark_to_market",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "GLOBAL_CUSTODY",
+          "sourceColumn": "cust_net_amount",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "region",
+      "displayName": "Region",
+      "role": "CLASSIFIER",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": "region",
+      "formattingHint": null,
+      "displayOrder": 9,
+      "required": true,
+      "mappings": [
+        {
+          "id": null,
+          "sourceCode": "GLOBAL_MASTER",
+          "sourceColumn": "gm_region_flag",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "APAC_MULTI",
+          "sourceColumn": "apac_region_tag",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "EMEA_MULTI",
+          "sourceColumn": "emea_region",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "AMERICAS_CASH",
+          "sourceColumn": "amer_region",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "DERIVATIVES_FEED",
+          "sourceColumn": "deriv_region",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "GLOBAL_CUSTODY",
+          "sourceColumn": "cust_region",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "tradeLifecycleStage",
+      "displayName": "Trade Lifecycle Stage",
+      "role": "CLASSIFIER",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 10,
+      "required": true,
+      "mappings": [
+        {
+          "id": null,
+          "sourceCode": "GLOBAL_MASTER",
+          "sourceColumn": "gm_event_stage",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "APAC_MULTI",
+          "sourceColumn": "apac_stage",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "EMEA_MULTI",
+          "sourceColumn": "emea_workflow_stage",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "AMERICAS_CASH",
+          "sourceColumn": "amer_stage",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "DERIVATIVES_FEED",
+          "sourceColumn": "deriv_stage",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "GLOBAL_CUSTODY",
+          "sourceColumn": "cust_stage_code",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "counterparty",
+      "displayName": "Counterparty",
+      "role": "DISPLAY",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 11,
+      "required": true,
+      "mappings": [
+        {
+          "id": null,
+          "sourceCode": "GLOBAL_MASTER",
+          "sourceColumn": "gm_counterparty",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "APAC_MULTI",
+          "sourceColumn": "apac_counterparty",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "EMEA_MULTI",
+          "sourceColumn": "emea_counterparty",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "AMERICAS_CASH",
+          "sourceColumn": "amer_counterparty",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "DERIVATIVES_FEED",
+          "sourceColumn": "deriv_counterparty",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "GLOBAL_CUSTODY",
+          "sourceColumn": "cust_sub_custodian",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "clearingBroker",
+      "displayName": "Clearing Broker",
+      "role": "DISPLAY",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 12,
+      "required": true,
+      "mappings": [
+        {
+          "id": null,
+          "sourceCode": "GLOBAL_MASTER",
+          "sourceColumn": "gm_clearing_broker",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "APAC_MULTI",
+          "sourceColumn": "apac_broker_code",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "EMEA_MULTI",
+          "sourceColumn": "emea_broker",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "AMERICAS_CASH",
+          "sourceColumn": "amer_broker",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "DERIVATIVES_FEED",
+          "sourceColumn": "deriv_clearing_broker",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "GLOBAL_CUSTODY",
+          "sourceColumn": "cust_broker",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        }
+      ]
+    },
+    {
+      "id": null,
+      "canonicalName": "valuationRemarks",
+      "displayName": "Valuation Remarks",
+      "role": "DISPLAY",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 13,
+      "required": true,
+      "mappings": [
+        {
+          "id": null,
+          "sourceCode": "GLOBAL_MASTER",
+          "sourceColumn": "gm_sheet_hint",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "APAC_MULTI",
+          "sourceColumn": "apac_descriptive_note",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "EMEA_MULTI",
+          "sourceColumn": "emea_commentary",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "AMERICAS_CASH",
+          "sourceColumn": "amer_status",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "DERIVATIVES_FEED",
+          "sourceColumn": "deriv_reset_schedule",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        },
+        {
+          "id": null,
+          "sourceCode": "GLOBAL_CUSTODY",
+          "sourceColumn": "cust_notes",
+          "transformationExpression": null,
+          "defaultValue": null,
+          "sourceDateFormat": null,
+          "targetDateFormat": null,
+          "ordinalPosition": 0,
+          "required": true,
+          "transformations": []
+        }
+      ]
+    }
+  ],
+  "reportTemplates": [
+    {
+      "id": null,
+      "name": "Global Multi-Asset Break Export",
+      "description": "Automation report to evidence multi-format reconciliation output.",
+      "includeMatched": true,
+      "includeMismatched": true,
+      "includeMissing": true,
+      "highlightDifferences": true,
+      "columns": [
+        {
+          "id": null,
+          "header": "Trade (Master)",
+          "source": "SOURCE_A",
+          "sourceField": "tradeCompositeKey",
+          "displayOrder": 1,
+          "highlightDifferences": false
+        },
+        {
+          "id": null,
+          "header": "Gross (Master)",
+          "source": "SOURCE_A",
+          "sourceField": "grossAmount",
+          "displayOrder": 2,
+          "highlightDifferences": false
+        },
+        {
+          "id": null,
+          "header": "Gross (Compare)",
+          "source": "SOURCE_B",
+          "sourceField": "grossAmount",
+          "displayOrder": 3,
+          "highlightDifferences": true
+        },
+        {
+          "id": null,
+          "header": "Lifecycle (Master)",
+          "source": "SOURCE_A",
+          "sourceField": "tradeLifecycleStage",
+          "displayOrder": 4,
+          "highlightDifferences": false
+        }
+      ]
+    }
+  ],
+  "accessControlEntries": [
+    {
+      "id": null,
+      "ldapGroupDn": "recon-makers",
+      "role": "MAKER",
+      "product": "Global Markets",
+      "subProduct": "Multi-Asset",
+      "entityName": "Global",
+      "notifyOnPublish": false,
+      "notifyOnIngestionFailure": true,
+      "notificationChannel": "multi-asset-makers@universal.example"
+    },
+    {
+      "id": null,
+      "ldapGroupDn": "recon-checkers",
+      "role": "CHECKER",
+      "product": "Global Markets",
+      "subProduct": "Multi-Asset",
+      "entityName": "Global",
+      "notifyOnPublish": true,
+      "notifyOnIngestionFailure": false,
+      "notificationChannel": "multi-asset-checkers@universal.example"
+    },
+    {
+      "id": null,
+      "ldapGroupDn": "recon-ops",
+      "role": "VIEWER",
+      "product": "Global Markets",
+      "subProduct": "Multi-Asset",
+      "entityName": "Global",
+      "notifyOnPublish": false,
+      "notifyOnIngestionFailure": false,
+      "notificationChannel": "global-ops@universal.example"
+    }
+  ]
+}

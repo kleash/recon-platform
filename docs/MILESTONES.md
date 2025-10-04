@@ -2,3 +2,7 @@
   - Reordered the admin configurator wizard so raw source schema capture precedes transformations and matching.
   - Persisted per-source schema metadata and introduced automated inference from sample files.
   - Simplified canonical schema maintenance by removing redundant transformation controls from the legacy schema step.
+- **Global multi-asset showcase (2025-10-04)**
+  - Added the Excel ingestion adapter and corresponding automation fixtures to reconcile six heterogeneous sources.
+  - Authored the Global Multi-Asset playbook with diagrams covering business flow, technical hotspots, and usage.
+  - Updated the integration harness and ingestion SDK so Excel, CSV, and pipe-delimited feeds can be rehearsed in CI.

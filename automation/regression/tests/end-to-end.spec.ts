@@ -855,6 +855,349 @@ async function duplicateFromTemplate(options: {
   return definitionId;
 }
 
+test('global multi-asset wizard captures multi-format ingestion', async ({ page }) => {
+  const suffix = uniqueSuffix();
+  const reconciliationCode = `GLOBAL_MULTI_ASSET_${suffix}`;
+  const reconciliationName = `Global Multi-Asset Showcase ${suffix}`;
+  const masterCode = `GMA_MASTER_${suffix}`;
+  const apacCode = `GMA_APAC_${suffix}`;
+  const amerCode = `GMA_AMER_${suffix}`;
+  const custodyCode = `GMA_CUST_${suffix}`;
+
+  await login(page, 'admin1', 'password');
+
+  const adminLink = page.getByRole('link', { name: 'Administration' });
+  await expect(adminLink).toBeVisible();
+  await adminLink.click();
+  await expect(page.getByRole('heading', { name: 'Administration Workspace' })).toBeVisible();
+
+  await page.getByRole('link', { name: 'New reconciliation', exact: true }).first().click();
+  await expect(page.getByRole('heading', { name: 'Create reconciliation' })).toBeVisible();
+
+  await page.getByLabel('Code').fill(reconciliationCode);
+  await page.getByLabel('Name').fill(reconciliationName);
+  await page
+    .getByLabel('Description')
+    .fill('Automation coverage for the global multi-asset configuration showcasing multi-format ingestion.');
+  await page.getByLabel('Owner').fill('Global Markets Automation');
+  await page.getByLabel('Lifecycle status').selectOption('PUBLISHED');
+  await page.getByRole('checkbox', { name: 'Enable maker-checker approvals' }).check();
+
+  await page.screenshot({ path: resolveAssetPath('global-multi-asset-definition.png'), fullPage: true });
+  await recordScreen({
+    name: 'Global multi-asset definition step',
+    route: '/admin/new',
+    screenshotFile: 'global-multi-asset-definition.png',
+    assertions: [
+      { description: `Definition seeded with code ${reconciliationCode}` },
+      { description: 'Maker-checker enabled for the showcase reconciliation' },
+      { description: 'Owner captured as Global Markets Automation' },
+    ],
+  });
+
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  const sourceForms = page.locator('.source-form');
+  await expect(sourceForms.first()).toBeVisible();
+
+  const masterSource = sourceForms.first();
+  await masterSource.getByLabel('Code').fill(masterCode);
+  await masterSource.getByLabel('Name').fill('Global Master Ledger');
+  await masterSource.locator('select[formcontrolname="adapterType"]').selectOption('EXCEL_FILE');
+  await masterSource.getByRole('checkbox', { name: 'Anchor source' }).check();
+  await masterSource
+    .getByLabel('Adapter options')
+    .fill(
+      JSON.stringify({ hasHeader: true, includeAllSheets: true, sheetNameColumn: 'global_sheet' })
+    );
+  await masterSource.getByLabel('Arrival expectation').fill('Daily 07:00 UTC');
+  await masterSource.getByLabel('Timezone').fill('UTC');
+
+  await page.getByRole('button', { name: 'Add source' }).click();
+  const apacSource = sourceForms.nth(1);
+  await apacSource.getByLabel('Code').fill(apacCode);
+  await apacSource.getByLabel('Name').fill('APAC Multi-Book');
+  await apacSource.locator('select[formcontrolname="adapterType"]').selectOption('EXCEL_FILE');
+  await apacSource
+    .getByLabel('Adapter options')
+    .fill(
+      JSON.stringify({ hasHeader: true, includeAllSheets: true, sheetNameColumn: 'apac_sheet' })
+    );
+  await apacSource.getByLabel('Arrival expectation').fill('Daily 09:00 Tokyo');
+  await apacSource.getByLabel('Timezone').fill('Asia/Tokyo');
+
+  await page.getByRole('button', { name: 'Add source' }).click();
+  const amerSource = sourceForms.nth(2);
+  await amerSource.getByLabel('Code').fill(amerCode);
+  await amerSource.getByLabel('Name').fill('Americas Cash Movements');
+  await amerSource.locator('select[formcontrolname="adapterType"]').selectOption('CSV_FILE');
+  await amerSource
+    .getByLabel('Adapter options')
+    .fill(JSON.stringify({ delimiter: ',' }));
+  await amerSource.getByLabel('Arrival expectation').fill('Hourly monitoring');
+  await amerSource.getByLabel('Timezone').fill('America/New_York');
+
+  await page.getByRole('button', { name: 'Add source' }).click();
+  const custodySource = sourceForms.nth(3);
+  await custodySource.getByLabel('Code').fill(custodyCode);
+  await custodySource.getByLabel('Name').fill('Global Custody Feed');
+  await custodySource.locator('select[formcontrolname="adapterType"]').selectOption('CSV_FILE');
+  await custodySource
+    .getByLabel('Adapter options')
+    .fill(JSON.stringify({ delimiter: '|', hasHeader: true }));
+  await custodySource.getByLabel('Arrival expectation').fill('Daily 05:30 UTC');
+  await custodySource.getByLabel('Timezone').fill('UTC');
+
+  await page.screenshot({ path: resolveAssetPath('global-multi-asset-sources.png'), fullPage: true });
+  await recordScreen({
+    name: 'Global multi-asset sources step',
+    route: '/admin/new',
+    screenshotFile: 'global-multi-asset-sources.png',
+    assertions: [
+      { description: 'Anchor source configured with EXCEL_FILE adapter' },
+      { description: 'APAC source configured for Excel with sheet options' },
+      { description: 'Americas and custody sources configured with different delimiters' },
+    ],
+  });
+
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByText('Step 3 of 8 · Source schema')).toBeVisible({ timeout: 30000 });
+
+  const schemaCards = page.locator('.schema-card');
+  await expect(schemaCards.nth(3)).toBeVisible();
+
+  const populateSchema = async (
+    card: Locator,
+    values: Array<{ column: string; display: string; type: string; required?: boolean; description?: string }>
+  ) => {
+    for (let index = 0; index < values.length; index += 1) {
+      if (index > 0) {
+        await card.getByRole('button', { name: 'Add field' }).click();
+      }
+      const row = card.locator('.schema-field-row').nth(index);
+      await row.getByLabel('Column name').fill(values[index]?.column ?? '');
+      await row.getByLabel('Display name').fill(values[index]?.display ?? '');
+      await row.getByLabel('Data type').selectOption(values[index]?.type ?? 'STRING');
+      if (values[index]?.description) {
+        await row.getByLabel('Description').fill(values[index]?.description ?? '');
+      }
+      if (values[index]?.required) {
+        await row.getByRole('checkbox', { name: 'Required' }).check();
+      }
+    }
+  };
+
+  await populateSchema(schemaCards.nth(0), [
+    { column: 'masterTradeId', display: 'Master Trade ID', type: 'STRING', required: true },
+    { column: 'masterGross', display: 'Master Gross', type: 'DECIMAL', required: true },
+    { column: 'masterRegion', display: 'Master Region', type: 'STRING' },
+  ]);
+
+  await populateSchema(schemaCards.nth(1), [
+    { column: 'apacTradeId', display: 'APAC Trade ID', type: 'STRING', required: true },
+    { column: 'apacGross', display: 'APAC Gross', type: 'DECIMAL', required: true },
+    { column: 'apacRegion', display: 'APAC Region', type: 'STRING' },
+  ]);
+
+  await populateSchema(schemaCards.nth(2), [
+    { column: 'amerTradeId', display: 'Americas Trade ID', type: 'STRING', required: true },
+    { column: 'amerGross', display: 'Americas Gross', type: 'DECIMAL', required: true },
+  ]);
+
+  await populateSchema(schemaCards.nth(3), [
+    { column: 'custTradeId', display: 'Custody Trade ID', type: 'STRING', required: true },
+    { column: 'custGross', display: 'Custody Gross', type: 'DECIMAL', required: true },
+  ]);
+
+  await page.screenshot({ path: resolveAssetPath('global-multi-asset-schema.png'), fullPage: true });
+  await recordScreen({
+    name: 'Global multi-asset schema step',
+    route: '/admin/new',
+    screenshotFile: 'global-multi-asset-schema.png',
+    assertions: [
+      { description: 'Schema rows populated for four heterogeneous sources' },
+      { description: 'Anchor schema includes gross and region fields' },
+      { description: 'Custody schema captures pipe-delimited layout' },
+    ],
+  });
+
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  const transformationCards = page.locator('.source-transformation-card');
+  await expect(transformationCards.first()).toBeVisible({ timeout: 30000 });
+  const firstPreview = transformationCards.first().locator('.preview-panel');
+  const fileTypeSelect = firstPreview.getByLabel('File type');
+  await fileTypeSelect.selectOption('EXCEL');
+  await expect(firstPreview.getByText('Sheet selection')).toBeVisible();
+  await expect(firstPreview.getByLabel('Append sheet name')).toBeVisible();
+  await fileTypeSelect.selectOption('CSV');
+
+  await page.screenshot({ path: resolveAssetPath('global-multi-asset-transformations.png'), fullPage: true });
+  await recordScreen({
+    name: 'Global multi-asset transformations step',
+    route: '/admin/new',
+    screenshotFile: 'global-multi-asset-transformations.png',
+    assertions: [
+      { description: 'Excel preview controls expose sheet selection toggles' },
+      { description: 'Dataset Groovy editor available for anchor source' },
+      { description: 'Preview panel ready for CSV and Excel toggling' },
+    ],
+  });
+
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  const matchingCards = page.locator('.matching-card');
+  await expect(matchingCards.first()).toBeVisible({ timeout: 30000 });
+
+  const canonicalConfigs: CanonicalFieldConfig[] = [
+    {
+      canonicalName: 'tradeCompositeKey',
+      displayName: 'Trade Composite Key',
+      role: 'KEY',
+      dataType: 'STRING',
+      comparison: 'EXACT_MATCH',
+      mappings: [
+        { source: masterCode, column: 'masterTradeId' },
+        { source: apacCode, column: 'apacTradeId' },
+        { source: amerCode, column: 'amerTradeId' },
+        { source: custodyCode, column: 'custTradeId' },
+      ],
+    },
+    {
+      canonicalName: 'grossAmountUsd',
+      displayName: 'Gross Amount',
+      role: 'COMPARE',
+      dataType: 'DECIMAL',
+      comparison: 'NUMERIC_THRESHOLD',
+      mappings: [
+        { source: masterCode, column: 'masterGross' },
+        { source: apacCode, column: 'apacGross' },
+        { source: amerCode, column: 'amerGross' },
+        { source: custodyCode, column: 'custGross' },
+      ],
+    },
+    {
+      canonicalName: 'regionTag',
+      displayName: 'Region Tag',
+      role: 'CLASSIFIER',
+      dataType: 'STRING',
+      comparison: 'EXACT_MATCH',
+      mappings: [
+        { source: masterCode, column: 'masterRegion' },
+        { source: apacCode, column: 'apacRegion' },
+      ],
+    },
+  ];
+
+  await configureCanonicalField(matchingCards.first(), canonicalConfigs[0]);
+  await addCanonicalField(page, matchingCards, 1, canonicalConfigs[1]);
+  await addCanonicalField(page, matchingCards, 2, canonicalConfigs[2]);
+
+  await page.screenshot({ path: resolveAssetPath('global-multi-asset-matching.png'), fullPage: true });
+  await recordScreen({
+    name: 'Global multi-asset matching step',
+    route: '/admin/new',
+    screenshotFile: 'global-multi-asset-matching.png',
+    assertions: [
+      { description: 'Canonical keys span four source mappings' },
+      { description: 'Numeric threshold comparison configured for gross amount' },
+      { description: 'Region classifier maps to Excel source columns' },
+    ],
+  });
+
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  await page.getByRole('button', { name: 'Add report template' }).click();
+  const reportForm = page.locator('.report-form').first();
+  await reportForm.getByLabel('Name').fill('Global Multi-Asset Break Export');
+  await reportForm
+    .getByLabel('Description')
+    .fill('Automation report to evidence multi-source reconciliation output.');
+  const reportColumns = reportForm.locator('.column-row');
+  await reportColumns
+    .nth(0)
+    .getByLabel('Header')
+    .fill('Master Trade');
+  await reportColumns
+    .nth(0)
+    .getByLabel('Source')
+    .selectOption('SOURCE_A');
+  await reportColumns
+    .nth(0)
+    .getByLabel('Field')
+    .fill('tradeCompositeKey');
+  await reportColumns
+    .nth(0)
+    .getByLabel('Display order')
+    .fill('1');
+  await reportForm.getByRole('button', { name: 'Add column' }).click();
+  await reportColumns
+    .nth(1)
+    .getByLabel('Header')
+    .fill('APAC Gross');
+  await reportColumns
+    .nth(1)
+    .getByLabel('Source')
+    .selectOption('SOURCE_B');
+  await reportColumns
+    .nth(1)
+    .getByLabel('Field')
+    .fill('grossAmountUsd');
+  await reportColumns
+    .nth(1)
+    .getByLabel('Display order')
+    .fill('2');
+
+  await page.getByRole('button', { name: 'Next' }).click();
+
+  await page.getByRole('button', { name: 'Add access entry' }).click();
+  const accessForms = page.locator('.access-form');
+  const makerAccess = accessForms.nth(0);
+  await makerAccess.getByLabel('LDAP Group').fill('recon-makers');
+  await makerAccess.getByLabel('Role').selectOption('MAKER');
+  await makerAccess.getByLabel('Product', { exact: true }).fill('Multi-Asset');
+  await makerAccess.getByLabel('Sub-product').fill('Global');
+  await makerAccess.getByLabel('Entity').fill('Enterprise');
+  await page.getByRole('button', { name: 'Add access entry' }).click();
+  const checkerAccess = accessForms.nth(1);
+  await checkerAccess.getByLabel('LDAP Group').fill('recon-checkers');
+  await checkerAccess.getByLabel('Role').selectOption('CHECKER');
+  await checkerAccess.getByLabel('Product', { exact: true }).fill('Multi-Asset');
+  await checkerAccess.getByLabel('Sub-product').fill('Global');
+  await checkerAccess.getByLabel('Entity').fill('Enterprise');
+
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByRole('heading', { name: 'Review summary' })).toBeVisible();
+
+  await page.screenshot({ path: resolveAssetPath('global-multi-asset-review.png'), fullPage: true });
+  await recordScreen({
+    name: 'Global multi-asset review step',
+    route: '/admin/new',
+    screenshotFile: 'global-multi-asset-review.png',
+    assertions: [
+      { description: 'Review summarises four configured sources' },
+      { description: 'Report template confirmed before publish' },
+      { description: 'Access matrix highlights multi-asset product scoping' },
+    ],
+  });
+
+  await page.getByRole('button', { name: 'Create reconciliation' }).click();
+  await expect(page.getByRole('heading', { name: reconciliationName })).toBeVisible();
+
+  const detailScreenshot = 'global-multi-asset-detail.png';
+  await page.screenshot({ path: resolveAssetPath(detailScreenshot), fullPage: true });
+  await recordScreen({
+    name: 'Global multi-asset detail view',
+    route: `/admin/${reconciliationCode}`,
+    screenshotFile: detailScreenshot,
+    assertions: [
+      { description: 'Detail view lists Excel, CSV, and pipe-delimited sources' },
+      { description: 'Maker-checker enabled for global showcase' },
+      { description: 'Ingestion cards ready for multi-format batches' },
+    ],
+  });
+});
+
 async function uploadBatch(options: {
   page: import('@playwright/test').Page;
   definitionId: number;

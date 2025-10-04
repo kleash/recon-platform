@@ -1,6 +1,7 @@
 package com.universal.reconciliation.service.ingestion;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -11,6 +12,8 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
+
+import com.universal.reconciliation.service.transform.TransformationEvaluationException;
 
 class ExcelIngestionAdapterTest {
 
@@ -90,6 +93,26 @@ class ExcelIngestionAdapterTest {
                     assertThat(row.get("gm_trade_id")).isEqualTo("T-102");
                     assertThat(row).doesNotContainKey("gm_amount_local_Alternatives");
                 });
+    }
+
+    @Test
+    void failsWhenRequestedSheetsNotFound() throws IOException {
+        byte[] payload = buildWorkbook(workbook -> {
+            Sheet positions = workbook.createSheet("Positions");
+            Row header = positions.createRow(0);
+            header.createCell(0).setCellValue("id");
+            Row row = positions.createRow(1);
+            row.createCell(0).setCellValue("P-1");
+        });
+
+        assertThatThrownBy(() ->
+                        adapter.readRecords(new IngestionAdapterRequest(
+                                () -> new ByteArrayInputStream(payload),
+                                Map.of(
+                                        ExcelIngestionAdapter.OPTION_HAS_HEADER, true,
+                                        ExcelIngestionAdapter.OPTION_SHEET_NAMES, List.of("Missing")))))
+                .isInstanceOf(TransformationEvaluationException.class)
+                .hasMessageContaining("No worksheets matched the configured criteria");
     }
 
     private byte[] buildWorkbook(WorkbookBuilder builder) throws IOException {

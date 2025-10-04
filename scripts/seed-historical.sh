@@ -6,6 +6,7 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PAYLOAD_DIR="${SCRIPT_DIR}/seed-historical/payloads"
 GENERATOR="${SCRIPT_DIR}/seed-historical/generate_csv.py"
 TMP_ROOT="$(mktemp -d 2>/dev/null || mktemp -d -t 'seed-historical')"
+FIXTURE_DIR="$ROOT_DIR/examples/integration-harness/src/main/resources/data/global-multi-asset"
 trap 'rm -rf "$TMP_ROOT"' EXIT
 
 # Defaults – configurable via flags or environment overrides.
@@ -112,6 +113,38 @@ fi
 if [[ ! -x "$GENERATOR" ]]; then
   fail "Generator script missing or not executable at $GENERATOR"
 fi
+
+declare -A SOURCE_CONFIG=(
+  ["GLOBAL_MASTER,media_type"]='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  ["GLOBAL_MASTER,adapter_type"]='EXCEL_FILE'
+  ["GLOBAL_MASTER,options_json"]='{"hasHeader":true,"includeAllSheets":true,"includeSheetNameColumn":true,"sheetNameColumn":"global_sheet_tag"}'
+  ["GLOBAL_MASTER,fixture_path"]="$FIXTURE_DIR/global_master.xlsx"
+
+  ["APAC_MULTI,media_type"]='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  ["APAC_MULTI,adapter_type"]='EXCEL_FILE'
+  ["APAC_MULTI,options_json"]='{"hasHeader":true,"includeAllSheets":true,"includeSheetNameColumn":true,"sheetNameColumn":"apac_sheet_tag"}'
+  ["APAC_MULTI,fixture_path"]="$FIXTURE_DIR/apac_positions.xlsx"
+
+  ["EMEA_MULTI,media_type"]='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  ["EMEA_MULTI,adapter_type"]='EXCEL_FILE'
+  ["EMEA_MULTI,options_json"]='{"hasHeader":true,"includeAllSheets":true,"includeSheetNameColumn":true,"sheetNameColumn":"emea_sheet_tag"}'
+  ["EMEA_MULTI,fixture_path"]="$FIXTURE_DIR/emea_positions.xlsx"
+
+  ["AMERICAS_CASH,media_type"]='text/csv'
+  ["AMERICAS_CASH,adapter_type"]='CSV_FILE'
+  ["AMERICAS_CASH,options_json"]='{"delimiter":","}'
+  ["AMERICAS_CASH,fixture_path"]="$FIXTURE_DIR/americas_cash.csv"
+
+  ["DERIVATIVES_FEED,media_type"]='text/csv'
+  ["DERIVATIVES_FEED,adapter_type"]='CSV_FILE'
+  ["DERIVATIVES_FEED,options_json"]='{"delimiter":","}'
+  ["DERIVATIVES_FEED,fixture_path"]="$FIXTURE_DIR/derivatives_positions.csv"
+
+  ["GLOBAL_CUSTODY,media_type"]='text/plain'
+  ["GLOBAL_CUSTODY,adapter_type"]='CSV_FILE'
+  ["GLOBAL_CUSTODY,options_json"]='{"delimiter":"|","hasHeader":true}'
+  ["GLOBAL_CUSTODY,fixture_path"]="$FIXTURE_DIR/global_custody.txt"
+)
 
 PAYLOAD_FILES=()
 while IFS= read -r payload_file; do
@@ -360,82 +393,38 @@ queue_export() {
   fail "Export job $job_id did not complete within expected time."
 }
 
+source_config_value() {
+  local code="$1" key="$2"
+  local map_key="${code},${key}"
+  echo "${SOURCE_CONFIG[$map_key]:-}"
+}
+
 source_media_type() {
-  case "$1" in
-    GLOBAL_MASTER|APAC_MULTI|EMEA_MULTI)
-      echo 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-      ;;
-    GLOBAL_CUSTODY)
-      echo 'text/plain'
-      ;;
-    *)
-      echo 'text/csv'
-      ;;
-  esac
+  local value
+  value=$(source_config_value "$1" "media_type")
+  if [[ -n "$value" ]]; then
+    echo "$value"
+  else
+    echo 'text/csv'
+  fi
 }
 
 source_adapter_type() {
-  case "$1" in
-    GLOBAL_MASTER|APAC_MULTI|EMEA_MULTI)
-      echo 'EXCEL_FILE'
-      ;;
-    *)
-      echo 'CSV_FILE'
-      ;;
-  esac
+  local value
+  value=$(source_config_value "$1" "adapter_type")
+  if [[ -n "$value" ]]; then
+    echo "$value"
+  else
+    echo 'CSV_FILE'
+  fi
 }
 
 source_options_json() {
-  case "$1" in
-    GLOBAL_MASTER)
-      echo '{"hasHeader":true,"includeAllSheets":true,"sheetNameColumn":"global_sheet"}'
-      ;;
-    APAC_MULTI)
-      echo '{"hasHeader":true,"includeAllSheets":true,"sheetNameColumn":"apac_sheet"}'
-      ;;
-    EMEA_MULTI)
-      echo '{"hasHeader":true,"includeAllSheets":true,"sheetNameColumn":"emea_sheet"}'
-      ;;
-    AMERICAS_CASH)
-      echo '{"delimiter":","}'
-      ;;
-    DERIVATIVES_FEED)
-      echo '{"delimiter":","}'
-      ;;
-    GLOBAL_CUSTODY)
-      echo '{"delimiter":"|","hasHeader":true}'
-      ;;
-    *)
-      echo ''
-      ;;
-  esac
+  source_config_value "$1" "options_json"
 }
 
 source_fixture_path() {
-  local fixture_dir="$ROOT_DIR/examples/integration-harness/src/main/resources/data/global-multi-asset"
-  case "$1" in
-    GLOBAL_MASTER)
-      echo "$fixture_dir/global_master.xlsx"
-      ;;
-    APAC_MULTI)
-      echo "$fixture_dir/apac_positions.xlsx"
-      ;;
-    EMEA_MULTI)
-      echo "$fixture_dir/emea_positions.xlsx"
-      ;;
-    AMERICAS_CASH)
-      echo "$fixture_dir/americas_cash.csv"
-      ;;
-    DERIVATIVES_FEED)
-      echo "$fixture_dir/derivatives_positions.csv"
-      ;;
-    GLOBAL_CUSTODY)
-      echo "$fixture_dir/global_custody.txt"
-      ;;
-    *)
-      echo ''
-      ;;
-  esac
+  source_config_value "$1" "fixture_path"
 }
 
 seed_global_multi_asset_history() {

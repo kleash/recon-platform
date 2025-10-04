@@ -126,10 +126,6 @@ public class ExcelIngestionAdapter implements IngestionAdapter {
         return switch (type) {
             case BOOLEAN -> cell.getBooleanCellValue();
             case NUMERIC -> formatter.formatCellValue(cell);
-            case STRING -> {
-                String text = formatter.formatCellValue(cell);
-                yield StringUtils.hasText(text) ? text : null;
-            }
             case BLANK -> null;
             default -> {
                 String text = formatter.formatCellValue(cell);
@@ -226,16 +222,14 @@ public class ExcelIngestionAdapter implements IngestionAdapter {
                     resolved.add(matched);
                 }
             }
-            if (!resolved.isEmpty()) {
-                return resolved;
-            }
+            return resolved;
         }
         if (StringUtils.hasText(options.sheetName())) {
             Sheet matched = workbook.getSheet(options.sheetName());
             if (matched != null) {
                 resolved.add(matched);
-                return resolved;
             }
+            return resolved;
         }
         resolved.add(workbook.getSheetAt(0));
         return resolved;

@@ -24,6 +24,9 @@
   troubleshooting.
 - **Mirror preview options**: Adapter metadata submitted during ingestion should reuse the same keys (`hasHeader`,
   `sheetNames`, `includeAllSheets`, `skipRows`) as the admin preview API so configuration and automation remain aligned.
+- **Ship working transformations**: When publishing reference reconciliations (integration harness, historical seed),
+  include a dataset Groovy script plus at least one row and column operation per source so downstream teams can copy an
+  end-to-end normalization pattern.
 
 ## Angular 20 Frontend
 - **Embrace standalone-by-default**: Angular 19+ removes the need to specify `standalone: true` on components that are

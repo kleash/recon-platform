@@ -23,7 +23,8 @@
   Excel sources without re-uploading CSV conversions.
 - Harness scenario **GLOBAL_MULTI_ASSET_COMPLEX** uses the Excel adapter alongside CSV and pipe-delimited feeds to prove
   cross-format parity. Adapter options are supplied through automation metadata to tag the originating worksheet for each
-  record.
+  record, and each source now ships with dataset Groovy scripts, row filters, and column pipelines so analysts can see
+  concrete examples of normalization, filtering, and enrichment across formats.
 
 ## Frontend Shell (Angular 20)
 

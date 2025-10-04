@@ -24,6 +24,18 @@
   - Confirm the workbook size is within the ingestion upload limit and that protected sheets have been unencrypted.
 - **Diagnostics**: Enable `DEBUG` logging for `ExcelIngestionAdapter` to trace sheet discovery and row extraction.
 
+## Transformation plan unexpectedly drops rows
+- **Symptom**: After seeding `GLOBAL_MULTI_ASSET_HISTORY`, one or more sources ingest fewer rows than the raw fixture.
+- **Checklist**:
+  - Review the transformation plan filters in the admin workspace; the showcase now includes confidence thresholds and
+    status filters per source that intentionally remove stale records.
+  - Adjust filter thresholds in the payload or via the admin UI if a fixture needs to retain additional rows (e.g.,
+    lower `amer_confidence_tag` minimum from `0.8` to `0.7`).
+  - Confirm dataset Groovy scripts do not throw exceptions—logs emit `TransformationEvaluationException` if parsing or
+    string manipulation fails.
+- **Diagnostics**: Use the admin transformation preview with the fixture sample to see which rows survive the applied
+  filters before running a full ingestion.
+
 ## Angular CLI reports unsupported Node or TypeScript warnings
 - **Symptom**: `ng version` / `ng update` warn about unsupported Node 24.x or emit `TypeScript compiler options 'module'` warnings.
 - **Checklist**:

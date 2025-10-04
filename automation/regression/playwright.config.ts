@@ -1,8 +1,11 @@
 import { defineConfig } from '@playwright/test';
+import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const rootDir = resolve(__dirname, '..', '..');
-const backendJar = resolve(rootDir, 'backend', 'target', 'reconciliation-platform-0.1.0-exec.jar');
+const execJar = resolve(rootDir, 'backend', 'target', 'reconciliation-platform-0.1.0-exec.jar');
+const bootJar = resolve(rootDir, 'backend', 'target', 'reconciliation-platform-0.1.0.jar');
+const backendJar = existsSync(execJar) ? execJar : bootJar;
 
 export default defineConfig({
   testDir: './tests',

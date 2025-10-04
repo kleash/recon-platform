@@ -20,3 +20,10 @@
   - Problem: Angular 17/19 dependency lag blocked adoption of Ivy build fixes, signal-based APIs, and required Node 20 support across tooling. Tooling also emitted unsupported runtime warnings (Node 24) and TS 5.2 could not satisfy Angular 20 schematics.
   - Decision: Sequentially run `ng update` through v18, v19, and v20, pin TypeScript 5.8.2 ahead of schematics, accept the CLI's `moduleResolution: bundler` migration, and embrace the new default `standalone` semantics (removing redundant `standalone: true`). Node 20.19.5 is now the documented floor for local and CI environments.
   - Consequences: Frontend builds used Angular 20.3.x without warnings, quality gates use a consistent Node toolchain, and future upgrades can assume bundler resolution plus standalone-by-default components. Documentation now captures the required Node/Bash setup and the cleanup expected after migrations.
+- **ADR: Transformation exemplars baked into seed data (2025-10-05)**
+  - Problem: The multi-source historical seed shipped with empty transformation plans, leaving analysts without concrete
+    examples of dataset Groovy, row filtering, or column pipelines when cloning the scenario.
+  - Decision: Populate every `GLOBAL_MULTI_ASSET` source with a dataset script plus representative row and column
+    operations, and assert this contract in automation so accidental regressions surface immediately.
+  - Consequences: New reconciliations cloned from the showcase begin with working transformations, regression suites
+    guarantee the payloads stay enriched, and onboarding documentation can point to living examples instead of stale snippets.

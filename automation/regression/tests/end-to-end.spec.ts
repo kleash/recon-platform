@@ -907,7 +907,9 @@ test('global multi-asset wizard captures multi-format ingestion', async ({ page 
   await masterSource.getByRole('checkbox', { name: 'Anchor source' }).check();
   await masterSource
     .getByLabel('Adapter options')
-    .fill('{"hasHeader":true,"includeAllSheets":true,"sheetNameColumn":"global_sheet"}');
+    .fill(
+      JSON.stringify({ hasHeader: true, includeAllSheets: true, sheetNameColumn: 'global_sheet' })
+    );
   await masterSource.getByLabel('Arrival expectation').fill('Daily 07:00 UTC');
   await masterSource.getByLabel('Timezone').fill('UTC');
 
@@ -918,7 +920,9 @@ test('global multi-asset wizard captures multi-format ingestion', async ({ page 
   await apacSource.locator('select[formcontrolname="adapterType"]').selectOption('EXCEL_FILE');
   await apacSource
     .getByLabel('Adapter options')
-    .fill('{"hasHeader":true,"includeAllSheets":true,"sheetNameColumn":"apac_sheet"}');
+    .fill(
+      JSON.stringify({ hasHeader: true, includeAllSheets: true, sheetNameColumn: 'apac_sheet' })
+    );
   await apacSource.getByLabel('Arrival expectation').fill('Daily 09:00 Tokyo');
   await apacSource.getByLabel('Timezone').fill('Asia/Tokyo');
 
@@ -927,7 +931,9 @@ test('global multi-asset wizard captures multi-format ingestion', async ({ page 
   await amerSource.getByLabel('Code').fill(amerCode);
   await amerSource.getByLabel('Name').fill('Americas Cash Movements');
   await amerSource.locator('select[formcontrolname="adapterType"]').selectOption('CSV_FILE');
-  await amerSource.getByLabel('Adapter options').fill('{"delimiter":","}');
+  await amerSource
+    .getByLabel('Adapter options')
+    .fill(JSON.stringify({ delimiter: ',' }));
   await amerSource.getByLabel('Arrival expectation').fill('Hourly monitoring');
   await amerSource.getByLabel('Timezone').fill('America/New_York');
 
@@ -936,7 +942,9 @@ test('global multi-asset wizard captures multi-format ingestion', async ({ page 
   await custodySource.getByLabel('Code').fill(custodyCode);
   await custodySource.getByLabel('Name').fill('Global Custody Feed');
   await custodySource.locator('select[formcontrolname="adapterType"]').selectOption('CSV_FILE');
-  await custodySource.getByLabel('Adapter options').fill('{"delimiter":"|","hasHeader":true}');
+  await custodySource
+    .getByLabel('Adapter options')
+    .fill(JSON.stringify({ delimiter: '|', hasHeader: true }));
   await custodySource.getByLabel('Arrival expectation').fill('Daily 05:30 UTC');
   await custodySource.getByLabel('Timezone').fill('UTC');
 

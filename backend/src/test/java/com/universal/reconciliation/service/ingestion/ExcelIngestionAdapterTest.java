@@ -2,6 +2,7 @@ package com.universal.reconciliation.service.ingestion;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.within;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -113,6 +114,30 @@ class ExcelIngestionAdapterTest {
                                         ExcelIngestionAdapter.OPTION_SHEET_NAMES, List.of("Missing")))))
                 .isInstanceOf(TransformationEvaluationException.class)
                 .hasMessageContaining("No worksheets matched the configured criteria");
+    }
+
+    @Test
+    void readsNumericValuesAsNumbers() throws IOException {
+        byte[] payload = buildWorkbook(workbook -> {
+            Sheet sheet = workbook.createSheet("Numerics");
+            Row header = sheet.createRow(0);
+            header.createCell(0).setCellValue("value");
+            Row row = sheet.createRow(1);
+            row.createCell(0).setCellValue(1234.56);
+        });
+
+        List<Map<String, Object>> records = adapter.readRecords(new IngestionAdapterRequest(
+                () -> new ByteArrayInputStream(payload),
+                Map.of(ExcelIngestionAdapter.OPTION_HAS_HEADER, true)));
+
+        assertThat(records)
+                .hasSize(1)
+                .first()
+                .satisfies(row -> {
+                    Object value = row.get("value");
+                    assertThat(value).isInstanceOf(Double.class);
+                    assertThat((Double) value).isCloseTo(1234.56, within(0.000001));
+                });
     }
 
     private byte[] buildWorkbook(WorkbookBuilder builder) throws IOException {

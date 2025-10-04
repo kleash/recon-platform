@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.ss.usermodel.DateUtil;
 import org.apache.poi.ss.usermodel.FormulaEvaluator;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -125,7 +126,12 @@ public class ExcelIngestionAdapter implements IngestionAdapter {
         CellType type = cell.getCellType();
         return switch (type) {
             case BOOLEAN -> cell.getBooleanCellValue();
-            case NUMERIC -> formatter.formatCellValue(cell);
+            case NUMERIC -> {
+                if (DateUtil.isCellDateFormatted(cell)) {
+                    yield formatter.formatCellValue(cell);
+                }
+                yield cell.getNumericCellValue();
+            }
             case BLANK -> null;
             default -> {
                 String text = formatter.formatCellValue(cell);

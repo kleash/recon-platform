@@ -8,6 +8,7 @@ GENERATOR="${SCRIPT_DIR}/seed-historical/generate_csv.py"
 TMP_ROOT="$(mktemp -d 2>/dev/null || mktemp -d -t 'seed-historical')"
 FIXTURE_DIR="$ROOT_DIR/examples/integration-harness/src/main/resources/data/global-multi-asset"
 trap 'rm -rf "$TMP_ROOT"' EXIT
+trap 'fail "Command failed: ${BASH_COMMAND}"' ERR
 
 # Defaults – configurable via flags or environment overrides.
 BASE_URL=${BASE_URL:-http://localhost:8080}
@@ -23,6 +24,10 @@ REPORT_FORMAT=CSV
 POLL_ATTEMPTS=12
 POLL_DELAY=2
 CI_MODE=${CI_MODE:-false}
+
+if [[ -z "${BASH_VERSINFO:-}" || ${BASH_VERSINFO[0]:-0} -lt 4 ]]; then
+  fail "seed-historical.sh requires Bash 4 or newer. Install an updated bash (e.g. via Homebrew) and re-run."
+fi
 
 log() {
   printf '[seed-historical] %s\n' "$*"
@@ -472,9 +477,13 @@ seed_global_multi_asset_history() {
       fi
 
       if (( day_offset >= 1 )); then
-        apply_post_run_actions "$recon_id" "$run_id" "$run_key" "400"
+        if ! apply_post_run_actions "$recon_id" "$run_id" "$run_key" "400"; then
+          fail "Maker/checker automation failed for $run_key"
+        fi
       else
-        queue_export "$recon_id" "fresh-$run_key"
+        if ! queue_export "$recon_id" "fresh-$run_key"; then
+          fail "Failed to queue export for $run_key"
+        fi
       fi
 
       if [[ "$CI_MODE" != "true" ]]; then
@@ -566,9 +575,13 @@ for payload in "${PAYLOAD_FILES[@]}"; do
 
       if (( day_offset >= 1 )); then
         limit=$(record_limit_for_fetch "$record_count")
-        apply_post_run_actions "$recon_id" "$run_id" "$run_key" "$limit"
+        if ! apply_post_run_actions "$recon_id" "$run_id" "$run_key" "$limit"; then
+          fail "Maker/checker automation failed for $run_key"
+        fi
       else
-        queue_export "$recon_id" "fresh-$run_key"
+        if ! queue_export "$recon_id" "fresh-$run_key"; then
+          fail "Failed to queue export for $run_key"
+        fi
       fi
 
       if [[ "$CI_MODE" != "true" ]]; then

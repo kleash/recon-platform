@@ -24,3 +24,11 @@
   troubleshooting.
 - **Mirror preview options**: Adapter metadata submitted during ingestion should reuse the same keys (`hasHeader`,
   `sheetNames`, `includeAllSheets`, `skipRows`) as the admin preview API so configuration and automation remain aligned.
+
+## Spring Boot 3.5 Backend
+- **Upgrade via parent BOM**: Prefer bumping `spring-boot-starter-parent` and letting the managed BOM resolve
+  dependency versions instead of pinning starters manually.
+- **Monitor virtual thread defaults**: Spring Boot 3.5 auto-enables virtual threads on Java 21+. Running on Java 17 keeps
+  them disabled, so no extra configuration was required during the 2025-10-04 upgrade.
+- **Re-run full automation**: Framework upgrades can surface subtle behaviour changes; always run backend tests,
+  Playwright automation, the integration harness, and seed scripts before shipping the change.

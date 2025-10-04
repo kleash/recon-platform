@@ -12,7 +12,7 @@ Before you start any task, internalize these directives—they govern all work i
 4. **Be cautious with terminal commands.** Evaluate every command before running it to confirm it will terminate on its own. Launch non-terminating commands (like servers) in separate processes and make sure any helper scripts are safe to run unattended.
 
 ## Repository Orientation
-- **Backend:** `backend/` holds the Spring Boot services, matching engine, workflow logic, and ETL pipelines.
+- **Backend:** `backend/` holds the Spring Boot services, matching engine, workflow logic, and ETL pipelines (Spring Boot 3.5.6 on Java 17).
 - **Frontend:** `frontend/` contains the Angular 17 single-page application with standalone components and a shared state service.
 - **Documentation:** Centralized under `docs/wiki`. Start with `docs/wiki/README.md` for navigation, then update specialized guides as needed.
 - **Data Model:** The database schema is critical. Refer to `docs/wiki/Architecture.md` for diagrams.
@@ -32,7 +32,7 @@ Before you start any task, internalize these directives—they govern all work i
 5. **Keep test cases up to date.** Any code change that affects features, workflows, or onboarding must update the relevant test cases in backend, frontend, automation smoke, example integration harness, and bootstrap scripts.
 
 ## Quality Gates
-- **Backend tests:** `cd backend && ./mvnw test`
+- **Backend tests:** `cd backend && ./mvnw test` (requires Java 17+; Spring Boot 3.5.6 workflows remain on JDK 17 by default)
 - **Frontend tests:** `cd frontend && npm test -- --watch=false --browsers=ChromeHeadless`
 - **Automation smoke (Playwright):** `cd automation/regression && npm install && npm test`
 - **Examples integration harness:** `examples/integration-harness/scripts/run_multi_example_e2e.sh`

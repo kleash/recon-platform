@@ -27,6 +27,7 @@ Use these guides to understand common development workflows and learn how to ext
 - **[Ingestion SDK](./ingestion-sdk.md)**: How to build Spring Boot ingestion jars using the reusable SDK, including JDBC and API adapters.
 - **[Automation Regression Guide](../../automation/regression/README.md)**: How to execute the Playwright end-to-end suite and interpret reports.
 - **[Global Multi-Asset Playbook](./Global-Multi-Asset.md)**: Business and technical blueprint for the six-source showcase reconciliation, including diagrams and automation steps.
+- **[Spring Boot 3.5.6 Upgrade Checklist](./spring-boot-upgrade-3-5-6-checklist.md)**: Step-by-step guide for lifting the backend from Spring Boot 3.2.x to 3.5.6 with validation steps and regression hints.
 
 ## 4. Process & Governance
 

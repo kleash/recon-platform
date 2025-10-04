@@ -16,6 +16,7 @@ export type ComparisonLogic = 'EXACT_MATCH' | 'CASE_INSENSITIVE' | 'NUMERIC_THRE
 
 export type IngestionAdapterType =
   | 'CSV_FILE'
+  | 'EXCEL_FILE'
   | 'FIXED_WIDTH_FILE'
   | 'XML_FILE'
   | 'JSON_FILE'

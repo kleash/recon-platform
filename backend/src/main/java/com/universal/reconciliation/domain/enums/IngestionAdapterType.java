@@ -7,6 +7,7 @@ package com.universal.reconciliation.domain.enums;
  */
 public enum IngestionAdapterType {
     CSV_FILE,
+    EXCEL_FILE,
     FIXED_WIDTH_FILE,
     XML_FILE,
     JSON_FILE,

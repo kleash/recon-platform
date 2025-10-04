@@ -7,8 +7,8 @@ an operations team would execute in production.
 
 ## Scenario highlights
 
-- Applies admin payloads for the cash vs GL, custodian trade, and securities position examples at
-  runtime – no example code is packaged in the Spring Boot launcher.
+- Applies admin payloads for the cash vs GL, custodian trade, securities position, and global
+  multi-asset examples at runtime – no example code is packaged in the Spring Boot launcher.
 - Uses the bundled ingestion CLI to submit representative batches for every source (including
   multiple custodian cutoffs) so the reconciliations start with realistic break profiles.
 - Triggers manual runs through the public API and validates that each scenario produces the expected
@@ -23,7 +23,7 @@ an operations team would execute in production.
 - `src/main/java/.../ingestion/` – lightweight OkHttp/Jackson based CLI for pushing batches via the
   admin ingestion endpoints.
 - `payloads/*.json` – Admin Configurator requests for each reconciliation definition.
-- `src/main/resources/data/**` – CSV fixtures referenced by the ingestion CLI.
+- `src/main/resources/data/**` – Scenario fixtures (CSV, Excel, pipe-delimited text) referenced by the ingestion CLI.
 - `scripts/run_multi_example_e2e.sh` – orchestration script that builds the binaries, launches the
   platform, applies admin payloads, runs the ingestion CLI, validates run summaries, and tears the
   process down.

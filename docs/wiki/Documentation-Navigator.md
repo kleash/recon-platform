@@ -23,6 +23,7 @@ takeaways. If a page moves or is replaced, update this navigator and the [wiki h
 ## Quality & Automation
 - **[Automation Regression Guide](../../automation/regression/README.md)** — *Audience: QA, release engineering.* Playwright smoke suite, evidence capture, and extending coverage.
 - **[Examples Integration Harness](../../examples/integration-harness/README.md)** — *Audience: integration testers.* Spin up multi-scenario reconciliations and drive ingestion via the CLI.
+- **[Global Multi-Asset Playbook](./Global-Multi-Asset.md)** — *Audience: solution architects.* Business case, configuration steps, and diagrams for the six-source showcase reconciliation.
 
 ## Historical Context & Completed Work
 - **[Completed Feature Specifications](./completed-features/README.md)** — Archive of shipped feature briefs, including the frontend enhancement request now marked as delivered.

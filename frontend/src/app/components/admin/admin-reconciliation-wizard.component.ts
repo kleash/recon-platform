@@ -158,6 +158,7 @@ export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
   readonly statuses: ReconciliationLifecycleStatus[] = ['DRAFT', 'PUBLISHED', 'RETIRED'];
   readonly adapterTypes: IngestionAdapterType[] = [
     'CSV_FILE',
+    'EXCEL_FILE',
     'FIXED_WIDTH_FILE',
     'XML_FILE',
     'JSON_FILE',

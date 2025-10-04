@@ -37,7 +37,7 @@ Before you start any task, internalize these directives—they govern all work i
 - **Automation smoke (Playwright):** `cd automation/regression && npm install && npm test`
 - **Examples integration harness:** `examples/integration-harness/scripts/run_multi_example_e2e.sh`
 - **Bootstrap scripts:** `./scripts/local-dev.sh bootstrap` (and `seed` once the stack is running) to confirm local helpers stay healthy.
-- **Historical volume seed:** `./scripts/seed-historical.sh --days 3 --runs-per-day 1 --report-format NONE --ci-mode` followed by `./scripts/verify-historical-seed.sh --days 3 --runs-per-day 1 --skip-export-check` to mirror the lightweight CI cadence and ensure large-scale data workflows continue to pass.
+- **Historical volume seed:** `./scripts/seed-historical.sh --days 3 --runs-per-day 1 --report-format NONE --ci-mode` followed by `./scripts/verify-historical-seed.sh --days 3 --runs-per-day 1 --skip-export-check` to mirror the lightweight CI cadence and ensure large-scale data workflows continue to pass. (The verify script does not support `--ci-mode`.)
 - Include command outputs in pull request descriptions when applicable.
 
 ## Automation & E2E Toolkit

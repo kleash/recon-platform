@@ -53,6 +53,8 @@ For faster execution in CI or local smoke testing you can override the defaults:
 
 The verifier accepts the same `--days` and `--runs-per-day` flags used during seeding so that CI and local runs remain in sync. When exports are skipped (`--report-format NONE`), pass `--skip-export-check` to avoid an unnecessary failure.
 
+> Note: The verifier does **not** support `--ci-mode`; use only the flags documented below.
+
 ```bash
 ./scripts/verify-historical-seed.sh --days 30 --runs-per-day 3 --skip-export-check
 ```

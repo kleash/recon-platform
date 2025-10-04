@@ -2,6 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PAYLOAD_DIR="${SCRIPT_DIR}/seed-historical/payloads"
 GENERATOR="${SCRIPT_DIR}/seed-historical/generate_csv.py"
 TMP_ROOT="$(mktemp -d 2>/dev/null || mktemp -d -t 'seed-historical')"
@@ -237,6 +238,34 @@ upload_batch() {
   fi
 }
 
+upload_batch_with_metadata() {
+  local recon_id="$1" source_code="$2" file_path="$3" label="$4" adapter_type="$5" options_json="$6" media_type="$7"
+
+  local metadata
+  if [[ -n "$options_json" ]]; then
+    metadata=$(jq -n --arg label "$label" --arg type "$adapter_type" --argjson opts "$options_json" '{adapterType:$type,label:$label,options:$opts}')
+  else
+    metadata=$(jq -n --arg label "$label" --arg type "$adapter_type" '{adapterType:$type,label:$label}')
+  fi
+
+  local filename
+  filename=$(basename "$file_path")
+
+  local response
+  response=$(curl -sS -w '\n%{http_code}' -X POST \
+    "$BASE_URL/api/admin/reconciliations/$recon_id/sources/$source_code/batches" \
+    -H "Authorization: Bearer $ADMIN_TOKEN" \
+    -F "metadata=$metadata;type=application/json;filename=metadata.json" \
+    -F "file=@$file_path;type=$media_type;filename=$filename")
+
+  local body status
+  body="${response%$'\n'*}"
+  status="${response##*$'\n'}"
+  if [[ "$status" != "201" && "$status" != "200" ]]; then
+    fail "Failed to upload batch '$label' for $source_code (HTTP $status): $body"
+  fi
+}
+
 trigger_run() {
   local recon_id="$1" comment="$2" initiated_by="$3"
   local response
@@ -331,6 +360,143 @@ queue_export() {
   fail "Export job $job_id did not complete within expected time."
 }
 
+source_media_type() {
+  case "$1" in
+    GLOBAL_MASTER|APAC_MULTI|EMEA_MULTI)
+      echo 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      ;;
+    GLOBAL_CUSTODY)
+      echo 'text/plain'
+      ;;
+    *)
+      echo 'text/csv'
+      ;;
+  esac
+}
+
+source_adapter_type() {
+  case "$1" in
+    GLOBAL_MASTER|APAC_MULTI|EMEA_MULTI)
+      echo 'EXCEL_FILE'
+      ;;
+    *)
+      echo 'CSV_FILE'
+      ;;
+  esac
+}
+
+source_options_json() {
+  case "$1" in
+    GLOBAL_MASTER)
+      echo '{"hasHeader":true,"includeAllSheets":true,"sheetNameColumn":"global_sheet"}'
+      ;;
+    APAC_MULTI)
+      echo '{"hasHeader":true,"includeAllSheets":true,"sheetNameColumn":"apac_sheet"}'
+      ;;
+    EMEA_MULTI)
+      echo '{"hasHeader":true,"includeAllSheets":true,"sheetNameColumn":"emea_sheet"}'
+      ;;
+    AMERICAS_CASH)
+      echo '{"delimiter":","}'
+      ;;
+    DERIVATIVES_FEED)
+      echo '{"delimiter":","}'
+      ;;
+    GLOBAL_CUSTODY)
+      echo '{"delimiter":"|","hasHeader":true}'
+      ;;
+    *)
+      echo ''
+      ;;
+  esac
+}
+
+source_fixture_path() {
+  local fixture_dir="$ROOT_DIR/examples/integration-harness/src/main/resources/data/global-multi-asset"
+  case "$1" in
+    GLOBAL_MASTER)
+      echo "$fixture_dir/global_master.xlsx"
+      ;;
+    APAC_MULTI)
+      echo "$fixture_dir/apac_positions.xlsx"
+      ;;
+    EMEA_MULTI)
+      echo "$fixture_dir/emea_positions.xlsx"
+      ;;
+    AMERICAS_CASH)
+      echo "$fixture_dir/americas_cash.csv"
+      ;;
+    DERIVATIVES_FEED)
+      echo "$fixture_dir/derivatives_positions.csv"
+      ;;
+    GLOBAL_CUSTODY)
+      echo "$fixture_dir/global_custody.txt"
+      ;;
+    *)
+      echo ''
+      ;;
+  esac
+}
+
+seed_global_multi_asset_history() {
+  local payload="$1" recon_id="$2" code="$3"
+  local source_codes=(GLOBAL_MASTER APAC_MULTI EMEA_MULTI AMERICAS_CASH DERIVATIVES_FEED GLOBAL_CUSTODY)
+
+  for source_code in "${source_codes[@]}"; do
+    local file_path
+    file_path=$(source_fixture_path "$source_code")
+    if [[ -z "$file_path" || ! -f "$file_path" ]]; then
+      fail "Fixture for $source_code not found at $file_path"
+    fi
+  done
+
+  for (( day_offset=0; day_offset < DAYS; day_offset++ )); do
+    run_date=$(iso_date_utc "$day_offset")
+    for (( run_index=1; run_index <= RUNS_PER_DAY; run_index++ )); do
+      run_key="${code}-${run_date}-r${run_index}"
+      local label="${run_key//_/ -}"
+
+      for source_code in "${source_codes[@]}"; do
+        local file_path
+        file_path=$(source_fixture_path "$source_code")
+        local adapter_type
+        adapter_type=$(source_adapter_type "$source_code")
+        local media_type
+        media_type=$(source_media_type "$source_code")
+        local options_json
+        options_json=$(source_options_json "$source_code")
+        upload_batch_with_metadata \
+          "$recon_id" \
+          "$source_code" \
+          "$file_path" \
+          "$label-$source_code" \
+          "$adapter_type" \
+          "$options_json" \
+          "$media_type"
+      done
+
+      run_comment="Historic run $run_key"
+      run_detail=$(trigger_run "$recon_id" "$run_comment" "$MAKER_USERNAME")
+      run_id=$(echo "$run_detail" | jq -r '.summary.runId')
+      if [[ "$run_id" == "null" ]]; then
+        fail "Unable to determine run id for $run_key"
+      fi
+
+      if (( day_offset >= 1 )); then
+        apply_post_run_actions "$recon_id" "$run_id" "$run_key" "400"
+      else
+        queue_export "$recon_id" "fresh-$run_key"
+      fi
+
+      if [[ "$CI_MODE" != "true" ]]; then
+        sleep 1
+      fi
+    done
+  done
+
+  log "Completed seeding for $code."
+}
+
 apply_post_run_actions() {
   local recon_id="$1" run_id="$2" run_key="$3" record_limit="$4"
   local attempt=0
@@ -380,6 +546,11 @@ for payload in "${PAYLOAD_FILES[@]}"; do
   code=$(jq -r '.code' "$payload")
   recon_id=$(ensure_reconciliation "$payload")
   log "Recon $code ready (id=$recon_id)."
+
+  if [[ "$code" == "GLOBAL_MULTI_ASSET_HISTORY" ]]; then
+    seed_global_multi_asset_history "$payload" "$recon_id" "$code"
+    continue
+  fi
 
   for (( day_offset=0; day_offset < DAYS; day_offset++ )); do
     run_date=$(iso_date_utc "$day_offset")

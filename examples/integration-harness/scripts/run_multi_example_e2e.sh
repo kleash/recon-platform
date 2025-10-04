@@ -19,6 +19,7 @@ PAYLOADS=(
   "$PAYLOAD_DIR/cash-vs-gl.json"
   "$PAYLOAD_DIR/custodian-trade.json"
   "$PAYLOAD_DIR/securities-position.json"
+  "$PAYLOAD_DIR/global-multi-asset.json"
 )
 
 ADMIN_USERNAME="admin1"
@@ -252,6 +253,9 @@ validate_summary() {
             ;;
         SEC_POSITION_COMPLEX)
             expr='(.summary.matched // 0) > 0 and (.summary.mismatched // 0) > 0'
+            ;;
+        GLOBAL_MULTI_ASSET_COMPLEX)
+            expr='(.summary.matched // 0) > 0 and (.summary.mismatched // 0) > 0 and (.summary.missing // 0) > 0'
             ;;
         *)
             expr='true'

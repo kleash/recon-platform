@@ -26,6 +26,7 @@ Use these guides to understand common development workflows and learn how to ext
 - **[Admin Reconciliation Configurator Guide](./Admin-Configurator-Guide.md)**: Step-by-step instructions for using the admin workspace, schema exports, and ingestion helpers.
 - **[Ingestion SDK](./ingestion-sdk.md)**: How to build Spring Boot ingestion jars using the reusable SDK, including JDBC and API adapters.
 - **[Automation Regression Guide](../../automation/regression/README.md)**: How to execute the Playwright end-to-end suite and interpret reports.
+- **[Global Multi-Asset Playbook](./Global-Multi-Asset.md)**: Business and technical blueprint for the six-source showcase reconciliation, including diagrams and automation steps.
 
 ## 4. Process & Governance
 

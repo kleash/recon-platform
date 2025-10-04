@@ -15,3 +15,12 @@
   from uploaded files.
 - `AdminReconciliationService` now persists `schemaFields` on each source. The stored schema is surfaced in
   `AdminSourceDto` and exported through the reconciliation schema endpoint for downstream consumers.
+
+## Ingestion Adapters
+
+- `ExcelIngestionAdapter` extends the ingestion surface to multi-sheet workbooks. It honours the same parsing options as
+  the preview service (`hasHeader`, `includeAllSheets`, `sheetNameColumn`, `skipRows`) so admins can configure and ingest
+  Excel sources without re-uploading CSV conversions.
+- Harness scenario **GLOBAL_MULTI_ASSET_COMPLEX** uses the Excel adapter alongside CSV and pipe-delimited feeds to prove
+  cross-format parity. Adapter options are supplied through automation metadata to tag the originating worksheet for each
+  record.

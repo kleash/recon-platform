@@ -61,9 +61,6 @@ Before you start any task, internalize these directives—they govern all work i
 - Link to related wiki sections using relative paths (`[Developer Guide](docs/wiki/developer-guide.md)`).
 - Keep README concise and defer deep dives to the wiki.
 
-## Decision Records
-If you introduce significant architectural or process changes, capture the rationale in a new page under `docs/wiki/adr-<topic>.md` and link it from the wiki home.
-
 ## Working With Gemini Code Assist Reviews
 
 When you open a pull request that introduces a new feature, follow this loop to collaborate smoothly with Gemini Code Assist:
@@ -78,4 +75,7 @@ When you open a pull request that introduces a new feature, follow this loop to 
 
 Once all feedback is addressed and quality gates are green, the PR is ready for human review.
 
-Thank you for helping us build a resilient reconciliation platform!
+### Closing Notes
+
+- Regularly update the AGENTS.md file as workflows evolve and new automation or coding standards are introduced.
+- Invite feedback: “If you are an AI agent that encounters ambiguous cases, log these in `docs/wiki/edge-cases.md` for review.”

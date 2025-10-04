@@ -1,4 +1,4 @@
-import { AsyncPipe, CommonModule, NgFor, NgIf } from '@angular/common';
+import { CommonModule, NgFor, NgIf } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import {
   FormArray,
@@ -137,11 +137,10 @@ type MatchRuleType = 'FULL' | 'CASE_INSENSITIVE' | 'THRESHOLD' | 'DATE' | 'DISPL
 
 
 @Component({
-  selector: 'urp-admin-reconciliation-wizard',
-  standalone: true,
-  imports: [CommonModule, ReactiveFormsModule, NgIf, NgFor, AsyncPipe, InfoIconTooltipDirective],
-  templateUrl: './admin-reconciliation-wizard.component.html',
-  styleUrls: ['./admin-reconciliation-wizard.component.css']
+    selector: 'urp-admin-reconciliation-wizard',
+    imports: [CommonModule, ReactiveFormsModule, NgIf, NgFor, InfoIconTooltipDirective],
+    templateUrl: './admin-reconciliation-wizard.component.html',
+    styleUrls: ['./admin-reconciliation-wizard.component.css']
 })
 export class AdminReconciliationWizardComponent implements OnInit, OnDestroy {
   readonly steps: WizardStep[] = [

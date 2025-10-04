@@ -24,3 +24,13 @@
   troubleshooting.
 - **Mirror preview options**: Adapter metadata submitted during ingestion should reuse the same keys (`hasHeader`,
   `sheetNames`, `includeAllSheets`, `skipRows`) as the admin preview API so configuration and automation remain aligned.
+
+## Angular 20 Frontend
+- **Embrace standalone-by-default**: Angular 19+ removes the need to specify `standalone: true` on components that are
+  not declared in NgModules. Continue to declare explicit `imports` arrays and only add `standalone: false` when a
+  declaration lives inside a module.
+- **Keep `imports` minimal**: The Angular compiler now surfaces `NG8113` warnings for unused pipes/directives. Remove
+  any unused entries (e.g., legacy `JsonPipe` or `AsyncPipe`) immediately after migrations to keep builds clean.
+- **Bundler module resolution**: The CLI migrates `tsconfig.json` to `moduleResolution: "bundler"`. Rely on explicit
+  relative imports (no implicit index barrel resolution) and ensure custom tooling (Jest, ESLint, ts-node) reuses the
+  Angular-provided TS configuration.

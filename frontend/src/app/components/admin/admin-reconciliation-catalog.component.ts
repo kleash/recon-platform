@@ -6,11 +6,10 @@ import { Subject, debounceTime, takeUntil } from 'rxjs';
 import { AdminReconciliationStateService } from '../../services/admin-reconciliation-state.service';
 
 @Component({
-  selector: 'urp-admin-reconciliation-catalog',
-  standalone: true,
-  imports: [CommonModule, NgIf, NgFor, AsyncPipe, DatePipe, RouterLink, ReactiveFormsModule],
-  templateUrl: './admin-reconciliation-catalog.component.html',
-  styleUrls: ['./admin-reconciliation-catalog.component.css']
+    selector: 'urp-admin-reconciliation-catalog',
+    imports: [CommonModule, NgIf, NgFor, AsyncPipe, DatePipe, RouterLink, ReactiveFormsModule],
+    templateUrl: './admin-reconciliation-catalog.component.html',
+    styleUrls: ['./admin-reconciliation-catalog.component.css']
 })
 export class AdminReconciliationCatalogComponent implements OnInit, OnDestroy {
   readonly reconciliations$ = this.state.reconciliations$;

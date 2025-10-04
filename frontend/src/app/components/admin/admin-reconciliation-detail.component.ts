@@ -1,4 +1,4 @@
-import { AsyncPipe, CommonModule, DatePipe, JsonPipe, NgFor, NgIf } from '@angular/common';
+import { AsyncPipe, CommonModule, DatePipe, NgFor, NgIf } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -7,11 +7,10 @@ import { AdminReconciliationStateService } from '../../services/admin-reconcilia
 import { AdminReconciliationDetail, AdminSource } from '../../models/admin-api-models';
 
 @Component({
-  selector: 'urp-admin-reconciliation-detail',
-  standalone: true,
-  imports: [CommonModule, FormsModule, NgIf, NgFor, AsyncPipe, DatePipe, JsonPipe],
-  templateUrl: './admin-reconciliation-detail.component.html',
-  styleUrls: ['./admin-reconciliation-detail.component.css']
+    selector: 'urp-admin-reconciliation-detail',
+    imports: [CommonModule, FormsModule, NgIf, NgFor, AsyncPipe, DatePipe],
+    templateUrl: './admin-reconciliation-detail.component.html',
+    styleUrls: ['./admin-reconciliation-detail.component.css']
 })
 export class AdminReconciliationDetailComponent implements OnInit, OnDestroy {
   readonly detail$ = this.state.selected$;

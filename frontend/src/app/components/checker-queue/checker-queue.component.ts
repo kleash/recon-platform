@@ -5,11 +5,10 @@ import { BreakItem, FilterMetadata } from '../../models/api-models';
 import { BreakStatus } from '../../models/break-status';
 
 @Component({
-  selector: 'urp-checker-queue',
-  standalone: true,
-  imports: [CommonModule, FormsModule, DatePipe],
-  templateUrl: './checker-queue.component.html',
-  styleUrls: ['./checker-queue.component.css']
+    selector: 'urp-checker-queue',
+    imports: [CommonModule, FormsModule, DatePipe],
+    templateUrl: './checker-queue.component.html',
+    styleUrls: ['./checker-queue.component.css']
 })
 export class CheckerQueueComponent {
   @Input() pendingBreaks: BreakItem[] | null = [];

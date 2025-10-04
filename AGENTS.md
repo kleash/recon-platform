@@ -13,7 +13,7 @@ Before you start any task, internalize these directives—they govern all work i
 
 ## Repository Orientation
 - **Backend:** `backend/` holds the Spring Boot services, matching engine, workflow logic, and ETL pipelines.
-- **Frontend:** `frontend/` contains the Angular 17 single-page application with standalone components and a shared state service.
+- **Frontend:** `frontend/` contains the Angular 20 single-page application with standalone components and a shared state service.
 - **Documentation:** Centralized under `docs/wiki`. Start with `docs/wiki/README.md` for navigation, then update specialized guides as needed.
 - **Data Model:** The database schema is critical. Refer to `docs/wiki/Architecture.md` for diagrams.
 - **Historical context:** `docs/Bootstrap.md` stores the original charter and phased rollout plan.
@@ -33,12 +33,14 @@ Before you start any task, internalize these directives—they govern all work i
 
 ## Quality Gates
 - **Backend tests:** `cd backend && ./mvnw test`
-- **Frontend tests:** `cd frontend && npm test -- --watch=false --browsers=ChromeHeadless`
+- **Frontend tests:** `cd frontend && npm test` (Karma launches `ChromeHeadlessNoSandbox` via the npm script)
 - **Automation smoke (Playwright):** `cd automation/regression && npm install && npm test`
 - **Examples integration harness:** `examples/integration-harness/scripts/run_multi_example_e2e.sh`
 - **Bootstrap scripts:** `./scripts/local-dev.sh bootstrap` (and `seed` once the stack is running) to confirm local helpers stay healthy.
-- **Historical volume seed:** `./scripts/seed-historical.sh --days 3 --runs-per-day 1 --report-format NONE --ci-mode` followed by `./scripts/verify-historical-seed.sh --days 3 --runs-per-day 1 --skip-export-check` to mirror the lightweight CI cadence and ensure large-scale data workflows continue to pass. (The verify script does not support `--ci-mode`.)
+- **Historical volume seed:** `./scripts/seed-historical.sh --days 3 --runs-per-day 1 --report-format NONE --ci-mode` followed by `./scripts/verify-historical-seed.sh --days 3 --runs-per-day 1 --skip-export-check` to mirror the lightweight CI cadence and ensure large-scale data workflows continue to pass. (The verify script does not support `--ci-mode`.) Use Bash ≥ 4 (`PATH="/opt/homebrew/opt/bash/bin:$PATH"`) on macOS to avoid `fail: command not found` errors.
 - Include command outputs in pull request descriptions when applicable.
+
+Node 20.19.5 is the supported baseline for Angular 20 tooling. On macOS, install it via Homebrew (`brew install node@20`) and prefix relevant commands with `PATH="/opt/homebrew/opt/node@20/bin:$PATH"` so `ng update`, Karma, and Playwright run without unsupported runtime warnings.
 
 ## Automation & E2E Toolkit
 - **Playwright harness:** `automation/regression/` bundles the cross-stack smoke suite. The `npm test` command triggers `scripts/prepare.mjs` to build the backend, install/frontend, download browsers, and launch both services before running Playwright.

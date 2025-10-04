@@ -1,15 +1,14 @@
-import { CommonModule, DatePipe, JsonPipe } from '@angular/common';
+import { CommonModule, DatePipe } from '@angular/common';
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { BreakItem } from '../../models/api-models';
 import { BreakStatus } from '../../models/break-status';
 
 @Component({
-  selector: 'urp-break-detail',
-  standalone: true,
-  imports: [CommonModule, FormsModule, DatePipe, JsonPipe],
-  templateUrl: './break-detail.component.html',
-  styleUrls: ['./break-detail.component.css']
+    selector: 'urp-break-detail',
+    imports: [CommonModule, FormsModule, DatePipe],
+    templateUrl: './break-detail.component.html',
+    styleUrls: ['./break-detail.component.css']
 })
 export class BreakDetailComponent implements OnChanges {
   @Input() breakItem: BreakItem | null = null;

@@ -12,11 +12,10 @@ import { BreakFilter } from '../../models/break-filter';
 import { BreakStatus } from '../../models/break-status';
 
 @Component({
-  selector: 'urp-run-detail',
-  standalone: true,
-  imports: [CommonModule, DatePipe, FormsModule],
-  templateUrl: './run-detail.component.html',
-  styleUrls: ['./run-detail.component.css']
+    selector: 'urp-run-detail',
+    imports: [CommonModule, DatePipe, FormsModule],
+    templateUrl: './run-detail.component.html',
+    styleUrls: ['./run-detail.component.css']
 })
 export class RunDetailComponent implements OnChanges {
   @Input() runDetail: RunDetail | null = null;

@@ -34,20 +34,19 @@ interface ColumnFilterRow {
 }
 
 @Component({
-  selector: 'urp-analyst-workspace',
-  standalone: true,
-  imports: [
-    CommonModule,
-    FormsModule,
-    AsyncPipe,
-    ReconciliationListComponent,
-    SystemActivityComponent,
-    ResultGridComponent,
-    RunDetailComponent,
-    CheckerQueueComponent
-  ],
-  templateUrl: './analyst-workspace.component.html',
-  styleUrls: ['./analyst-workspace.component.css']
+    selector: 'urp-analyst-workspace',
+    imports: [
+        CommonModule,
+        FormsModule,
+        AsyncPipe,
+        ReconciliationListComponent,
+        SystemActivityComponent,
+        ResultGridComponent,
+        RunDetailComponent,
+        CheckerQueueComponent
+    ],
+    templateUrl: './analyst-workspace.component.html',
+    styleUrls: ['./analyst-workspace.component.css']
 })
 export class AnalystWorkspaceComponent implements OnInit, OnDestroy {
   readonly reconciliations$ = this.state.reconciliations$;

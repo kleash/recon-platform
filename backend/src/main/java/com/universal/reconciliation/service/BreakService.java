@@ -91,6 +91,10 @@ public class BreakService {
                 breakAccessService.allowedStatuses(context.breakItem(), context.definition(), context.entries()));
     }
 
+    /**
+     * Applies a single break workflow transition and captures the resulting audit record. Access checks are
+     * enforced before persisting any changes.
+     */
     @Transactional
     public BreakItemDto updateStatus(Long breakId, UpdateBreakStatusRequest request) {
         BreakContext context = loadBreakContext(breakId);
@@ -123,6 +127,16 @@ public class BreakService {
             breakWorkflowAuditRepository.save(result.audit());
         }
 
+        if (log.isInfoEnabled()) {
+            log.info(
+                    "Break status updated: breakId={} previousStatus={} targetStatus={} actor={} correlationId={}",
+                    result.breakItem().getId(),
+                    result.previousStatus(),
+                    result.targetStatus(),
+                    username,
+                    request.correlationId());
+        }
+
         systemActivityService.recordEvent(
                 SystemEventType.BREAK_STATUS_CHANGE,
                 String.format(
@@ -139,6 +153,10 @@ public class BreakService {
                         result.breakItem(), context.definition(), context.entries()));
     }
 
+    /**
+     * Executes a bulk workflow update, aggregating comment and status mutations by break to minimise repository
+     * chatter. Failures are reported per-break so the UI can provide granular feedback.
+     */
     @Transactional
     public BulkBreakUpdateResponse bulkUpdate(BulkBreakUpdateRequest request) {
         String username = userContext.getUsername();
@@ -225,6 +243,17 @@ public class BreakService {
                         statusChanges,
                         commentsAdded,
                         failures.size()));
+
+        if (log.isInfoEnabled()) {
+            log.info(
+                    "Break bulk update summary: actor={} total={} statusChanges={} comments={} failures={} correlationId={}",
+                    username,
+                    request.breakIds().size(),
+                    statusChanges,
+                    commentsAdded,
+                    failures.size(),
+                    request.correlationId());
+        }
 
         return new BulkBreakUpdateResponse(successes, failures);
     }

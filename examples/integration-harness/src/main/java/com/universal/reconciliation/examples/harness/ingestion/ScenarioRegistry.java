@@ -5,6 +5,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Static catalogue of example ingestion scenarios used by the integration harness CLI. Encapsulating the
+ * registration logic keeps scriptable metadata (adapter options, batch descriptions) close to the canonical fixture
+ * definitions while remaining easy to extend.
+ */
 final class ScenarioRegistry {
 
     private static final Map<String, ScenarioDefinition> SCENARIOS = new LinkedHashMap<>();
@@ -31,6 +36,7 @@ final class ScenarioRegistry {
                         )));
 
         Map<String, Object> custodianOptions = Map.of("delimiter", ",", "header", true);
+        // Evening batches reuse the same delimiter/header options to emphasise that file provenance drives break analysis.
         SCENARIOS.put(
                 "custodian-trade",
                 new ScenarioDefinition(

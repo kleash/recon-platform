@@ -17,6 +17,10 @@ import { catchError, map, tap } from 'rxjs/operators';
 type QueryValue = string | number | boolean | Array<string | number>;
 type QueryParams = Record<string, QueryValue>;
 
+/**
+ * Provides a single source of truth for grid query state, including pagination cursors, saved views, and export
+ * job histories. Components interact through observables rather than mutating API calls directly.
+ */
 @Injectable({ providedIn: 'root' })
 export class ResultGridStateService {
   private reconciliation: ReconciliationListItem | null = null;

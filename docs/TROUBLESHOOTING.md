@@ -51,3 +51,11 @@
     `PATH="/opt/homebrew/opt/bash/bin:$PATH"` so Bash ≥ 4 is used.
   - Ensure `python3`, `curl`, and `jq` are installed—the script validates their presence with `require_command`.
 - **Diagnostics**: Re-run with `bash -x` for detailed tracing once the newer interpreter is on PATH.
+
+## Unable to reconcile reconciliation run activity with logs
+- **Symptom**: Analysts cannot confirm which user triggered a run or bulk break update from log output alone.
+- **Checklist**:
+  - Ensure backend logging level includes INFO; `ReconciliationService` logs each run with definition code, trigger type, and correlation ID.
+  - For bulk operations, search for `Break bulk update summary` and match the correlation ID from the UI toast.
+  - Enable DEBUG logging for `com.universal.reconciliation.service.matching.DynamicMatchingEngine` when investigating unexpected match counts.
+- **Diagnostics**: Cross-reference the correlation ID from the log with `system_activity` entries to verify the event pipeline end-to-end.

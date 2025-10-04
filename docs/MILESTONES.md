@@ -1,3 +1,7 @@
+- **Readability and observability uplift (2025-10-06)**
+  - Documented the reconciliation workspace orchestration and state services so new contributors can follow the tab/filter lifecycle without reverse-engineering the templates.
+  - Added structured logging in `ReconciliationService`, `BreakService`, and the dynamic matching engine to make correlation IDs, match counts, and bulk workflow operations visible in production logs.
+  - Updated run-book guidance to highlight the new log streams and recommended verification flow when reconciling maker/checker actions.
 - **Source schema refactor (2025-10-03)**
   - Reordered the admin configurator wizard so raw source schema capture precedes transformations and matching.
   - Persisted per-source schema metadata and introduced automated inference from sample files.

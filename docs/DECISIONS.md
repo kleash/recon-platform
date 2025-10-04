@@ -1,3 +1,7 @@
+- **ADR: Reconciliation workflow observability (2025-10-06)**
+  - Problem: Correlating reconciliation run execution with downstream break persistence required manual database queries and system activity lookups; bulk maker/checker operations left sparse traces in application logs.
+  - Decision: Instrument `ReconciliationService`, `DynamicMatchingEngine`, and `BreakService` with structured INFO/DEBUG logs keyed by definition code, correlation ID, and match/break counts. Surface inline documentation in the Angular workspace to make the refresh and locking model explicit.
+  - Consequences: Support teams can replay reconciliation events from log streams without ad-hoc SQL, and engineers extending the workspace have guide rails that explain when to emit break events or respect the bulk-edit selection lock.
 - **ADR: Source schema as first-class metadata (2025-10-03)**
   - Problem: The legacy schema step duplicated matching controls, stored transformation snippets inline, and did not
     persist a reusable view of raw source columns. Dropdowns in subsequent steps routinely drifted from the actual

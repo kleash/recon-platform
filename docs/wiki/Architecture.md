@@ -128,7 +128,10 @@ graph TD
 - `BreakController.java` – Orchestrates maker/checker workflow actions, comments, and bulk updates.
 - `ExportController.java` – Streams run-level XLSX exports derived from configured report templates.
 - `DynamicMatchingEngine.java` – Executes metadata-driven comparisons for reconciliations with any number of sources.
-- `SourceIngestionService.java` – Projects raw source payloads into canonical fields using transformation plans and adapter metadata.
+- `SourceIngestionService.java` – Applies each source's `SourceTransformationPlan` (dataset Groovy script + row/column operations), then
+  hydrates canonical fields by executing mapped `CanonicalFieldTransformation` chains (Groovy, Excel, or pipeline functions) before
+  persisting the normalised payload. Legacy `transformationExpression` strings have been retired in favour of the structured
+  transformation pipeline.
 - `OpenAiDocumentIngestionAdapter.java` – LLM-powered ingestion adapter that extracts structured data from unstructured documents.
 - `ExportJobController.java` / `ExportJobService.java` – Manage asynchronous dataset exports and secure downloads.
 - `EtlBootstrapper.java` – Discovers `EtlPipeline` beans (from examples or integration harnesses) and executes them at startup.

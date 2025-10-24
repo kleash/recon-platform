@@ -53,8 +53,22 @@
       "displayOrder": 1,
       "required": true,
       "mappings": [
-        { "id": null, "sourceCode": "CUST30", "sourceColumn": "transactionId", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
-        { "id": null, "sourceCode": "PORT30", "sourceColumn": "transactionId", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+        {
+          "id": null,
+          "sourceCode": "CUST30",
+          "sourceColumn": "transactionId",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "PORT30",
+          "sourceColumn": "transactionId",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
     {
@@ -70,8 +84,22 @@
       "displayOrder": 2,
       "required": true,
       "mappings": [
-        { "id": null, "sourceCode": "CUST30", "sourceColumn": "amount", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
-        { "id": null, "sourceCode": "PORT30", "sourceColumn": "amount", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+        {
+          "id": null,
+          "sourceCode": "CUST30",
+          "sourceColumn": "amount",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "PORT30",
+          "sourceColumn": "amount",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
     {
@@ -87,8 +115,22 @@
       "displayOrder": 3,
       "required": true,
       "mappings": [
-        { "id": null, "sourceCode": "CUST30", "sourceColumn": "currency", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
-        { "id": null, "sourceCode": "PORT30", "sourceColumn": "currency", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+        {
+          "id": null,
+          "sourceCode": "CUST30",
+          "sourceColumn": "currency",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "PORT30",
+          "sourceColumn": "currency",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
     {
@@ -104,8 +146,22 @@
       "displayOrder": 4,
       "required": true,
       "mappings": [
-        { "id": null, "sourceCode": "CUST30", "sourceColumn": "tradeDate", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
-        { "id": null, "sourceCode": "PORT30", "sourceColumn": "tradeDate", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+        {
+          "id": null,
+          "sourceCode": "CUST30",
+          "sourceColumn": "tradeDate",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "PORT30",
+          "sourceColumn": "tradeDate",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
     {
@@ -121,8 +177,22 @@
       "displayOrder": 5,
       "required": true,
       "mappings": [
-        { "id": null, "sourceCode": "CUST30", "sourceColumn": "product", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
-        { "id": null, "sourceCode": "PORT30", "sourceColumn": "product", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+        {
+          "id": null,
+          "sourceCode": "CUST30",
+          "sourceColumn": "product",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "PORT30",
+          "sourceColumn": "product",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
     {
@@ -138,8 +208,22 @@
       "displayOrder": 6,
       "required": true,
       "mappings": [
-        { "id": null, "sourceCode": "CUST30", "sourceColumn": "subProduct", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
-        { "id": null, "sourceCode": "PORT30", "sourceColumn": "subProduct", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+        {
+          "id": null,
+          "sourceCode": "CUST30",
+          "sourceColumn": "subProduct",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "PORT30",
+          "sourceColumn": "subProduct",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
     {
@@ -155,8 +239,22 @@
       "displayOrder": 7,
       "required": true,
       "mappings": [
-        { "id": null, "sourceCode": "CUST30", "sourceColumn": "entity", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
-        { "id": null, "sourceCode": "PORT30", "sourceColumn": "entity", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+        {
+          "id": null,
+          "sourceCode": "CUST30",
+          "sourceColumn": "entity",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "PORT30",
+          "sourceColumn": "entity",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     }
   ],

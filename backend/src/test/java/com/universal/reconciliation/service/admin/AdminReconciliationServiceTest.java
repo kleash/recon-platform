@@ -240,7 +240,6 @@ class AdminReconciliationServiceTest {
                                         null,
                                         null,
                                         null,
-                                        null,
                                         1,
                                         true,
                                         List.of()),
@@ -248,7 +247,6 @@ class AdminReconciliationServiceTest {
                                         null,
                                         "GL",
                                         "trade_id",
-                                        null,
                                         null,
                                         null,
                                         null,
@@ -461,7 +459,6 @@ class AdminReconciliationServiceTest {
         mapping.setCanonicalField(field);
         mapping.setSource(source);
         mapping.setSourceColumn("trade_id");
-        mapping.setTransformationExpression("TRIM(trade_id)");
         mapping.setDefaultValue("UNKNOWN");
         mapping.setOrdinalPosition(1);
         mapping.setRequired(true);
@@ -507,7 +504,6 @@ class AdminReconciliationServiceTest {
         assertThat(schemaField.mappings()).singleElement().satisfies(m -> {
             assertThat(m.sourceCode()).isEqualTo("CUSTODY");
             assertThat(m.sourceColumn()).isEqualTo("trade_id");
-            assertThat(m.transformationExpression()).isEqualTo("TRIM(trade_id)");
             assertThat(m.defaultValue()).isEqualTo("UNKNOWN");
             assertThat(m.ordinalPosition()).isEqualTo(1);
             assertThat(m.required()).isTrue();

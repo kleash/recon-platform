@@ -21,6 +21,8 @@ import com.universal.reconciliation.util.ParsingUtils;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
@@ -29,6 +31,8 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class DynamicMatchingEngine implements MatchingEngine {
+
+    private static final Logger log = LoggerFactory.getLogger(DynamicMatchingEngine.class);
 
     private final DynamicReconciliationContextLoader contextLoader;
 
@@ -42,6 +46,10 @@ public class DynamicMatchingEngine implements MatchingEngine {
         return execute(context);
     }
 
+    /**
+     * Compares the anchor dataset against every configured source to derive break candidates while capturing
+     * matched, mismatched, and missing statistics for the calling service.
+     */
     private MatchingResult execute(DynamicReconciliationContext context) {
         Map<String, Map<String, Object>> anchorRecords = context.anchor().recordsByKey();
         List<DynamicSourceDataset> otherSources = context.otherSources();
@@ -115,6 +123,18 @@ public class DynamicMatchingEngine implements MatchingEngine {
                     immutableSnapshot(sourcesSnapshot),
                     Map.copyOf(classifications),
                     missingSources));
+        }
+
+        if (log.isDebugEnabled()) {
+            log.debug(
+                    "Matching completed: definition={} matched={} mismatched={} missing={} breaks={} anchor={} otherSources={}",
+                    context.definition().getCode(),
+                    matched,
+                    mismatched,
+                    missing,
+                    breakCandidates.size(),
+                    context.anchor().source().getCode(),
+                    otherSources.stream().map(dataset -> dataset.source().getCode()).toList());
         }
 
         return new MatchingResult(matched, mismatched, missing, breakCandidates);

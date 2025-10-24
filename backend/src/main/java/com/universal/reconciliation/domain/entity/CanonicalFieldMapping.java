@@ -44,9 +44,6 @@ public class CanonicalFieldMapping {
     @Column(name = "source_column", nullable = false)
     private String sourceColumn;
 
-    @Column(name = "transformation_expression")
-    private String transformationExpression;
-
     @Column(name = "default_value")
     private String defaultValue;
 

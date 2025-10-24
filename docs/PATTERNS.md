@@ -27,6 +27,9 @@
 - **Ship working transformations**: When publishing reference reconciliations (integration harness, historical seed),
   include a dataset Groovy script plus at least one row and column operation per source so downstream teams can copy an
   end-to-end normalization pattern.
+- **Use structured field transformations**: Canonical mappings must rely on the ordered `transformations` chain only.
+  Avoid reintroducing free-form expression strings; the Admin Configurator serialises Groovy, Excel, and pipeline steps
+  into the `CanonicalFieldTransformation` collection and ingestion executes them in display order.
 
 ## Angular 20 Frontend
 - **Embrace standalone-by-default**: Angular 19+ removes the need to specify `standalone: true` on components that are
@@ -37,3 +40,8 @@
 - **Bundler module resolution**: The CLI migrates `tsconfig.json` to `moduleResolution: "bundler"`. Rely on explicit
   relative imports (no implicit index barrel resolution) and ensure custom tooling (Jest, ESLint, ts-node) reuses the
   Angular-provided TS configuration.
+
+## Observability
+- **Log correlation identifiers**: Backend services should include reconciliation codes, run IDs, and correlation IDs in INFO logs so workflow events align with audit tables without extra joins.
+- **Keep matching logs at DEBUG**: Detailed counts from `DynamicMatchingEngine` stay on DEBUG to avoid noisy production logs; enable them on demand when investigating tolerance or classifier issues.
+- **Document state locks**: When UI services introduce safeguards (e.g., temporary selection locks after bulk updates), add inline comments so additional consumers understand the lifecycle and do not accidentally break the contract.

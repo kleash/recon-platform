@@ -36,6 +36,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.access.AccessDeniedException;
@@ -47,6 +49,8 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class ReconciliationService {
+
+    private static final Logger log = LoggerFactory.getLogger(ReconciliationService.class);
 
     private final ReconciliationDefinitionRepository definitionRepository;
     private final AccessControlEntryRepository accessControlEntryRepository;
@@ -100,6 +104,10 @@ public class ReconciliationService {
                 .toList();
     }
 
+    /**
+     * Executes a reconciliation run end-to-end: validates access, invokes the matching engine, persists
+     * derived breaks, and emits a new {@link ReconciliationRun} summary for UI consumption.
+     */
     @Transactional
     public RunDetailDto triggerRun(
             Long definitionId,
@@ -109,6 +117,15 @@ public class ReconciliationService {
         ReconciliationDefinition definition = loadDefinition(definitionId);
         List<AccessControlEntry> entries = ensureAccess(definition, userGroups);
         MatchingResult result = matchingEngine.execute(definition);
+
+        if (log.isInfoEnabled()) {
+            log.info(
+                    "Reconciliation run requested: definition={} triggerType={} userGroups={} correlationId={}",
+                    definition.getCode(),
+                    request.triggerType() != null ? request.triggerType() : TriggerType.MANUAL_API,
+                    String.join(",", userGroups),
+                    request.correlationId());
+        }
 
         ReconciliationRun run = new ReconciliationRun();
         run.setDefinition(definition);
@@ -125,6 +142,17 @@ public class ReconciliationService {
         run = runRepository.save(run);
 
         persistBreaks(run, result.breaks());
+
+        if (log.isInfoEnabled()) {
+            log.info(
+                    "Reconciliation run persisted: definition={} runId={} matched={} mismatched={} missing={} breaks={}",
+                    definition.getCode(),
+                    run.getId(),
+                    run.getMatchedCount(),
+                    run.getMismatchedCount(),
+                    run.getMissingCount(),
+                    result.breaks().size());
+        }
 
         systemActivityService.recordEvent(
                 SystemEventType.RECONCILIATION_RUN,
@@ -226,7 +254,19 @@ public class ReconciliationService {
         return entries;
     }
 
+    /**
+     * Converts transient {@link BreakCandidate} projections produced by the matching engine into persisted
+     * {@link BreakItem} aggregates, ensuring classifier metadata is captured both in JSON columns and the
+     * queryable child table.
+     */
     private void persistBreaks(ReconciliationRun run, List<BreakCandidate> candidates) {
+        if (log.isDebugEnabled()) {
+            log.debug(
+                    "Persisting break candidates for run {}: count={} definition={}",
+                    run.getId(),
+                    candidates.size(),
+                    run.getDefinition().getCode());
+        }
         List<BreakItem> items = new ArrayList<>();
         for (BreakCandidate candidate : candidates) {
             BreakItem breakItem = new BreakItem();

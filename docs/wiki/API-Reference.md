@@ -223,6 +223,10 @@ the configuration studio, metadata exports, and ingestion tooling.
 | `/api/admin/reconciliations/{id}/schema` | GET | Exports a JSON snapshot of the reconciliation metadata. |
 | `/api/admin/reconciliations/{id}/sources/{sourceCode}/batches` | POST | Uploads a source batch. Multipart request with `metadata` (JSON) and `file` (payload). |
 
+> **Note:** Canonical field mappings now expose only the structured `transformations` array. The legacy
+> `transformationExpression` string has been removed from authoring and schema export payloads; clients
+> still sending it will receive an `UnrecognizedPropertyException`.
+
 **Sample: Create a reconciliation**
 ```http
 POST /api/admin/reconciliations HTTP/1.1

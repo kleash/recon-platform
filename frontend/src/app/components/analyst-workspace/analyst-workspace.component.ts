@@ -33,6 +33,10 @@ interface ColumnFilterRow {
   value: string;
 }
 
+/**
+ * Shell container for the analyst workspace. Coordinates reconciliation selection, grid filters, and
+ * cross-widget refresh behaviour so the underlying services remain stateful but presentation stays declarative.
+ */
 @Component({
     selector: 'urp-analyst-workspace',
     imports: [
@@ -117,6 +121,7 @@ export class AnalystWorkspaceComponent implements OnInit, OnDestroy {
     this.state.breakEvents$
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
+        // Refresh the grid and re-select the active break so inline detail stays in sync after workflow updates.
         const currentBreak = this.state.getCurrentBreak();
         this.resultState.refresh();
         if (currentBreak) {

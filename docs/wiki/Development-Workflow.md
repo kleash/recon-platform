@@ -52,7 +52,12 @@ graph TD
 3. Query the canonical staging tables (`source_data_batches`, `source_data_records`) to verify record counts and key fields; use the H2 console (`/h2-console`) in dev.
 4. To rerun a single pipeline, autowire the component in a Spring test or temporary REST endpoint and call its `run()` method manually, or trigger ingestion via `/api/admin/reconciliations/{id}/sources/{code}/batches` to exercise the same `SourceIngestionService` path used in production.
 
-### 8.4 Troubleshooting Authentication
+### 8.4 Observing Reconciliation Runs
+1. `ReconciliationService` now emits an INFO log with the triggering user, correlation ID, and resulting match counts. Capture these logs alongside the system activity table to cross-reference user actions.
+2. `DynamicMatchingEngine` surfaces DEBUG-level summaries (matched/mismatched/missing counts) keyed by definition and source codes. Enable the logger temporarily when triaging tolerance or key configuration issues.
+3. Workflow changes applied through `BreakService` output INFO logs summarising single and bulk updates (including correlation IDs). Pair these with Playwright evidence whenever maker-checker policies are adjusted.
+
+### 8.5 Troubleshooting Authentication
 - Confirm LDAP settings in `application.yml`/`application-local.yml` (`app.security.ldap.*`, `spring.ldap.*`) align with your directory.
 - When using embedded LDAP, update `ldap-data.ldif` to reflect desired demo users and groups.
 - Enable DEBUG logging for `org.springframework.security` temporarily to trace bind attempts and JWT validation issues.

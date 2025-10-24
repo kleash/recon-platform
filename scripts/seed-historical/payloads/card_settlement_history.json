@@ -40,51 +40,246 @@
     }
   ],
   "canonicalFields": [
-    { "id": null, "canonicalName": "transactionId", "displayName": "Clearing ID", "role": "KEY", "dataType": "STRING", "comparisonLogic": "EXACT_MATCH", "thresholdPercentage": null, "classifierTag": null, "formattingHint": null, "displayOrder": 1, "required": true,
+    {
+      "id": null,
+      "canonicalName": "transactionId",
+      "displayName": "Clearing ID",
+      "role": "KEY",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 1,
+      "required": true,
       "mappings": [
-        { "id": null, "sourceCode": "NET30", "sourceColumn": "transactionId", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
-        { "id": null, "sourceCode": "LEDGER30", "sourceColumn": "transactionId", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+        {
+          "id": null,
+          "sourceCode": "NET30",
+          "sourceColumn": "transactionId",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "LEDGER30",
+          "sourceColumn": "transactionId",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
-    { "id": null, "canonicalName": "amount", "displayName": "Settlement Amount", "role": "COMPARE", "dataType": "DECIMAL", "comparisonLogic": "NUMERIC_THRESHOLD", "thresholdPercentage": 0.5, "classifierTag": null, "formattingHint": null, "displayOrder": 2, "required": true,
+    {
+      "id": null,
+      "canonicalName": "amount",
+      "displayName": "Settlement Amount",
+      "role": "COMPARE",
+      "dataType": "DECIMAL",
+      "comparisonLogic": "NUMERIC_THRESHOLD",
+      "thresholdPercentage": 0.5,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 2,
+      "required": true,
       "mappings": [
-        { "id": null, "sourceCode": "NET30", "sourceColumn": "amount", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
-        { "id": null, "sourceCode": "LEDGER30", "sourceColumn": "amount", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+        {
+          "id": null,
+          "sourceCode": "NET30",
+          "sourceColumn": "amount",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "LEDGER30",
+          "sourceColumn": "amount",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
-    { "id": null, "canonicalName": "currency", "displayName": "Currency", "role": "COMPARE", "dataType": "STRING", "comparisonLogic": "CASE_INSENSITIVE", "thresholdPercentage": null, "classifierTag": null, "formattingHint": null, "displayOrder": 3, "required": true,
+    {
+      "id": null,
+      "canonicalName": "currency",
+      "displayName": "Currency",
+      "role": "COMPARE",
+      "dataType": "STRING",
+      "comparisonLogic": "CASE_INSENSITIVE",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 3,
+      "required": true,
       "mappings": [
-        { "id": null, "sourceCode": "NET30", "sourceColumn": "currency", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
-        { "id": null, "sourceCode": "LEDGER30", "sourceColumn": "currency", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+        {
+          "id": null,
+          "sourceCode": "NET30",
+          "sourceColumn": "currency",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "LEDGER30",
+          "sourceColumn": "currency",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
-    { "id": null, "canonicalName": "tradeDate", "displayName": "Settlement Date", "role": "COMPARE", "dataType": "DATE", "comparisonLogic": "DATE_ONLY", "thresholdPercentage": null, "classifierTag": null, "formattingHint": null, "displayOrder": 4, "required": true,
+    {
+      "id": null,
+      "canonicalName": "tradeDate",
+      "displayName": "Settlement Date",
+      "role": "COMPARE",
+      "dataType": "DATE",
+      "comparisonLogic": "DATE_ONLY",
+      "thresholdPercentage": null,
+      "classifierTag": null,
+      "formattingHint": null,
+      "displayOrder": 4,
+      "required": true,
       "mappings": [
-        { "id": null, "sourceCode": "NET30", "sourceColumn": "tradeDate", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
-        { "id": null, "sourceCode": "LEDGER30", "sourceColumn": "tradeDate", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+        {
+          "id": null,
+          "sourceCode": "NET30",
+          "sourceColumn": "tradeDate",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "LEDGER30",
+          "sourceColumn": "tradeDate",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
-    { "id": null, "canonicalName": "product", "displayName": "Card Brand", "role": "PRODUCT", "dataType": "STRING", "comparisonLogic": "EXACT_MATCH", "thresholdPercentage": null, "classifierTag": "product", "formattingHint": null, "displayOrder": 5, "required": true,
+    {
+      "id": null,
+      "canonicalName": "product",
+      "displayName": "Card Brand",
+      "role": "PRODUCT",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": "product",
+      "formattingHint": null,
+      "displayOrder": 5,
+      "required": true,
       "mappings": [
-        { "id": null, "sourceCode": "NET30", "sourceColumn": "product", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
-        { "id": null, "sourceCode": "LEDGER30", "sourceColumn": "product", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+        {
+          "id": null,
+          "sourceCode": "NET30",
+          "sourceColumn": "product",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "LEDGER30",
+          "sourceColumn": "product",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
-    { "id": null, "canonicalName": "subProduct", "displayName": "Region", "role": "SUB_PRODUCT", "dataType": "STRING", "comparisonLogic": "EXACT_MATCH", "thresholdPercentage": null, "classifierTag": "subProduct", "formattingHint": null, "displayOrder": 6, "required": true,
+    {
+      "id": null,
+      "canonicalName": "subProduct",
+      "displayName": "Region",
+      "role": "SUB_PRODUCT",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": "subProduct",
+      "formattingHint": null,
+      "displayOrder": 6,
+      "required": true,
       "mappings": [
-        { "id": null, "sourceCode": "NET30", "sourceColumn": "subProduct", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
-        { "id": null, "sourceCode": "LEDGER30", "sourceColumn": "subProduct", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+        {
+          "id": null,
+          "sourceCode": "NET30",
+          "sourceColumn": "subProduct",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "LEDGER30",
+          "sourceColumn": "subProduct",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
-    { "id": null, "canonicalName": "entityName", "displayName": "Merchant Entity", "role": "ENTITY", "dataType": "STRING", "comparisonLogic": "EXACT_MATCH", "thresholdPercentage": null, "classifierTag": "entity", "formattingHint": null, "displayOrder": 7, "required": true,
+    {
+      "id": null,
+      "canonicalName": "entityName",
+      "displayName": "Merchant Entity",
+      "role": "ENTITY",
+      "dataType": "STRING",
+      "comparisonLogic": "EXACT_MATCH",
+      "thresholdPercentage": null,
+      "classifierTag": "entity",
+      "formattingHint": null,
+      "displayOrder": 7,
+      "required": true,
       "mappings": [
-        { "id": null, "sourceCode": "NET30", "sourceColumn": "entity", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true },
-        { "id": null, "sourceCode": "LEDGER30", "sourceColumn": "entity", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true }
+        {
+          "id": null,
+          "sourceCode": "NET30",
+          "sourceColumn": "entity",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "LEDGER30",
+          "sourceColumn": "entity",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     }
   ],
   "accessControlEntries": [
-    { "id": null, "ldapGroupDn": "recon-makers", "role": "MAKER", "product": null, "subProduct": null, "entityName": null, "notifyOnPublish": false, "notifyOnIngestionFailure": false, "notificationChannel": null },
-    { "id": null, "ldapGroupDn": "recon-checkers", "role": "CHECKER", "product": null, "subProduct": null, "entityName": null, "notifyOnPublish": false, "notifyOnIngestionFailure": false, "notificationChannel": null }
+    {
+      "id": null,
+      "ldapGroupDn": "recon-makers",
+      "role": "MAKER",
+      "product": null,
+      "subProduct": null,
+      "entityName": null,
+      "notifyOnPublish": false,
+      "notifyOnIngestionFailure": false,
+      "notificationChannel": null
+    },
+    {
+      "id": null,
+      "ldapGroupDn": "recon-checkers",
+      "role": "CHECKER",
+      "product": null,
+      "subProduct": null,
+      "entityName": null,
+      "notifyOnPublish": false,
+      "notifyOnIngestionFailure": false,
+      "notificationChannel": null
+    }
   ]
 }

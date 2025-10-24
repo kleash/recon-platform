@@ -36,6 +36,16 @@
 - **Diagnostics**: Use the admin transformation preview with the fixture sample to see which rows survive the applied
   filters before running a full ingestion.
 
+## API rejects `transformationExpression`
+- **Symptom**: Admin authoring endpoints return `400` with `UnrecognizedPropertyException: transformationExpression`.
+- **Checklist**:
+  - Remove the legacy field from client payloads; canonical mappings now accept only the structured
+    `transformations` array.
+  - If using stored JSON fixtures, rerun them through the latest schema export or the admin configurator to regenerate
+    payloads without the deprecated property.
+- **Diagnostics**: Backend logs identify the offending field name. Jackson's error message includes the top-level object
+  path when multiple mappings are posted.
+
 ## Angular CLI reports unsupported Node or TypeScript warnings
 - **Symptom**: `ng version` / `ng update` warn about unsupported Node 24.x or emit `TypeScript compiler options 'module'` warnings.
 - **Checklist**:
@@ -51,3 +61,11 @@
     `PATH="/opt/homebrew/opt/bash/bin:$PATH"` so Bash ≥ 4 is used.
   - Ensure `python3`, `curl`, and `jq` are installed—the script validates their presence with `require_command`.
 - **Diagnostics**: Re-run with `bash -x` for detailed tracing once the newer interpreter is on PATH.
+
+## Unable to reconcile reconciliation run activity with logs
+- **Symptom**: Analysts cannot confirm which user triggered a run or bulk break update from log output alone.
+- **Checklist**:
+  - Ensure backend logging level includes INFO; `ReconciliationService` logs each run with definition code, trigger type, and correlation ID.
+  - For bulk operations, search for `Break bulk update summary` and match the correlation ID from the UI toast.
+  - Enable DEBUG logging for `com.universal.reconciliation.service.matching.DynamicMatchingEngine` when investigating unexpected match counts.
+- **Diagnostics**: Cross-reference the correlation ID from the log with `system_activity` entries to verify the event pipeline end-to-end.

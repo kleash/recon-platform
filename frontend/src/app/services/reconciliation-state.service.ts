@@ -15,6 +15,10 @@ import { BreakStatus } from '../models/break-status';
 import { BreakFilter } from '../models/break-filter';
 import { NotificationService } from './notification.service';
 
+/**
+ * Central state manager for reconciliation-level data. It orchestrates API calls for runs, breaks, approvals,
+ * and system activity while exposing observable streams consumed by workspace components.
+ */
 @Injectable({ providedIn: 'root' })
 export class ReconciliationStateService {
   private readonly reconciliationsSubject = new BehaviorSubject<ReconciliationListItem[]>([]);
@@ -28,7 +32,7 @@ export class ReconciliationStateService {
   private readonly approvalsSubject = new BehaviorSubject<BreakItem[]>([]);
   private readonly approvalMetadataSubject = new BehaviorSubject<FilterMetadata | null>(null);
   private readonly workflowSummarySubject = new BehaviorSubject<string | null>(null);
-  private pendingSelectionLockUntil = 0;
+  private pendingSelectionLockUntil = 0; // Prevents UI thrash by pausing break reselection immediately after bulk edits.
 
   readonly reconciliations$ = this.reconciliationsSubject.asObservable();
   readonly selectedReconciliation$ = this.selectedReconciliationSubject.asObservable();
@@ -137,6 +141,10 @@ export class ReconciliationStateService {
     });
   }
 
+  /**
+   * Applies a bulk workflow update and mirrors the backend's correlation identifier so audit trails can be
+   * reconciled between UI cues and server-side logs.
+   */
   bulkUpdateBreaks(payload: BulkBreakUpdatePayload): void {
     const enriched: BulkBreakUpdatePayload = {
       ...payload,

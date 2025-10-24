@@ -5,6 +5,10 @@ import com.universal.reconciliation.ingestion.sdk.ReconciliationIngestionClient;
 import java.io.IOException;
 import java.util.List;
 
+/**
+ * Lightweight entry point that replays predefined ingestion scenarios against a running platform instance.
+ * Keeps console output intentional so CI logs remain readable when multiple scenarios execute sequentially.
+ */
 public final class IngestionCliApplication {
 
     private IngestionCliApplication() {

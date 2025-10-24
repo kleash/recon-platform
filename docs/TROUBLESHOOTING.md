@@ -36,6 +36,16 @@
 - **Diagnostics**: Use the admin transformation preview with the fixture sample to see which rows survive the applied
   filters before running a full ingestion.
 
+## API rejects `transformationExpression`
+- **Symptom**: Admin authoring endpoints return `400` with `UnrecognizedPropertyException: transformationExpression`.
+- **Checklist**:
+  - Remove the legacy field from client payloads; canonical mappings now accept only the structured
+    `transformations` array.
+  - If using stored JSON fixtures, rerun them through the latest schema export or the admin configurator to regenerate
+    payloads without the deprecated property.
+- **Diagnostics**: Backend logs identify the offending field name. Jackson's error message includes the top-level object
+  path when multiple mappings are posted.
+
 ## Angular CLI reports unsupported Node or TypeScript warnings
 - **Symptom**: `ng version` / `ng update` warn about unsupported Node 24.x or emit `TypeScript compiler options 'module'` warnings.
 - **Checklist**:

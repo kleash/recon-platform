@@ -1,3 +1,7 @@
+- **Canonical field lifecycle audit (2025-10-07)**
+  - Retired the unused `transformationExpression` column across backend APIs, frontend models, and seed payloads in favour of structured transformation chains.
+  - Updated architecture, component, and API references to describe the end-to-end canonical field pipeline (transformation plan → field transformations → persistence).
+  - Added troubleshooting guidance for clients still posting the deprecated field so rollout teams can resolve `UnrecognizedPropertyException` errors quickly.
 - **Readability and observability uplift (2025-10-06)**
   - Documented the reconciliation workspace orchestration and state services so new contributors can follow the tab/filter lifecycle without reverse-engineering the templates.
   - Added structured logging in `ReconciliationService`, `BreakService`, and the dynamic matching engine to make correlation IDs, match counts, and bulk workflow operations visible in production logs.

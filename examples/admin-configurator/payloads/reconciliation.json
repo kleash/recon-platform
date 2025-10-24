@@ -25,9 +25,24 @@
       "arrivalSlaMinutes": 60,
       "adapterOptions": "{\"delimiter\":\",\"}",
       "schemaFields": [
-        { "name": "trade_id", "displayName": "Trade ID", "dataType": "STRING", "required": true },
-        { "name": "net_amount", "displayName": "Net Amount", "dataType": "DECIMAL", "required": true },
-        { "name": "currency", "displayName": "Currency", "dataType": "STRING", "required": true }
+        {
+          "name": "trade_id",
+          "displayName": "Trade ID",
+          "dataType": "STRING",
+          "required": true
+        },
+        {
+          "name": "net_amount",
+          "displayName": "Net Amount",
+          "dataType": "DECIMAL",
+          "required": true
+        },
+        {
+          "name": "currency",
+          "displayName": "Currency",
+          "dataType": "STRING",
+          "required": true
+        }
       ]
     },
     {
@@ -43,9 +58,24 @@
       "arrivalSlaMinutes": null,
       "adapterOptions": null,
       "schemaFields": [
-        { "name": "trade_id", "displayName": "Trade ID", "dataType": "STRING", "required": true },
-        { "name": "net_amount", "displayName": "Net Amount", "dataType": "DECIMAL", "required": true },
-        { "name": "currency", "displayName": "Currency", "dataType": "STRING", "required": true }
+        {
+          "name": "trade_id",
+          "displayName": "Trade ID",
+          "dataType": "STRING",
+          "required": true
+        },
+        {
+          "name": "net_amount",
+          "displayName": "Net Amount",
+          "dataType": "DECIMAL",
+          "required": true
+        },
+        {
+          "name": "currency",
+          "displayName": "Currency",
+          "dataType": "STRING",
+          "required": true
+        }
       ]
     }
   ],
@@ -67,7 +97,6 @@
           "id": null,
           "sourceCode": "CUSTODY_FEED",
           "sourceColumn": "trade_id",
-          "transformationExpression": null,
           "defaultValue": null,
           "ordinalPosition": 0,
           "required": true,
@@ -86,7 +115,6 @@
           "id": null,
           "sourceCode": "GL_LEDGER",
           "sourceColumn": "trade_id",
-          "transformationExpression": null,
           "defaultValue": null,
           "ordinalPosition": 0,
           "required": true,
@@ -120,7 +148,6 @@
           "id": null,
           "sourceCode": "CUSTODY_FEED",
           "sourceColumn": "net_amount",
-          "transformationExpression": null,
           "defaultValue": null,
           "ordinalPosition": 0,
           "required": true,
@@ -139,7 +166,6 @@
           "id": null,
           "sourceCode": "GL_LEDGER",
           "sourceColumn": "net_amount",
-          "transformationExpression": null,
           "defaultValue": null,
           "ordinalPosition": 0,
           "required": true,
@@ -173,7 +199,6 @@
           "id": null,
           "sourceCode": "CUSTODY_FEED",
           "sourceColumn": "currency",
-          "transformationExpression": null,
           "defaultValue": null,
           "ordinalPosition": 0,
           "required": true,
@@ -192,7 +217,6 @@
           "id": null,
           "sourceCode": "GL_LEDGER",
           "sourceColumn": "currency",
-          "transformationExpression": null,
           "defaultValue": null,
           "ordinalPosition": 0,
           "required": true,

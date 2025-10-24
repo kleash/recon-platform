@@ -25,13 +25,48 @@
       "arrivalSlaMinutes": 30,
       "adapterOptions": "{\"delimiter\":\",\",\"header\":true}",
       "schemaFields": [
-        { "name": "trade_id", "displayName": "Trade ID", "dataType": "STRING", "required": true },
-        { "name": "source", "displayName": "Source", "dataType": "STRING", "required": true },
-        { "name": "gross_amount", "displayName": "Gross Amount", "dataType": "DECIMAL", "required": true },
-        { "name": "quantity", "displayName": "Quantity", "dataType": "DECIMAL", "required": true },
-        { "name": "currency", "displayName": "Currency", "dataType": "STRING", "required": true },
-        { "name": "trade_date", "displayName": "Trade Date", "dataType": "DATE", "required": true },
-        { "name": "book", "displayName": "Book", "dataType": "STRING", "required": false }
+        {
+          "name": "trade_id",
+          "displayName": "Trade ID",
+          "dataType": "STRING",
+          "required": true
+        },
+        {
+          "name": "source",
+          "displayName": "Source",
+          "dataType": "STRING",
+          "required": true
+        },
+        {
+          "name": "gross_amount",
+          "displayName": "Gross Amount",
+          "dataType": "DECIMAL",
+          "required": true
+        },
+        {
+          "name": "quantity",
+          "displayName": "Quantity",
+          "dataType": "DECIMAL",
+          "required": true
+        },
+        {
+          "name": "currency",
+          "displayName": "Currency",
+          "dataType": "STRING",
+          "required": true
+        },
+        {
+          "name": "trade_date",
+          "displayName": "Trade Date",
+          "dataType": "DATE",
+          "required": true
+        },
+        {
+          "name": "book",
+          "displayName": "Book",
+          "dataType": "STRING",
+          "required": false
+        }
       ]
     },
     {
@@ -47,13 +82,48 @@
       "arrivalSlaMinutes": 45,
       "adapterOptions": "{\"delimiter\":\",\"header\":true}",
       "schemaFields": [
-        { "name": "trade_id", "displayName": "Trade ID", "dataType": "STRING", "required": true },
-        { "name": "source", "displayName": "Source", "dataType": "STRING", "required": true },
-        { "name": "gross_amount", "displayName": "Gross Amount", "dataType": "DECIMAL", "required": true },
-        { "name": "quantity", "displayName": "Quantity", "dataType": "DECIMAL", "required": true },
-        { "name": "currency", "displayName": "Currency", "dataType": "STRING", "required": true },
-        { "name": "trade_date", "displayName": "Trade Date", "dataType": "DATE", "required": true },
-        { "name": "desk", "displayName": "Desk", "dataType": "STRING", "required": false }
+        {
+          "name": "trade_id",
+          "displayName": "Trade ID",
+          "dataType": "STRING",
+          "required": true
+        },
+        {
+          "name": "source",
+          "displayName": "Source",
+          "dataType": "STRING",
+          "required": true
+        },
+        {
+          "name": "gross_amount",
+          "displayName": "Gross Amount",
+          "dataType": "DECIMAL",
+          "required": true
+        },
+        {
+          "name": "quantity",
+          "displayName": "Quantity",
+          "dataType": "DECIMAL",
+          "required": true
+        },
+        {
+          "name": "currency",
+          "displayName": "Currency",
+          "dataType": "STRING",
+          "required": true
+        },
+        {
+          "name": "trade_date",
+          "displayName": "Trade Date",
+          "dataType": "DATE",
+          "required": true
+        },
+        {
+          "name": "desk",
+          "displayName": "Desk",
+          "dataType": "STRING",
+          "required": false
+        }
       ]
     }
   ],
@@ -71,8 +141,22 @@
       "displayOrder": 1,
       "required": true,
       "mappings": [
-        {"id": null, "sourceCode": "PLATFORM", "sourceColumn": "trade_id", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
-        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "trade_id", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+        {
+          "id": null,
+          "sourceCode": "PLATFORM",
+          "sourceColumn": "trade_id",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "CUSTODIAN",
+          "sourceColumn": "trade_id",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
     {
@@ -88,8 +172,22 @@
       "displayOrder": 2,
       "required": true,
       "mappings": [
-        {"id": null, "sourceCode": "PLATFORM", "sourceColumn": "source", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
-        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "source", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+        {
+          "id": null,
+          "sourceCode": "PLATFORM",
+          "sourceColumn": "source",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "CUSTODIAN",
+          "sourceColumn": "source",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
     {
@@ -105,8 +203,22 @@
       "displayOrder": 3,
       "required": true,
       "mappings": [
-        {"id": null, "sourceCode": "PLATFORM", "sourceColumn": "gross_amount", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
-        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "gross_amount", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+        {
+          "id": null,
+          "sourceCode": "PLATFORM",
+          "sourceColumn": "gross_amount",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "CUSTODIAN",
+          "sourceColumn": "gross_amount",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
     {
@@ -122,8 +234,22 @@
       "displayOrder": 4,
       "required": true,
       "mappings": [
-        {"id": null, "sourceCode": "PLATFORM", "sourceColumn": "quantity", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
-        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "quantity", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+        {
+          "id": null,
+          "sourceCode": "PLATFORM",
+          "sourceColumn": "quantity",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "CUSTODIAN",
+          "sourceColumn": "quantity",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
     {
@@ -139,8 +265,22 @@
       "displayOrder": 5,
       "required": true,
       "mappings": [
-        {"id": null, "sourceCode": "PLATFORM", "sourceColumn": "currency", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
-        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "currency", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+        {
+          "id": null,
+          "sourceCode": "PLATFORM",
+          "sourceColumn": "currency",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "CUSTODIAN",
+          "sourceColumn": "currency",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
     {
@@ -156,8 +296,22 @@
       "displayOrder": 6,
       "required": true,
       "mappings": [
-        {"id": null, "sourceCode": "PLATFORM", "sourceColumn": "trade_date", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
-        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "trade_date", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+        {
+          "id": null,
+          "sourceCode": "PLATFORM",
+          "sourceColumn": "trade_date",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "CUSTODIAN",
+          "sourceColumn": "trade_date",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
     {
@@ -173,8 +327,22 @@
       "displayOrder": 7,
       "required": true,
       "mappings": [
-        {"id": null, "sourceCode": "PLATFORM", "sourceColumn": "book", "transformationExpression": null, "defaultValue": "Global Markets", "ordinalPosition": 0, "required": true},
-        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "desk", "transformationExpression": null, "defaultValue": "Global Markets", "ordinalPosition": 0, "required": true}
+        {
+          "id": null,
+          "sourceCode": "PLATFORM",
+          "sourceColumn": "book",
+          "defaultValue": "Global Markets",
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "CUSTODIAN",
+          "sourceColumn": "desk",
+          "defaultValue": "Global Markets",
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
     {
@@ -190,8 +358,22 @@
       "displayOrder": 8,
       "required": true,
       "mappings": [
-        {"id": null, "sourceCode": "PLATFORM", "sourceColumn": "book", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
-        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "portfolio", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+        {
+          "id": null,
+          "sourceCode": "PLATFORM",
+          "sourceColumn": "book",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "CUSTODIAN",
+          "sourceColumn": "portfolio",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     }
   ],
@@ -205,13 +387,62 @@
       "includeMissing": true,
       "highlightDifferences": true,
       "columns": [
-        {"id": null, "header": "Trade ID", "source": "SOURCE_A", "sourceField": "transactionId", "displayOrder": 1, "highlightDifferences": false},
-        {"id": null, "header": "Source", "source": "SOURCE_A", "sourceField": "subProduct", "displayOrder": 2, "highlightDifferences": false},
-        {"id": null, "header": "Gross Amount (Custodian)", "source": "SOURCE_B", "sourceField": "amount", "displayOrder": 3, "highlightDifferences": true},
-        {"id": null, "header": "Gross Amount (Platform)", "source": "SOURCE_A", "sourceField": "amount", "displayOrder": 4, "highlightDifferences": true},
-        {"id": null, "header": "Quantity (Custodian)", "source": "SOURCE_B", "sourceField": "quantity", "displayOrder": 5, "highlightDifferences": true},
-        {"id": null, "header": "Quantity (Platform)", "source": "SOURCE_A", "sourceField": "quantity", "displayOrder": 6, "highlightDifferences": true},
-        {"id": null, "header": "Workflow Status", "source": "BREAK_METADATA", "sourceField": "status", "displayOrder": 7, "highlightDifferences": false}
+        {
+          "id": null,
+          "header": "Trade ID",
+          "source": "SOURCE_A",
+          "sourceField": "transactionId",
+          "displayOrder": 1,
+          "highlightDifferences": false
+        },
+        {
+          "id": null,
+          "header": "Source",
+          "source": "SOURCE_A",
+          "sourceField": "subProduct",
+          "displayOrder": 2,
+          "highlightDifferences": false
+        },
+        {
+          "id": null,
+          "header": "Gross Amount (Custodian)",
+          "source": "SOURCE_B",
+          "sourceField": "amount",
+          "displayOrder": 3,
+          "highlightDifferences": true
+        },
+        {
+          "id": null,
+          "header": "Gross Amount (Platform)",
+          "source": "SOURCE_A",
+          "sourceField": "amount",
+          "displayOrder": 4,
+          "highlightDifferences": true
+        },
+        {
+          "id": null,
+          "header": "Quantity (Custodian)",
+          "source": "SOURCE_B",
+          "sourceField": "quantity",
+          "displayOrder": 5,
+          "highlightDifferences": true
+        },
+        {
+          "id": null,
+          "header": "Quantity (Platform)",
+          "source": "SOURCE_A",
+          "sourceField": "quantity",
+          "displayOrder": 6,
+          "highlightDifferences": true
+        },
+        {
+          "id": null,
+          "header": "Workflow Status",
+          "source": "BREAK_METADATA",
+          "sourceField": "status",
+          "displayOrder": 7,
+          "highlightDifferences": false
+        }
       ]
     }
   ],

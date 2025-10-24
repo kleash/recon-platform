@@ -125,7 +125,6 @@ class AdminReconciliationValidatorTest {
                         null,
                         null,
                         null,
-                        null,
                         1,
                         true,
                         List.of())));
@@ -174,7 +173,6 @@ class AdminReconciliationValidatorTest {
                         null,
                         null,
                         null,
-                        null,
                         1,
                         true,
                         List.of())));
@@ -220,7 +218,6 @@ class AdminReconciliationValidatorTest {
                         null,
                         "CUSTODY",
                         "net_amount",
-                        null,
                         null,
                         null,
                         null,
@@ -387,7 +384,6 @@ class AdminReconciliationValidatorTest {
                                 null,
                                 "CUSTODY",
                                 "trade_id",
-                                null,
                                 null,
                                 null,
                                 null,

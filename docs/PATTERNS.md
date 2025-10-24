@@ -27,6 +27,9 @@
 - **Ship working transformations**: When publishing reference reconciliations (integration harness, historical seed),
   include a dataset Groovy script plus at least one row and column operation per source so downstream teams can copy an
   end-to-end normalization pattern.
+- **Use structured field transformations**: Canonical mappings must rely on the ordered `transformations` chain only.
+  Avoid reintroducing free-form expression strings; the Admin Configurator serialises Groovy, Excel, and pipeline steps
+  into the `CanonicalFieldTransformation` collection and ingestion executes them in display order.
 
 ## Angular 20 Frontend
 - **Embrace standalone-by-default**: Angular 19+ removes the need to specify `standalone: true` on components that are

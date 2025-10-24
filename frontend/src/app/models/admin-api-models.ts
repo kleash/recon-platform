@@ -182,7 +182,6 @@ export interface AdminCanonicalFieldMapping {
   id?: number | null;
   sourceCode: string;
   sourceColumn: string;
-  transformationExpression?: string | null;
   defaultValue?: string | null;
   sourceDateFormat?: string | null;
   targetDateFormat?: string | null;
@@ -390,7 +389,6 @@ export interface AdminReconciliationSchema {
     mappings: {
       sourceCode: string;
       sourceColumn: string;
-      transformationExpression?: string | null;
       defaultValue?: string | null;
       ordinalPosition?: number | null;
       required: boolean;

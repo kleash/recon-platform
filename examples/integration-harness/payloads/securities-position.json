@@ -25,13 +25,48 @@
       "arrivalSlaMinutes": 45,
       "adapterOptions": "{\"delimiter\":\",\"}",
       "schemaFields": [
-        { "name": "transactionId", "displayName": "Position ID", "dataType": "STRING", "required": true },
-        { "name": "accountId", "displayName": "Account", "dataType": "STRING", "required": true },
-        { "name": "isin", "displayName": "ISIN", "dataType": "STRING", "required": true },
-        { "name": "quantity", "displayName": "Quantity", "dataType": "DECIMAL", "required": true },
-        { "name": "marketValue", "displayName": "Market Value", "dataType": "DECIMAL", "required": true },
-        { "name": "valuationCurrency", "displayName": "Valuation CCY", "dataType": "STRING", "required": true },
-        { "name": "valuationDate", "displayName": "Valuation Date", "dataType": "DATE", "required": true }
+        {
+          "name": "transactionId",
+          "displayName": "Position ID",
+          "dataType": "STRING",
+          "required": true
+        },
+        {
+          "name": "accountId",
+          "displayName": "Account",
+          "dataType": "STRING",
+          "required": true
+        },
+        {
+          "name": "isin",
+          "displayName": "ISIN",
+          "dataType": "STRING",
+          "required": true
+        },
+        {
+          "name": "quantity",
+          "displayName": "Quantity",
+          "dataType": "DECIMAL",
+          "required": true
+        },
+        {
+          "name": "marketValue",
+          "displayName": "Market Value",
+          "dataType": "DECIMAL",
+          "required": true
+        },
+        {
+          "name": "valuationCurrency",
+          "displayName": "Valuation CCY",
+          "dataType": "STRING",
+          "required": true
+        },
+        {
+          "name": "valuationDate",
+          "displayName": "Valuation Date",
+          "dataType": "DATE",
+          "required": true
+        }
       ]
     },
     {
@@ -47,13 +82,48 @@
       "arrivalSlaMinutes": 30,
       "adapterOptions": "{\"delimiter\":\",\"}",
       "schemaFields": [
-        { "name": "transactionId", "displayName": "Position ID", "dataType": "STRING", "required": true },
-        { "name": "accountId", "displayName": "Account", "dataType": "STRING", "required": true },
-        { "name": "isin", "displayName": "ISIN", "dataType": "STRING", "required": true },
-        { "name": "quantity", "displayName": "Quantity", "dataType": "DECIMAL", "required": true },
-        { "name": "marketValue", "displayName": "Market Value", "dataType": "DECIMAL", "required": true },
-        { "name": "valuationCurrency", "displayName": "Valuation CCY", "dataType": "STRING", "required": true },
-        { "name": "valuationDate", "displayName": "Valuation Date", "dataType": "DATE", "required": true }
+        {
+          "name": "transactionId",
+          "displayName": "Position ID",
+          "dataType": "STRING",
+          "required": true
+        },
+        {
+          "name": "accountId",
+          "displayName": "Account",
+          "dataType": "STRING",
+          "required": true
+        },
+        {
+          "name": "isin",
+          "displayName": "ISIN",
+          "dataType": "STRING",
+          "required": true
+        },
+        {
+          "name": "quantity",
+          "displayName": "Quantity",
+          "dataType": "DECIMAL",
+          "required": true
+        },
+        {
+          "name": "marketValue",
+          "displayName": "Market Value",
+          "dataType": "DECIMAL",
+          "required": true
+        },
+        {
+          "name": "valuationCurrency",
+          "displayName": "Valuation CCY",
+          "dataType": "STRING",
+          "required": true
+        },
+        {
+          "name": "valuationDate",
+          "displayName": "Valuation Date",
+          "dataType": "DATE",
+          "required": true
+        }
       ]
     }
   ],
@@ -71,8 +141,22 @@
       "displayOrder": 1,
       "required": true,
       "mappings": [
-        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "transactionId", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
-        {"id": null, "sourceCode": "PORTFOLIO", "sourceColumn": "transactionId", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+        {
+          "id": null,
+          "sourceCode": "CUSTODIAN",
+          "sourceColumn": "transactionId",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "PORTFOLIO",
+          "sourceColumn": "transactionId",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
     {
@@ -88,8 +172,22 @@
       "displayOrder": 2,
       "required": true,
       "mappings": [
-        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "accountId", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
-        {"id": null, "sourceCode": "PORTFOLIO", "sourceColumn": "accountId", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+        {
+          "id": null,
+          "sourceCode": "CUSTODIAN",
+          "sourceColumn": "accountId",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "PORTFOLIO",
+          "sourceColumn": "accountId",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
     {
@@ -105,8 +203,22 @@
       "displayOrder": 3,
       "required": true,
       "mappings": [
-        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "isin", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
-        {"id": null, "sourceCode": "PORTFOLIO", "sourceColumn": "isin", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+        {
+          "id": null,
+          "sourceCode": "CUSTODIAN",
+          "sourceColumn": "isin",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "PORTFOLIO",
+          "sourceColumn": "isin",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
     {
@@ -122,8 +234,22 @@
       "displayOrder": 4,
       "required": true,
       "mappings": [
-        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "quantity", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
-        {"id": null, "sourceCode": "PORTFOLIO", "sourceColumn": "quantity", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+        {
+          "id": null,
+          "sourceCode": "CUSTODIAN",
+          "sourceColumn": "quantity",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "PORTFOLIO",
+          "sourceColumn": "quantity",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
     {
@@ -139,8 +265,22 @@
       "displayOrder": 5,
       "required": true,
       "mappings": [
-        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "marketValue", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
-        {"id": null, "sourceCode": "PORTFOLIO", "sourceColumn": "marketValue", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+        {
+          "id": null,
+          "sourceCode": "CUSTODIAN",
+          "sourceColumn": "marketValue",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "PORTFOLIO",
+          "sourceColumn": "marketValue",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
     {
@@ -156,8 +296,22 @@
       "displayOrder": 6,
       "required": true,
       "mappings": [
-        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "valuationCurrency", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
-        {"id": null, "sourceCode": "PORTFOLIO", "sourceColumn": "valuationCurrency", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+        {
+          "id": null,
+          "sourceCode": "CUSTODIAN",
+          "sourceColumn": "valuationCurrency",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "PORTFOLIO",
+          "sourceColumn": "valuationCurrency",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
     {
@@ -173,8 +327,22 @@
       "displayOrder": 7,
       "required": true,
       "mappings": [
-        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "valuationDate", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
-        {"id": null, "sourceCode": "PORTFOLIO", "sourceColumn": "valuationDate", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+        {
+          "id": null,
+          "sourceCode": "CUSTODIAN",
+          "sourceColumn": "valuationDate",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "PORTFOLIO",
+          "sourceColumn": "valuationDate",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
     {
@@ -190,8 +358,22 @@
       "displayOrder": 8,
       "required": true,
       "mappings": [
-        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "product", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
-        {"id": null, "sourceCode": "PORTFOLIO", "sourceColumn": "product", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+        {
+          "id": null,
+          "sourceCode": "CUSTODIAN",
+          "sourceColumn": "product",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "PORTFOLIO",
+          "sourceColumn": "product",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
     {
@@ -207,8 +389,22 @@
       "displayOrder": 9,
       "required": true,
       "mappings": [
-        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "subProduct", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
-        {"id": null, "sourceCode": "PORTFOLIO", "sourceColumn": "subProduct", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+        {
+          "id": null,
+          "sourceCode": "CUSTODIAN",
+          "sourceColumn": "subProduct",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "PORTFOLIO",
+          "sourceColumn": "subProduct",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     },
     {
@@ -224,8 +420,22 @@
       "displayOrder": 10,
       "required": true,
       "mappings": [
-        {"id": null, "sourceCode": "CUSTODIAN", "sourceColumn": "entityName", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true},
-        {"id": null, "sourceCode": "PORTFOLIO", "sourceColumn": "entityName", "transformationExpression": null, "defaultValue": null, "ordinalPosition": 0, "required": true}
+        {
+          "id": null,
+          "sourceCode": "CUSTODIAN",
+          "sourceColumn": "entityName",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        },
+        {
+          "id": null,
+          "sourceCode": "PORTFOLIO",
+          "sourceColumn": "entityName",
+          "defaultValue": null,
+          "ordinalPosition": 0,
+          "required": true
+        }
       ]
     }
   ],
@@ -239,17 +449,94 @@
       "includeMissing": true,
       "highlightDifferences": true,
       "columns": [
-        {"id": null, "header": "Account", "source": "SOURCE_A", "sourceField": "accountId", "displayOrder": 1, "highlightDifferences": false},
-        {"id": null, "header": "ISIN", "source": "SOURCE_A", "sourceField": "isin", "displayOrder": 2, "highlightDifferences": false},
-        {"id": null, "header": "Quantity (Custodian)", "source": "SOURCE_A", "sourceField": "quantity", "displayOrder": 3, "highlightDifferences": true},
-        {"id": null, "header": "Quantity (Portfolio)", "source": "SOURCE_B", "sourceField": "quantity", "displayOrder": 4, "highlightDifferences": true},
-        {"id": null, "header": "Market Value (Custodian)", "source": "SOURCE_A", "sourceField": "marketValue", "displayOrder": 5, "highlightDifferences": true},
-        {"id": null, "header": "Market Value (Portfolio)", "source": "SOURCE_B", "sourceField": "marketValue", "displayOrder": 6, "highlightDifferences": true},
-        {"id": null, "header": "Valuation CCY (Custodian)", "source": "SOURCE_A", "sourceField": "valuationCurrency", "displayOrder": 7, "highlightDifferences": true},
-        {"id": null, "header": "Valuation CCY (Portfolio)", "source": "SOURCE_B", "sourceField": "valuationCurrency", "displayOrder": 8, "highlightDifferences": true},
-        {"id": null, "header": "Valuation Date (Custodian)", "source": "SOURCE_A", "sourceField": "valuationDate", "displayOrder": 9, "highlightDifferences": true},
-        {"id": null, "header": "Valuation Date (Portfolio)", "source": "SOURCE_B", "sourceField": "valuationDate", "displayOrder": 10, "highlightDifferences": true},
-        {"id": null, "header": "Workflow Status", "source": "BREAK_METADATA", "sourceField": "status", "displayOrder": 11, "highlightDifferences": false}
+        {
+          "id": null,
+          "header": "Account",
+          "source": "SOURCE_A",
+          "sourceField": "accountId",
+          "displayOrder": 1,
+          "highlightDifferences": false
+        },
+        {
+          "id": null,
+          "header": "ISIN",
+          "source": "SOURCE_A",
+          "sourceField": "isin",
+          "displayOrder": 2,
+          "highlightDifferences": false
+        },
+        {
+          "id": null,
+          "header": "Quantity (Custodian)",
+          "source": "SOURCE_A",
+          "sourceField": "quantity",
+          "displayOrder": 3,
+          "highlightDifferences": true
+        },
+        {
+          "id": null,
+          "header": "Quantity (Portfolio)",
+          "source": "SOURCE_B",
+          "sourceField": "quantity",
+          "displayOrder": 4,
+          "highlightDifferences": true
+        },
+        {
+          "id": null,
+          "header": "Market Value (Custodian)",
+          "source": "SOURCE_A",
+          "sourceField": "marketValue",
+          "displayOrder": 5,
+          "highlightDifferences": true
+        },
+        {
+          "id": null,
+          "header": "Market Value (Portfolio)",
+          "source": "SOURCE_B",
+          "sourceField": "marketValue",
+          "displayOrder": 6,
+          "highlightDifferences": true
+        },
+        {
+          "id": null,
+          "header": "Valuation CCY (Custodian)",
+          "source": "SOURCE_A",
+          "sourceField": "valuationCurrency",
+          "displayOrder": 7,
+          "highlightDifferences": true
+        },
+        {
+          "id": null,
+          "header": "Valuation CCY (Portfolio)",
+          "source": "SOURCE_B",
+          "sourceField": "valuationCurrency",
+          "displayOrder": 8,
+          "highlightDifferences": true
+        },
+        {
+          "id": null,
+          "header": "Valuation Date (Custodian)",
+          "source": "SOURCE_A",
+          "sourceField": "valuationDate",
+          "displayOrder": 9,
+          "highlightDifferences": true
+        },
+        {
+          "id": null,
+          "header": "Valuation Date (Portfolio)",
+          "source": "SOURCE_B",
+          "sourceField": "valuationDate",
+          "displayOrder": 10,
+          "highlightDifferences": true
+        },
+        {
+          "id": null,
+          "header": "Workflow Status",
+          "source": "BREAK_METADATA",
+          "sourceField": "status",
+          "displayOrder": 11,
+          "highlightDifferences": false
+        }
       ]
     }
   ],

@@ -25,11 +25,36 @@
       "arrivalSlaMinutes": 30,
       "adapterOptions": "{\"delimiter\":\",\"}",
       "schemaFields": [
-        { "name": "transactionId", "displayName": "Transaction ID", "dataType": "STRING", "required": true },
-        { "name": "valueDate", "displayName": "Value Date", "dataType": "DATE", "required": true },
-        { "name": "currency", "displayName": "Currency", "dataType": "STRING", "required": true },
-        { "name": "amount", "displayName": "Amount", "dataType": "DECIMAL", "required": true },
-        { "name": "notes", "displayName": "Notes", "dataType": "STRING", "required": false }
+        {
+          "name": "transactionId",
+          "displayName": "Transaction ID",
+          "dataType": "STRING",
+          "required": true
+        },
+        {
+          "name": "valueDate",
+          "displayName": "Value Date",
+          "dataType": "DATE",
+          "required": true
+        },
+        {
+          "name": "currency",
+          "displayName": "Currency",
+          "dataType": "STRING",
+          "required": true
+        },
+        {
+          "name": "amount",
+          "displayName": "Amount",
+          "dataType": "DECIMAL",
+          "required": true
+        },
+        {
+          "name": "notes",
+          "displayName": "Notes",
+          "dataType": "STRING",
+          "required": false
+        }
       ],
       "transformationPlan": {
         "datasetGroovyScript": "rows.each { current ->\n  def currency = current.currency\n  if (currency != null) {\n    current.currency = currency.toString().trim()\n  }\n}",
@@ -78,12 +103,42 @@
       "arrivalSlaMinutes": 45,
       "adapterOptions": "{\"delimiter\":\",\"}",
       "schemaFields": [
-        { "name": "transactionId", "displayName": "Transaction ID", "dataType": "STRING", "required": true },
-        { "name": "valueDate", "displayName": "Value Date", "dataType": "DATE", "required": true },
-        { "name": "currency", "displayName": "Currency", "dataType": "STRING", "required": true },
-        { "name": "amount", "displayName": "Amount", "dataType": "DECIMAL", "required": true },
-        { "name": "product", "displayName": "Product", "dataType": "STRING", "required": false },
-        { "name": "status", "displayName": "Status", "dataType": "STRING", "required": false }
+        {
+          "name": "transactionId",
+          "displayName": "Transaction ID",
+          "dataType": "STRING",
+          "required": true
+        },
+        {
+          "name": "valueDate",
+          "displayName": "Value Date",
+          "dataType": "DATE",
+          "required": true
+        },
+        {
+          "name": "currency",
+          "displayName": "Currency",
+          "dataType": "STRING",
+          "required": true
+        },
+        {
+          "name": "amount",
+          "displayName": "Amount",
+          "dataType": "DECIMAL",
+          "required": true
+        },
+        {
+          "name": "product",
+          "displayName": "Product",
+          "dataType": "STRING",
+          "required": false
+        },
+        {
+          "name": "status",
+          "displayName": "Status",
+          "dataType": "STRING",
+          "required": false
+        }
       ],
       "transformationPlan": {
         "datasetGroovyScript": "rows.each { current ->\n  if (current.notes == null) {\n    current.notes = ''\n  }\n}",
@@ -130,7 +185,6 @@
           "id": null,
           "sourceCode": "CASH",
           "sourceColumn": "transactionId",
-          "transformationExpression": null,
           "defaultValue": null,
           "ordinalPosition": 0,
           "required": true
@@ -139,7 +193,6 @@
           "id": null,
           "sourceCode": "GL",
           "sourceColumn": "transactionId",
-          "transformationExpression": null,
           "defaultValue": null,
           "ordinalPosition": 0,
           "required": true
@@ -163,7 +216,6 @@
           "id": null,
           "sourceCode": "CASH",
           "sourceColumn": "amount",
-          "transformationExpression": null,
           "defaultValue": null,
           "ordinalPosition": 0,
           "required": true
@@ -172,7 +224,6 @@
           "id": null,
           "sourceCode": "GL",
           "sourceColumn": "amount",
-          "transformationExpression": null,
           "defaultValue": null,
           "ordinalPosition": 0,
           "required": true
@@ -196,7 +247,6 @@
           "id": null,
           "sourceCode": "CASH",
           "sourceColumn": "currency",
-          "transformationExpression": null,
           "defaultValue": null,
           "ordinalPosition": 0,
           "required": true
@@ -205,7 +255,6 @@
           "id": null,
           "sourceCode": "GL",
           "sourceColumn": "currency",
-          "transformationExpression": null,
           "defaultValue": null,
           "ordinalPosition": 0,
           "required": true
@@ -229,7 +278,6 @@
           "id": null,
           "sourceCode": "CASH",
           "sourceColumn": "tradeDate",
-          "transformationExpression": null,
           "defaultValue": null,
           "ordinalPosition": 0,
           "required": true
@@ -238,7 +286,6 @@
           "id": null,
           "sourceCode": "GL",
           "sourceColumn": "tradeDate",
-          "transformationExpression": null,
           "defaultValue": null,
           "ordinalPosition": 0,
           "required": true
@@ -262,7 +309,6 @@
           "id": null,
           "sourceCode": "CASH",
           "sourceColumn": "product",
-          "transformationExpression": null,
           "defaultValue": null,
           "ordinalPosition": 0,
           "required": true
@@ -271,7 +317,6 @@
           "id": null,
           "sourceCode": "GL",
           "sourceColumn": "product",
-          "transformationExpression": null,
           "defaultValue": null,
           "ordinalPosition": 0,
           "required": true
@@ -295,7 +340,6 @@
           "id": null,
           "sourceCode": "CASH",
           "sourceColumn": "entityName",
-          "transformationExpression": null,
           "defaultValue": null,
           "ordinalPosition": 0,
           "required": true
@@ -304,7 +348,6 @@
           "id": null,
           "sourceCode": "GL",
           "sourceColumn": "entityName",
-          "transformationExpression": null,
           "defaultValue": null,
           "ordinalPosition": 0,
           "required": true

@@ -167,6 +167,8 @@ you can pause and resume.
 - Map each canonical field to source columns. For multi-source reconciliations, the same canonical
   field can have different transformation chains per source. Field-level transformations are now
   authored exclusively in the Transformations step and previewed there.
+- Schema exports now surface the structured transformation chain only; the deprecated
+  `transformationExpression` string has been removed from API responses and payload contracts.
 - Use **Validate** to compile transformations immediately via the backend validation API. Errors
   display inline with actionable messages, and the Groovy assistant pulls from the previewed sample
   rows populated in the transformations step.

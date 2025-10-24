@@ -279,7 +279,6 @@ public class AdminReconciliationService {
                                 .map(mapping -> new AdminReconciliationSchemaDto.SchemaFieldMappingDto(
                                         mapping.getSource().getCode(),
                                         mapping.getSourceColumn(),
-                                        mapping.getTransformationExpression(),
                                         mapping.getDefaultValue(),
                                         mapping.getOrdinalPosition(),
                                         mapping.isRequired(),
@@ -456,7 +455,6 @@ public class AdminReconciliationService {
             mapping.setCanonicalField(field);
             mapping.setSource(source);
             mapping.setSourceColumn(request.sourceColumn());
-            mapping.setTransformationExpression(request.transformationExpression());
             mapping.setDefaultValue(request.defaultValue());
             mapping.setSourceDateFormat(trimToNull(request.sourceDateFormat()));
             mapping.setTargetDateFormat(trimToNull(request.targetDateFormat()));
@@ -652,7 +650,6 @@ public class AdminReconciliationService {
                                         mapping.getId(),
                                         mapping.getSource() != null ? mapping.getSource().getCode() : null,
                                         mapping.getSourceColumn(),
-                                        mapping.getTransformationExpression(),
                                         mapping.getDefaultValue(),
                                         mapping.getSourceDateFormat(),
                                         mapping.getTargetDateFormat(),

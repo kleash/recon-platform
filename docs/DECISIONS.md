@@ -1,3 +1,13 @@
+- **ADR: Canonical mapping standardisation (2025-10-07)**
+  - Problem: The platform still persisted the legacy `transformationExpression` string on canonical mappings even though
+    the Admin Configurator no longer exposed it. Payloads contained redundant fields and downstream tooling had to merge
+    ad-hoc expressions with the structured transformation chain.
+  - Decision: Remove the string field from entities, DTOs, frontend models, and all seed payloads. Canonical mappings
+    now rely solely on the ordered `transformations` collection (Groovy, Excel, or pipeline) produced by the
+    transformations step.
+  - Consequences: Schema exports, automation fixtures, and API contracts are aligned with the new authoring experience.
+    Clients that still post `transformationExpression` receive a clear validation error and must adopt the structured
+    pipeline.
 - **ADR: Reconciliation workflow observability (2025-10-06)**
   - Problem: Correlating reconciliation run execution with downstream break persistence required manual database queries and system activity lookups; bulk maker/checker operations left sparse traces in application logs.
   - Decision: Instrument `ReconciliationService`, `DynamicMatchingEngine`, and `BreakService` with structured INFO/DEBUG logs keyed by definition code, correlation ID, and match/break counts. Surface inline documentation in the Angular workspace to make the refresh and locking model explicit.

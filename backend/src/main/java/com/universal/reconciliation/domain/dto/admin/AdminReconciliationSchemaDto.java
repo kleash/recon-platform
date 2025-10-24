@@ -50,7 +50,6 @@ public record AdminReconciliationSchemaDto(
     public record SchemaFieldMappingDto(
             String sourceCode,
             String sourceColumn,
-            String transformationExpression,
             String defaultValue,
             Integer ordinalPosition,
             boolean required,

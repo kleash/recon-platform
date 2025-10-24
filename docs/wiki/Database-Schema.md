@@ -48,6 +48,9 @@ for the target environment as needed.
 | `created_at` | TIMESTAMP | No | Creation timestamp. |
 | `updated_at` | TIMESTAMP | No | Last modification timestamp. |
 
+Normalization logic is stored as ordered entries in `canonical_field_transformations`, allowing Groovy, Excel, or
+pipeline steps without relying on inline expression columns.
+
 #### Table: `canonical_fields`
 | Column | Type | Nullable | Notes |
 | --- | --- | --- | --- |
@@ -84,7 +87,6 @@ for the target environment as needed.
 | `canonical_field_id` | BIGINT (FK) | No | References `canonical_fields.id`. |
 | `source_id` | BIGINT (FK) | No | References `reconciliation_sources.id`. |
 | `source_column` | VARCHAR(128) | No | Raw column or attribute from the source payload. |
-| `transformation_expression` | TEXT | Yes | Script or DSL fragment to normalise data. |
 | `default_value` | VARCHAR(256) | Yes | Applied when the source column is missing. |
 | `source_date_format` | VARCHAR(64) | Yes | Optional format string used to parse incoming date/datetime values. |
 | `target_date_format` | VARCHAR(64) | Yes | Optional format string applied after parsing when emitting canonical values. |

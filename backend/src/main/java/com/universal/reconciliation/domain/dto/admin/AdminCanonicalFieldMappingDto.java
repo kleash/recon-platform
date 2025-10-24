@@ -10,7 +10,6 @@ public record AdminCanonicalFieldMappingDto(
         Long id,
         String sourceCode,
         String sourceColumn,
-        String transformationExpression,
         String defaultValue,
         String sourceDateFormat,
         String targetDateFormat,

@@ -15,6 +15,9 @@
   from uploaded files.
 - `AdminReconciliationService` now persists `schemaFields` on each source. The stored schema is surfaced in
   `AdminSourceDto` and exported through the reconciliation schema endpoint for downstream consumers.
+- Canonical field mappings expose only the structured `transformations` array; the deprecated
+  `transformationExpression` string has been removed to keep payloads aligned with the transformation plan authoring
+  experience.
 
 ## Ingestion Adapters
 
